@@ -1,8 +1,30 @@
-# OpenCode Go 模型选择器
+<p align="center">
+  <img src="assets/icon.svg" width="112" height="112" alt="OpenCode Go 模型选择器图标">
+</p>
+
+<h1 align="center">OpenCode Go 模型选择器</h1>
+
+<p align="center">
+  <em>为 oh-my-opencode-slim 智能体做感知套餐的模型选择 —— 只读、有来源、可回退。</em>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF%E8%AF%81-GPL--3.0--or--later-4B4646?style=flat-square" alt="许可证：GPL-3.0-or-later"></a>
+  <img src="https://img.shields.io/badge/%E7%89%88%E6%9C%AC-0.1.0-03B000?style=flat-square" alt="版本 0.1.0">
+  <img src="https://img.shields.io/badge/Node-%3E%3D18-4B4646?style=flat-square" alt="Node.js 18 或更新">
+  <img src="https://img.shields.io/badge/OpenCode-Agent_Skill-4B4646?style=flat-square" alt="OpenCode 智能体技能">
+  <img src="https://img.shields.io/badge/%E6%AC%A2%E8%BF%8E-PR-03B000?style=flat-square" alt="欢迎提交 PR">
+</p>
+
+<p align="center">
+  <a href="README.md">英文文档</a>
+</p>
+
+<p align="center">
+  <img src="assets/banner-zh.svg" alt="OpenCode Go 模型选择器横幅">
+</p>
 
 一份 [OpenCode](https://opencode.ai/) 的**智能体技能**：根据**最新的** OpenCode Go 套餐，为 [`oh-my-opencode-slim`](https://github.com/code-yeongyu/oh-my-openagent) 的每个智能体挑选高性价比的模型并给出回退链。默认**只读**，只有在用户确认后才会写入配置。
-
-[英文文档](README.md)
 
 ---
 

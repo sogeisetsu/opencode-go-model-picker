@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Catalog fetcher script `scripts/fetch-go-models.mjs`.
 - Bilingual documentation: English (`README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`)
   and Chinese (`README-ZH.md`, `CONTRIBUTING-ZH.md`, `CHANGELOG-ZH.md`).
+- Visual assets under `assets/` (SVG icon, English and Chinese banners) with a
+  centered README header and shields.io badges.
 - Repository files: `LICENSE` (GPL-3.0-or-later), `.gitignore`,
   `.gitattributes`, and `CONTRIBUTING.md`.
 

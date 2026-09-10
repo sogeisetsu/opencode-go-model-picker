@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-label="OpenCode Go Model Picker banner">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1B1918"/>
+      <stop offset="1" stop-color="#2E2A28"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#F1ECEC" stroke-opacity="0.05"/>
+    </pattern>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#03B000"/>
+      <stop offset="1" stop-color="#03B000" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="320" fill="url(#bg)"/>
+  <rect width="1280" height="320" fill="url(#grid)"/>
+  <g transform="translate(80,96)">
+    <rect x="0" y="0" width="128" height="128" rx="28" fill="#0F0E0E" fill-opacity="0.5"/>
+    <rect x="22" y="34" width="58" height="13" rx="6.5" fill="#F1ECEC"/>
+    <rect x="22" y="53.5" width="58" height="13" rx="6.5" fill="#B7B1B1"/>
+    <rect x="22" y="73" width="58" height="13" rx="6.5" fill="#8E8B8B"/>
+    <circle cx="96" cy="40.5" r="7" fill="#03B000"/>
+    <circle cx="96" cy="40.5" r="2.6" fill="#0F0E0E"/>
+  </g>
+  <text x="248" y="152" font-family="ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace" font-size="46" font-weight="700" fill="#F1ECEC">OpenCode Go Model Picker</text>
+  <text x="250" y="200" font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="22" fill="#B7B1B1">Plan-aware model selection for oh-my-opencode-slim agents</text>
+  <rect x="250" y="220" width="360" height="3" rx="1.5" fill="url(#accent)"/>
+  <text x="250" y="258" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="18" fill="#8E8B8B">read-only  ·  source-cited  ·  fallback-ready</text>
+  <g opacity="0.55">
+    <rect x="1040" y="102" width="160" height="14" rx="7" fill="#4B4646"/>
+    <rect x="1040" y="132" width="160" height="14" rx="7" fill="#3A3634"/>
+    <rect x="1040" y="162" width="160" height="14" rx="7" fill="#2E2A28"/>
+    <circle cx="1182" cy="109" r="7" fill="#03B000"/>
+  </g>
+</svg>

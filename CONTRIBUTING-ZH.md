@@ -20,6 +20,7 @@
 | `references/output-format.md` | 技能必须产出的六段式报告的具体格式。 |
 | `scripts/fetch-go-models.mjs` | 辅助脚本：把实时模型目录输出为 JSON。 |
 | `README.md` / `README-ZH.md` | 英文与中文文档。 |
+| `assets/` | README 头部使用的 SVG 图标与横幅。 |
 
 ## 进行改动
 

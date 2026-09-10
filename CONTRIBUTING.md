@@ -28,6 +28,7 @@ principles intact.
 | `references/output-format.md` | The exact six-part report the skill must produce. |
 | `scripts/fetch-go-models.mjs` | Helper that prints the live model catalog as JSON. |
 | `README.md` / `README-ZH.md` | English and Chinese documentation. |
+| `assets/` | SVG icon and banners used in the README headers. |
 
 ## Making a change
 

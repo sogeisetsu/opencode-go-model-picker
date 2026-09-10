@@ -1,8 +1,30 @@
-# OpenCode Go Model Picker
+<p align="center">
+  <img src="assets/icon.svg" width="112" height="112" alt="OpenCode Go Model Picker icon">
+</p>
+
+<h1 align="center">OpenCode Go Model Picker</h1>
+
+<p align="center">
+  <em>Plan-aware model selection for oh-my-opencode-slim agents — read-only, source-cited, fallback-ready.</em>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-4B4646?style=flat-square" alt="License: GPL-3.0-or-later"></a>
+  <img src="https://img.shields.io/badge/version-0.1.0-03B000?style=flat-square" alt="Version 0.1.0">
+  <img src="https://img.shields.io/badge/node-%3E%3D18-4B4646?style=flat-square" alt="Node.js 18 or later">
+  <img src="https://img.shields.io/badge/OpenCode-Agent_Skill-4B4646?style=flat-square" alt="OpenCode Agent Skill">
+  <img src="https://img.shields.io/badge/PRs-welcome-03B000?style=flat-square" alt="PRs welcome">
+</p>
+
+<p align="center">
+  <a href="README-ZH.md">Chinese documentation</a>
+</p>
+
+<p align="center">
+  <img src="assets/banner.svg" alt="OpenCode Go Model Picker banner">
+</p>
 
 An [OpenCode](https://opencode.ai/) **Agent Skill** that picks cost-effective OpenCode Go models for every [`oh-my-opencode-slim`](https://github.com/code-yeongyu/oh-my-openagent) agent, with fallback chains, based on the **current** Go plan — read-only, and only ever applies changes after you confirm.
-
-[Chinese documentation](README-ZH.md)
 
 ---
 
