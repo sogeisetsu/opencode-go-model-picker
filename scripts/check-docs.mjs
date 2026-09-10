@@ -22,7 +22,8 @@
 //
 // 1. Every relative Markdown link, <a href>, and <img src> must resolve.
 // 2. The English/Chinese documentation pairs must both exist.
-// 3. If only one side of a pair changed in the working tree, warn to sync it.
+// 3. If only one side of a pair changed, warn to sync it: git status for
+//    tracked pairs, mtime for local-only (gitignored) copies.
 //
 // External URLs (http/https/mailto/...) and pure anchors are skipped.
 // Exit code: 1 if any error, else 0. Warnings do not fail the run.
@@ -109,6 +110,21 @@ function changedPaths() {
 const changed = changedPaths();
 if (changed.length) {
   for (const p of pairs) {
+    if (p.optional) {
+      // Local-only, gitignored copy: `git status` never lists it, so compare
+      // mtimes instead (warn only when the English side is newer).
+      const enPath = join(root, p.en);
+      const zhPath = join(root, p.zh);
+      if (
+        existsSync(enPath) &&
+        existsSync(zhPath) &&
+        statSync(enPath).mtimeMs > statSync(zhPath).mtimeMs
+      ) {
+        warnings++;
+        console.log(`WARN  changed one side only: ${p.en} is newer than ${p.zh} -> also update ${p.zh}`);
+      }
+      continue;
+    }
     const enChanged = changed.includes(p.en);
     const zhChanged = changed.includes(p.zh);
     if (enChanged !== zhChanged) {
