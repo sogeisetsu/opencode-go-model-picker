@@ -3,8 +3,16 @@
 // Usage: node scripts/generate-assets.mjs
 //
 // Everything is emitted as plain SVG (no external fonts or images), so the
-// assets render identically offline and on GitHub. The banner titles use a
-// hand-built 5x7 dot-matrix font, matching the blocky OpenCode wordmark style.
+// assets render identically offline and on GitHub.
+//
+// Typography in the banners:
+//   - "OpenCode" is drawn with a hand-built 5x7 dot-matrix font (1 = lit cell),
+//     echoing the blocky OpenCode wordmark.
+//   - every other word uses a classic old-style serif stack (Latin: Georgia /
+//     Times; Chinese: Songti / SimSun), so it reads as vintage print rather than
+//     a modern UI font.
+//   - "Go" is Xiaomi orange (#FF6900); "Model Picker" is the project green
+//     (#03B000).
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -23,8 +31,13 @@ const C = {
   deep: "#1B1918",
   green: "#03B000",
   greenInk: "#07240B",
+  xiaomi: "#FF6900",
   tile: "#0F0E0E",
 };
+
+const SERIF_LATIN = "Georgia, 'Times New Roman', 'Nimbus Roman', 'Liberation Serif', serif";
+const SERIF_CJK =
+  "'Songti SC', SimSun, STSong, 'Noto Serif CJK SC', 'Source Han Serif SC', Georgia, serif";
 
 // 5x7 dot-matrix glyphs (1 = lit pixel). Only the characters actually used.
 const FONT = {
@@ -53,7 +66,6 @@ const FONT = {
   f: ["00110", "01001", "01000", "11110", "01000", "01000", "01000"],
   "-": ["00000", "00000", "00000", "01110", "00000", "00000", "00000"],
   ".": ["00000", "00000", "00000", "00000", "00000", "00100", "00100"],
-  "|": ["00100", "00100", "00100", "00100", "00100", "00100", "00100"],
 };
 
 function pixelText(text, x, y, cell, color, { gap = 1, dotRatio = 0.74 } = {}) {
@@ -76,8 +88,12 @@ function pixelText(text, x, y, cell, color, { gap = 1, dotRatio = 0.74 } = {}) {
   return out;
 }
 
+function pixelWidth(text, cell, gap = 1) {
+  return text.length * (5 * cell + gap * cell) - gap * cell;
+}
+
 const escapeXml = (s) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 // ---------------------------------------------------------------------------
 // Icon
@@ -101,7 +117,6 @@ function iconSvg() {
 `;
 }
 
-// The icon mark reused inside the banners (128x128 box, optional tile).
 const bannerIcon = (x, y) => `  <g transform="translate(${x},${y})">
     <rect x="0" y="0" width="128" height="128" rx="28" fill="${C.tile}" fill-opacity="0.5"/>
     <rect x="22" y="34" width="58" height="13" rx="6.5" fill="#F1ECEC"/>
@@ -111,7 +126,7 @@ const bannerIcon = (x, y) => `  <g transform="translate(${x},${y})">
     <circle cx="96" cy="40.5" r="2.6" fill="${C.tile}"/>
   </g>`;
 
-function bannerSvg({ subtitle, footer, footerPixel, aria }) {
+function bannerSvg({ subtitle, footer, subtitleFont, subtitleSize, footerSize, aria }) {
   const defs = `  <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#1B1918"/>
@@ -128,29 +143,30 @@ function bannerSvg({ subtitle, footer, footerPixel, aria }) {
 
   const cell = 8;
   const titleTop = 92;
-  const lineGap = cell * 7 + 16;
-  let title = "";
-  ["OpenCode Go", "Model Picker"].forEach((line, i) => {
-    title += "  " + pixelText(line, 248, titleTop + i * lineGap, cell, C.ink) + "\n";
-  });
+  const lineGap = 72;
+  const baseline1 = titleTop + 56; // 148
+  const baseline2 = titleTop + lineGap + 56; // 220
+  const titleSize = 80;
 
-  const subtitleFont = footerPixel
-    ? "ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace"
-    : "'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', 'Source Han Sans SC', sans-serif";
-  const subtitleY = titleTop + 2 * lineGap + 12;
+  const openCode = pixelText("OpenCode", 248, titleTop, cell, C.ink);
+  const goX = 248 + pixelWidth("OpenCode", cell) + 24;
 
-  const footerSvg = footerPixel
-    ? "  " + pixelText(footer, 250, subtitleY + 46, 2.5, C.dim) + "\n"
-    : `  <text x="250" y="${subtitleY + 58}" font-family="'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="18" fill="${C.dim}">${escapeXml(footer)}</text>\n`;
+  const title =
+    `  ${openCode}\n` +
+    `  <text x="${goX}" y="${baseline1}" font-family="${SERIF_LATIN}" font-size="${titleSize}" fill="${C.xiaomi}">Go</text>\n` +
+    `  <text x="248" y="${baseline2}" font-family="${SERIF_LATIN}" font-size="${titleSize}" fill="${C.green}">Model Picker</text>\n`;
+
+  const subtitleY = baseline2 + 28; // 248
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-label="${escapeXml(aria)}">
 ${defs}
   <rect width="1280" height="320" fill="url(#bg)"/>
   <rect width="1280" height="320" fill="url(#grid)"/>
 ${bannerIcon(80, 96)}
-${title}  <text x="250" y="${subtitleY}" font-family="${subtitleFont}" font-size="22" fill="${C.mid}">${escapeXml(subtitle)}</text>
+${title}  <text x="250" y="${subtitleY}" font-family="${subtitleFont}" font-size="${subtitleSize}" fill="${C.mid}">${escapeXml(subtitle)}</text>
   <rect x="250" y="${subtitleY + 16}" width="360" height="3" rx="1.5" fill="url(#accent)"/>
-${footerSvg}  <g opacity="0.55">
+  <text x="250" y="${subtitleY + 48}" font-family="${subtitleFont}" font-size="${footerSize}" fill="${C.dim}">${escapeXml(footer)}</text>
+  <g opacity="0.55">
     <rect x="1060" y="102" width="150" height="14" rx="7" fill="#4B4646"/>
     <rect x="1060" y="132" width="150" height="14" rx="7" fill="#3A3634"/>
     <rect x="1060" y="162" width="150" height="14" rx="7" fill="#2E2A28"/>
@@ -193,13 +209,17 @@ const files = {
   [join(assets, "banner.svg")]: bannerSvg({
     subtitle: "Plan-aware model selection for oh-my-opencode-slim agents",
     footer: "read-only . source-cited . fallback-ready",
-    footerPixel: true,
+    subtitleFont: SERIF_LATIN,
+    subtitleSize: 24,
+    footerSize: 19,
     aria: "OpenCode Go Model Picker banner",
   }),
   [join(assets, "banner-zh.svg")]: bannerSvg({
     subtitle: "为 oh-my-opencode-slim 智能体做感知套餐的模型选择",
     footer: "只读 · 有来源 · 可回退",
-    footerPixel: false,
+    subtitleFont: SERIF_CJK,
+    subtitleSize: 22,
+    footerSize: 18,
     aria: "OpenCode Go Model Picker banner",
   }),
   [join(badgesDir, "license.svg")]: badgeSvg("license", "GPL-3.0-or-later", C.dark, C.ink),

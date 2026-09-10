@@ -26,3 +26,6 @@ Desktop.ini
 
 # OpenChamber browser artifacts
 .openchamber/
+
+# Local-only Chinese reading copy of SKILL.md
+zh/skill-zh.md

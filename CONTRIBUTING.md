@@ -4,7 +4,7 @@ Thanks for your interest in improving the OpenCode Go Model Picker. This is a sm
 focused project, so contributions are easiest to accept when they keep its design
 principles intact.
 
-[中文版](CONTRIBUTING-ZH.md)
+[中文版](zh/CONTRIBUTING-ZH.md)
 
 ## Ground rules
 
@@ -29,6 +29,7 @@ principles intact.
 | `scripts/fetch-go-models.mjs` | Helper that prints the live model catalog as JSON. |
 | `scripts/generate-assets.mjs` | Regenerates the SVG icon, banners and local badges. |
 | `README.md` / `README-ZH.md` | English and Chinese documentation. |
+| `zh/` | Chinese docs (`CONTRIBUTING-ZH.md`, `CHANGELOG-ZH.md`, and a git-ignored local `skill-zh.md` reading copy). |
 | `assets/` | SVG icon, banners and local badges used in the README headers. |
 
 ## Making a change

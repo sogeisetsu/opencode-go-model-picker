@@ -2,7 +2,7 @@
 
 感谢你有兴趣改进 OpenCode Go Model Picker。这是一个小而专注的项目，因此最容易被接纳的贡献，是那些保持其设计原则不变的改动。
 
-[英文版](CONTRIBUTING.md)
+[英文版](../CONTRIBUTING.md)
 
 ## 基本原则
 
@@ -21,6 +21,7 @@
 | `scripts/fetch-go-models.mjs` | 辅助脚本：把实时模型目录输出为 JSON。 |
 | `scripts/generate-assets.mjs` | 重新生成 SVG 图标、横幅与本地徽章。 |
 | `README.md` / `README-ZH.md` | 英文与中文文档。 |
+| `zh/` | 中文文档（本文件、`CHANGELOG-ZH.md`，以及被 git 忽略的本地对读版 `skill-zh.md`）。 |
 | `assets/` | README 头部使用的 SVG 图标、横幅与本地徽章。 |
 
 ## 进行改动
@@ -51,4 +52,4 @@ node scripts/fetch-go-models.mjs           # 确认端点仍然可用
 
 ## 贡献的许可
 
-一旦贡献，即表示你同意你的贡献按本项目的许可证 **GPL-3.0-or-later** 授权（见 [`LICENSE`](LICENSE)）。
+一旦贡献，即表示你同意你的贡献按本项目的许可证 **GPL-3.0-or-later** 授权（见 [`LICENSE`](../LICENSE)）。

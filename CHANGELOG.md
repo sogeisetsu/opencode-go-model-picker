@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-[中文版](CHANGELOG-ZH.md)
+[中文版](zh/CHANGELOG-ZH.md)
 
 ## [Unreleased]
 
@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual assets under `assets/` (SVG icon, dot-matrix English and Chinese banners,
   and local SVG badges) with a centered README header — no external image or badge
   services, so the docs render offline.
+- Banners restyled: `Go` in Xiaomi orange, `Model Picker` in the project green,
+  and an old-style serif for every word except the dot-matrix `OpenCode`.
+- Moved the Chinese `CONTRIBUTING` and `CHANGELOG` into `zh/`, and added a
+  git-ignored Chinese reading copy of `SKILL.md` at `zh/skill-zh.md`.
 - Repository files: `LICENSE` (GPL-3.0-or-later), `.gitignore`,
   `.gitattributes`, and `CONTRIBUTING.md`.
 
