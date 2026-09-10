@@ -128,6 +128,8 @@ node scripts/fetch-go-models.mjs   # 输出 { fetchedAt, source, count, ids }
 
 欢迎贡献。详见 [`CONTRIBUTING-ZH.md`](zh/CONTRIBUTING-ZH.md)。
 
+说明：出于个人隐私，本项目有意**不**把 `AGENTS.md` 提交进仓库（与常见约定不同）。可共享的项目约定见 [`CONTRIBUTING-ZH.md`](zh/CONTRIBUTING-ZH.md)。
+
 ## 更新日志
 
 详见 [`CHANGELOG-ZH.md`](zh/CHANGELOG-ZH.md)。

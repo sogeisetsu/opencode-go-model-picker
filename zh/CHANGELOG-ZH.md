@@ -17,6 +17,7 @@
 - `assets/` 下的视觉资源（SVG 图标、点阵中英文横幅，以及本地 SVG 徽章），以及居中的 README 头部——不依赖任何外部图片或徽章服务，离线也能正常显示。
 - 横幅重新设计：`Go` 使用小米橘色，`Model Picker` 使用本项目的绿色，除点阵的 `OpenCode`（字形改为统一基线、整数网格对齐）外，所有文字改用打字机等宽体（Courier）。
 - 新增被 git 忽略的中文仓库初始化偏好指南 `zh/repo-init-guide-zh.md`。
+- 在 README 中说明：出于隐私考虑，`AGENTS.md` 有意不提交；可共享的约定见 `CONTRIBUTING.md`。
 - 中文 `CONTRIBUTING` 与 `CHANGELOG` 归入 `zh/`，并新增被 git 忽略的 `SKILL.md` 中文对读版 `zh/skill-zh.md`。
 - 仓库文件：`LICENSE`（GPL-3.0-or-later）、`.gitignore`、`.gitattributes` 与 `CONTRIBUTING.md`。
 

@@ -129,6 +129,10 @@ Fetched fresh every run; full details and parsing notes in [`references/data-sou
 Contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) (English) or
 [`CONTRIBUTING-ZH.md`](zh/CONTRIBUTING-ZH.md) (Chinese).
 
+Note: for personal privacy, this project intentionally does **not** commit a
+project `AGENTS.md`, contrary to the usual convention. Shareable project
+conventions live in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 ## Changelog
 
 See [`CHANGELOG.md`](CHANGELOG.md) (English) or [`CHANGELOG-ZH.md`](zh/CHANGELOG-ZH.md) (Chinese).

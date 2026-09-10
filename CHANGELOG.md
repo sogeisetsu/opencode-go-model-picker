@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dot-matrix `OpenCode`, whose glyphs now share one baseline and an integer grid.
 - Added a git-ignored Chinese repository-init preferences guide at
   `zh/repo-init-guide-zh.md`.
+- Documented in the READMEs that `AGENTS.md` is intentionally not committed (for
+  privacy), with shareable conventions living in `CONTRIBUTING.md`.
 - Moved the Chinese `CONTRIBUTING` and `CHANGELOG` into `zh/`, and added a
   git-ignored Chinese reading copy of `SKILL.md` at `zh/skill-zh.md`.
 - Repository files: `LICENSE` (GPL-3.0-or-later), `.gitignore`,
