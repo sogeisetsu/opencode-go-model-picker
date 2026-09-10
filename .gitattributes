@@ -1,0 +1,15 @@
+# Normalize line endings to LF in the repository (cross-platform friendly).
+* text=auto eol=lf
+
+# The fetch script is a Node ESM file with a shebang; keep it LF.
+*.mjs text eol=lf
+*.js  text eol=lf
+*.md  text eol=lf
+*.json text eol=lf
+
+# Binary assets are never normalized.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
