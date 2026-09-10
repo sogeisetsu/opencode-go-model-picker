@@ -19,6 +19,7 @@
 - 新增被 git 忽略的中文仓库初始化偏好指南 `zh/repo-init-guide-zh.md`。
 - 在 README 中说明：出于隐私考虑，`AGENTS.md` 有意不提交；可共享的约定见 `CONTRIBUTING.md`。
 - 扩充两份 README 的安装章节：新增「最小化安装」说明（只需 `SKILL.md` + `references/` + `scripts/`），以及一段供 AI Agent 安装用的复制粘贴提示词。
+- 修正两份 README 中 `oh-my-opencode-slim` 的链接（原先错指向 `code-yeongyu/oh-my-openagent`，现改为 `alvinunreal/oh-my-opencode-slim`）。
 - 中文 `CONTRIBUTING` 与 `CHANGELOG` 归入 `zh/`，并新增被 git 忽略的 `SKILL.md` 中文对读版 `zh/skill-zh.md`。
 - 仓库文件：`LICENSE`（GPL-3.0-or-later）、`.gitignore`、`.gitattributes` 与 `CONTRIBUTING.md`。
 

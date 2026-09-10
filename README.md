@@ -24,7 +24,7 @@
   <img src="assets/banner.svg" alt="OpenCode Go Model Picker banner">
 </p>
 
-An [OpenCode](https://opencode.ai/) **Agent Skill** that picks cost-effective OpenCode Go models for every [`oh-my-opencode-slim`](https://github.com/code-yeongyu/oh-my-openagent) agent, with fallback chains, based on the **current** Go plan — read-only, and only ever applies changes after you confirm.
+An [OpenCode](https://opencode.ai/) **Agent Skill** that picks cost-effective OpenCode Go models for every [`oh-my-opencode-slim`](https://github.com/alvinunreal/oh-my-opencode-slim) agent, with fallback chains, based on the **current** Go plan — read-only, and only ever applies changes after you confirm.
 
 ---
 
@@ -41,7 +41,7 @@ It is deliberately conservative:
 ## Requirements
 
 - OpenCode with skills support (skills load from `~/.config/opencode/skills/`).
-- [`oh-my-opencode-slim`](https://github.com/code-yeongyu/oh-my-openagent) **2.2.x** (the schema in that build is the source of truth).
+- [`oh-my-opencode-slim`](https://github.com/alvinunreal/oh-my-opencode-slim) **2.2.x** (the schema in that build is the source of truth).
 - Node.js **18+** only if you run the optional catalog fetcher (tested on Node 22).
 
 ## Installation

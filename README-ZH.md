@@ -24,7 +24,7 @@
   <img src="assets/banner-zh.svg" alt="OpenCode Go Model Picker 横幅">
 </p>
 
-一份 [OpenCode](https://opencode.ai/) 的**智能体技能**：根据**最新的** OpenCode Go 套餐，为 [`oh-my-opencode-slim`](https://github.com/code-yeongyu/oh-my-openagent) 的每个智能体挑选高性价比的模型并给出回退链。默认**只读**，只有在用户确认后才会写入配置。
+一份 [OpenCode](https://opencode.ai/) 的**智能体技能**：根据**最新的** OpenCode Go 套餐，为 [`oh-my-opencode-slim`](https://github.com/alvinunreal/oh-my-opencode-slim) 的每个智能体挑选高性价比的模型并给出回退链。默认**只读**，只有在用户确认后才会写入配置。
 
 ---
 
@@ -41,7 +41,7 @@ OpenCode Go 的套餐变动非常频繁——每个模型有独立的月度美�
 ## 前置要求
 
 - 支持技能功能的 OpenCode（技能从 `~/.config/opencode/skills/` 加载）。
-- [`oh-my-opencode-slim`](https://github.com/code-yeongyu/oh-my-openagent) **2.2.x**（该版本的结构规范是事实来源）。
+- [`oh-my-opencode-slim`](https://github.com/alvinunreal/oh-my-opencode-slim) **2.2.x**（该版本的结构规范是事实来源）。
 - 仅当运行可选的目录抓取脚本时需要 Node.js **18+**（已在 Node 22 上测试）。
 
 ## 安装

@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expanded the Installation section in both READMEs: a minimal-install note
   (`SKILL.md` + `references/` + `scripts/` only) and a copy-paste prompt for
   letting an AI agent install the skill.
+- Fixed the `oh-my-opencode-slim` links in both READMEs; they pointed to
+  `code-yeongyu/oh-my-openagent` instead of `alvinunreal/oh-my-opencode-slim`.
 - Moved the Chinese `CONTRIBUTING` and `CHANGELOG` into `zh/`, and added a
   git-ignored Chinese reading copy of `SKILL.md` at `zh/skill-zh.md`.
 - Repository files: `LICENSE` (GPL-3.0-or-later), `.gitignore`,
