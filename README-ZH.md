@@ -104,11 +104,11 @@ node scripts/fetch-go-models.mjs   # 输出 { fetchedAt, source, count, ids }
 
 ## 参与贡献
 
-欢迎贡献。详见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+欢迎贡献。详见 [`CONTRIBUTING-ZH.md`](CONTRIBUTING-ZH.md)。
 
 ## 更新日志
 
-详见 [`CHANGELOG.md`](CHANGELOG.md)。
+详见 [`CHANGELOG-ZH.md`](CHANGELOG-ZH.md)。
 
 ## 许可证
 

@@ -4,6 +4,8 @@ Thanks for your interest in improving the OpenCode Go Model Picker. This is a sm
 focused project, so contributions are easiest to accept when they keep its design
 principles intact.
 
+[中文版](CONTRIBUTING-ZH.md)
+
 ## Ground rules
 
 1. **Never invent prices, limits, or model IDs.** Every figure in a recommendation

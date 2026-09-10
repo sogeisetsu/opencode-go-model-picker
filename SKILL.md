@@ -1,6 +1,12 @@
 ---
 name: opencode-go-model-picker
 description: Choose or rebalance which models each oh-my-opencode-slim agent/subagent uses against the LATEST OpenCode Go plan (models, usage limits, limited-time promos), optimizing cost-effectiveness and resilience. Use when the user asks to pick/tune/optimize agent models for OpenCode Go, asks whether the current agent model config still fits the current Go plan, or wants a paste-ready oh-my-opencode-slim preset block. Read-only by default: it fetches the plan, produces recommendations with fallback chains, and never edits config without a preview and explicit confirmation.
+license: GPL-3.0-or-later
+compatibility: opencode
+metadata:
+  version: "0.1.0"
+  requires: "oh-my-opencode-slim 2.2.x; Node.js 18+ for the optional catalog fetcher"
+  homepage: "https://github.com/<your-account>/opencode-go-model-picker"
 ---
 
 # OpenCode Go Model Picker

@@ -104,11 +104,12 @@ Fetched fresh every run; full details and parsing notes in [`references/data-sou
 
 ## Contributing
 
-Contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) (English) or
+[`CONTRIBUTING-ZH.md`](CONTRIBUTING-ZH.md) (Chinese).
 
 ## Changelog
 
-See [`CHANGELOG.md`](CHANGELOG.md).
+See [`CHANGELOG.md`](CHANGELOG.md) (English) or [`CHANGELOG-ZH.md`](CHANGELOG-ZH.md) (Chinese).
 
 ## License
 
