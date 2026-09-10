@@ -6,11 +6,11 @@
 // assets render identically offline and on GitHub.
 //
 // Typography in the banners:
-//   - "OpenCode" is drawn with a hand-built 5x7 dot-matrix font (1 = lit cell),
-//     echoing the blocky OpenCode wordmark.
-//   - every other word uses a classic old-style serif stack (Latin: Georgia /
-//     Times; Chinese: Songti / SimSun), so it reads as vintage print rather than
-//     a modern UI font.
+//   - "OpenCode" is drawn with a hand-built 5x8 dot-matrix font (1 = lit cell).
+//     Every glyph shares one baseline (row 6) and every dot lands on an integer
+//     grid, so the letters line up exactly.
+//   - every other word uses an old typewriter monospace face (Courier), giving a
+//     vintage typewritten look.
 //   - "Go" is Xiaomi orange (#FF6900); "Model Picker" is the project green
 //     (#03B000).
 
@@ -35,51 +35,39 @@ const C = {
   tile: "#0F0E0E",
 };
 
-const SERIF_LATIN = "Georgia, 'Times New Roman', 'Nimbus Roman', 'Liberation Serif', serif";
-const SERIF_CJK =
-  "'Songti SC', SimSun, STSong, 'Noto Serif CJK SC', 'Source Han Serif SC', Georgia, serif";
+// Old typewriter monospace for Latin text.
+const MONO_TYPEWRITER = "'Courier New', Courier, 'Nimbus Mono PS', 'Liberation Mono', monospace";
+// Closest Chinese equivalent to an old typewriter/print face.
+const CJK_OLD = "'FangSong', 'STFangsong', 'FangSong_GB2312', KaiTi, SimSun, 'Songti SC', serif";
 
-// 5x7 dot-matrix glyphs (1 = lit pixel). Only the characters actually used.
+// 5x8 dot-matrix glyphs (1 = lit pixel). Baseline is row 6; row 7 is descender.
+// Only the characters used by the word "OpenCode" are defined.
 const FONT = {
-  " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000"],
-  O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
-  C: ["01110", "10001", "10000", "10000", "10000", "10001", "01110"],
-  G: ["01110", "10001", "10000", "10111", "10001", "10001", "01111"],
-  M: ["10001", "11011", "10101", "10001", "10001", "10001", "10001"],
-  P: ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
-  p: ["00000", "11110", "10001", "10001", "11110", "10000", "10000"],
-  e: ["00000", "01110", "10001", "11111", "10000", "01110", "00000"],
-  n: ["00000", "00000", "10110", "11001", "10001", "10001", "10001"],
-  o: ["00000", "00000", "01110", "10001", "10001", "10001", "01110"],
-  d: ["00001", "00001", "01111", "10001", "10001", "10001", "01111"],
-  l: ["01100", "00100", "00100", "00100", "00100", "00100", "01110"],
-  i: ["00100", "00000", "01100", "00100", "00100", "00100", "01110"],
-  c: ["00000", "00000", "01110", "10001", "10000", "10001", "01110"],
-  k: ["10000", "10000", "10010", "10100", "11000", "10100", "10010"],
-  r: ["00000", "00000", "10110", "11001", "10000", "10000", "10000"],
-  a: ["00000", "00000", "01110", "00001", "01111", "10001", "01111"],
-  y: ["00000", "00000", "10001", "10001", "01111", "00001", "01110"],
-  s: ["00000", "00000", "01111", "10000", "01110", "00001", "11110"],
-  u: ["00000", "00000", "10001", "10001", "10001", "10011", "01101"],
-  t: ["00100", "00100", "11111", "00100", "00100", "00101", "00010"],
-  b: ["10000", "10000", "11110", "10001", "10001", "10001", "11110"],
-  f: ["00110", "01001", "01000", "11110", "01000", "01000", "01000"],
-  "-": ["00000", "00000", "00000", "01110", "00000", "00000", "00000"],
-  ".": ["00000", "00000", "00000", "00000", "00000", "00100", "00100"],
+  " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000", "00000"],
+  O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110", "00000"],
+  C: ["01110", "10001", "10000", "10000", "10000", "10001", "01110", "00000"],
+  p: ["00000", "00000", "11110", "10001", "10001", "11110", "10000", "10000"],
+  e: ["00000", "00000", "01110", "10001", "11111", "10000", "01110", "00000"],
+  n: ["00000", "00000", "10110", "11001", "10001", "10001", "10001", "00000"],
+  o: ["00000", "00000", "01110", "10001", "10001", "10001", "01110", "00000"],
+  d: ["00001", "00001", "01111", "10001", "10001", "10001", "01111", "00000"],
 };
 
-function pixelText(text, x, y, cell, color, { gap = 1, dotRatio = 0.74 } = {}) {
-  const dot = cell * dotRatio;
+const ROWS = 8;
+const BASELINE_ROW = 6;
+
+function pixelText(text, x, y, cell, color, { gap = 1, dotRatio = 0.75 } = {}) {
+  const dot = Math.round(cell * dotRatio);
   const off = (cell - dot) / 2;
-  const rx = dot * 0.18;
+  const rx = Math.max(1, dot * 0.18);
   let out = "";
   let cx = x;
   for (const ch of text) {
     const glyph = FONT[ch] || FONT[" "];
-    for (let row = 0; row < 7; row++) {
+    for (let row = 0; row < ROWS; row++) {
       for (let col = 0; col < 5; col++) {
         if (glyph[row][col] === "1") {
-          out += `<rect x="${(cx + col * cell + off).toFixed(2)}" y="${(y + row * cell + off).toFixed(2)}" width="${dot.toFixed(2)}" height="${dot.toFixed(2)}" rx="${rx.toFixed(2)}" fill="${color}"/>`;
+          out += `<rect x="${cx + col * cell + off}" y="${y + row * cell + off}" width="${dot}" height="${dot}" rx="${rx.toFixed(1)}" fill="${color}"/>`;
         }
       }
     }
@@ -144,19 +132,18 @@ function bannerSvg({ subtitle, footer, subtitleFont, subtitleSize, footerSize, a
   const cell = 8;
   const titleTop = 92;
   const lineGap = 72;
-  const baseline1 = titleTop + 56; // 148
-  const baseline2 = titleTop + lineGap + 56; // 220
-  const titleSize = 80;
+  const baseline = titleTop + BASELINE_ROW * cell + (cell - Math.round(cell * 0.75)) / 2 + Math.round(cell * 0.75); // 147
+  const titleSize = 90; // Courier, sized to match the 55px dot-matrix cap height
 
   const openCode = pixelText("OpenCode", 248, titleTop, cell, C.ink);
   const goX = 248 + pixelWidth("OpenCode", cell) + 24;
 
   const title =
     `  ${openCode}\n` +
-    `  <text x="${goX}" y="${baseline1}" font-family="${SERIF_LATIN}" font-size="${titleSize}" fill="${C.xiaomi}">Go</text>\n` +
-    `  <text x="248" y="${baseline2}" font-family="${SERIF_LATIN}" font-size="${titleSize}" fill="${C.green}">Model Picker</text>\n`;
+    `  <text x="${goX}" y="${baseline}" font-family="${MONO_TYPEWRITER}" font-size="${titleSize}" fill="${C.xiaomi}">Go</text>\n` +
+    `  <text x="248" y="${baseline + lineGap}" font-family="${MONO_TYPEWRITER}" font-size="${titleSize}" fill="${C.green}">Model Picker</text>\n`;
 
-  const subtitleY = baseline2 + 28; // 248
+  const subtitleY = baseline + lineGap + 31; // 250
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-label="${escapeXml(aria)}">
 ${defs}
@@ -190,7 +177,7 @@ function badgeSvg(label, value, valueColor, valueTextColor) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${escapeXml(label)}: ${escapeXml(value)}">
   <rect width="${w}" height="${h}" rx="3" fill="${C.darker}"/>
   <path d="M${labelW} 0h${valueW - 3}a3 3 0 0 1 3 3v${h - 6}a3 3 0 0 1-3 3h-${valueW - 3}z" fill="${valueColor}"/>
-  <g font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="${fs}" font-weight="600" text-anchor="middle">
+  <g font-family="${MONO_TYPEWRITER}" font-size="${fs}" font-weight="700" text-anchor="middle">
     <text x="${labelW / 2}" y="14" fill="${C.ink}" textLength="${labelW - pad * 2}" lengthAdjust="spacingAndGlyphs">${escapeXml(label)}</text>
     <text x="${labelW + valueW / 2}" y="14" fill="${valueTextColor}" textLength="${valueW - pad * 2}" lengthAdjust="spacingAndGlyphs">${escapeXml(value)}</text>
   </g>
@@ -209,15 +196,15 @@ const files = {
   [join(assets, "banner.svg")]: bannerSvg({
     subtitle: "Plan-aware model selection for oh-my-opencode-slim agents",
     footer: "read-only . source-cited . fallback-ready",
-    subtitleFont: SERIF_LATIN,
-    subtitleSize: 24,
-    footerSize: 19,
+    subtitleFont: MONO_TYPEWRITER,
+    subtitleSize: 22,
+    footerSize: 18,
     aria: "OpenCode Go Model Picker banner",
   }),
   [join(assets, "banner-zh.svg")]: bannerSvg({
     subtitle: "为 oh-my-opencode-slim 智能体做感知套餐的模型选择",
     footer: "只读 · 有来源 · 可回退",
-    subtitleFont: SERIF_CJK,
+    subtitleFont: CJK_OLD,
     subtitleSize: 22,
     footerSize: 18,
     aria: "OpenCode Go Model Picker banner",
