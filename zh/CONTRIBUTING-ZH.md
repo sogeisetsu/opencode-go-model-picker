@@ -20,6 +20,7 @@
 | `references/output-format.md` | 技能必须产出的六段式报告的具体格式。 |
 | `scripts/fetch-go-models.mjs` | 辅助脚本：把实时模型目录输出为 JSON。 |
 | `scripts/generate-assets.mjs` | 重新生成 SVG 图标、横幅与本地徽章。 |
+| `scripts/check-docs.mjs` | 校验相对链接与中英文档对是否同步。 |
 | `README.md` / `README-ZH.md` | 英文与中文文档。 |
 | `zh/` | 中文文档（本文件、`CHANGELOG-ZH.md`，以及被 git 忽略的本地对读版 `skill-zh.md`）。 |
 | `assets/` | README 头部使用的 SVG 图标、横幅与本地徽章。 |
@@ -38,6 +39,7 @@
 ```bash
 node --check scripts/fetch-go-models.mjs   # 语法检查
 node scripts/fetch-go-models.mjs           # 确认端点仍然可用
+node scripts/check-docs.mjs                 # 相对链接 + 中英文档对校验
 ```
 
 如果你改动了工作流或输出结构，请对照 `references/output-format.md` 在心里走一遍流程，确认六个章节仍然都能产出。如果你改动了模型指引，请对照 `references/data-sources.md` 中列出的来源重新核实相关论断，并更新“已核实日期”的标注。如果你手工编辑了 `assets/` 下的任何 SVG，建议改为编辑 `scripts/generate-assets.mjs` 并重新运行 `node scripts/generate-assets.mjs`，让资源保持可复现。

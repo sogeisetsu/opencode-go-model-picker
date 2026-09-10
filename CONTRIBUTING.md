@@ -28,6 +28,7 @@ principles intact.
 | `references/output-format.md` | The exact six-part report the skill must produce. |
 | `scripts/fetch-go-models.mjs` | Helper that prints the live model catalog as JSON. |
 | `scripts/generate-assets.mjs` | Regenerates the SVG icon, banners and local badges. |
+| `scripts/check-docs.mjs` | Checks relative links and English/Chinese doc pairs. |
 | `README.md` / `README-ZH.md` | English and Chinese documentation. |
 | `zh/` | Chinese docs (`CONTRIBUTING-ZH.md`, `CHANGELOG-ZH.md`, and a git-ignored local `skill-zh.md` reading copy). |
 | `assets/` | SVG icon, banners and local badges used in the README headers. |
@@ -47,6 +48,7 @@ There is no build step or test suite. Validate manually:
 ```bash
 node --check scripts/fetch-go-models.mjs   # syntax check
 node scripts/fetch-go-models.mjs           # confirm the endpoint still works
+node scripts/check-docs.mjs                 # relative links + EN/ZH pair check
 ```
 
 If you changed the workflow or output structure, walk through the run mentally
