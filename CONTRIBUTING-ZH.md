@@ -1,6 +1,6 @@
 # 参与贡献
 
-感谢你有兴趣改进 OpenCode Go 模型选择器。这是一个小而专注的项目，因此最容易被接纳的贡献，是那些保持其设计原则不变的改动。
+感谢你有兴趣改进 OpenCode Go Model Picker。这是一个小而专注的项目，因此最容易被接纳的贡献，是那些保持其设计原则不变的改动。
 
 [英文版](CONTRIBUTING.md)
 
@@ -19,8 +19,9 @@
 | `references/data-sources.md` | 从哪里抓取实时套餐数据，以及如何解析。 |
 | `references/output-format.md` | 技能必须产出的六段式报告的具体格式。 |
 | `scripts/fetch-go-models.mjs` | 辅助脚本：把实时模型目录输出为 JSON。 |
+| `scripts/generate-assets.mjs` | 重新生成 SVG 图标、横幅与本地徽章。 |
 | `README.md` / `README-ZH.md` | 英文与中文文档。 |
-| `assets/` | README 头部使用的 SVG 图标与横幅。 |
+| `assets/` | README 头部使用的 SVG 图标、横幅与本地徽章。 |
 
 ## 进行改动
 
@@ -38,7 +39,7 @@ node --check scripts/fetch-go-models.mjs   # 语法检查
 node scripts/fetch-go-models.mjs           # 确认端点仍然可用
 ```
 
-如果你改动了工作流或输出结构，请对照 `references/output-format.md` 在心里走一遍流程，确认六个章节仍然都能产出。如果你改动了模型指引，请对照 `references/data-sources.md` 中列出的来源重新核实相关论断，并更新“已核实日期”的标注。
+如果你改动了工作流或输出结构，请对照 `references/output-format.md` 在心里走一遍流程，确认六个章节仍然都能产出。如果你改动了模型指引，请对照 `references/data-sources.md` 中列出的来源重新核实相关论断，并更新“已核实日期”的标注。如果你手工编辑了 `assets/` 下的任何 SVG，建议改为编辑 `scripts/generate-assets.mjs` 并重新运行 `node scripts/generate-assets.mjs`，让资源保持可复现。
 
 ## 报告问题
 

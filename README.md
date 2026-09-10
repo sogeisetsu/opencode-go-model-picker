@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-4B4646?style=flat-square" alt="License: GPL-3.0-or-later"></a>
-  <img src="https://img.shields.io/badge/version-0.1.0-03B000?style=flat-square" alt="Version 0.1.0">
-  <img src="https://img.shields.io/badge/node-%3E%3D18-4B4646?style=flat-square" alt="Node.js 18 or later">
-  <img src="https://img.shields.io/badge/OpenCode-Agent_Skill-4B4646?style=flat-square" alt="OpenCode Agent Skill">
-  <img src="https://img.shields.io/badge/PRs-welcome-03B000?style=flat-square" alt="PRs welcome">
+  <a href="LICENSE"><img src="assets/badges/license.svg" alt="License: GPL-3.0-or-later"></a>
+  <img src="assets/badges/version.svg" alt="Version 0.1.0">
+  <img src="assets/badges/node.svg" alt="Node.js 18 or later">
+  <img src="assets/badges/agent-skill.svg" alt="OpenCode Agent Skill">
+  <img src="assets/badges/prs-welcome.svg" alt="PRs welcome">
 </p>
 
 <p align="center">
@@ -50,13 +50,13 @@ Clone the repo directly into your OpenCode skills directory, so the folder name 
 
 **Linux / macOS**
 ```bash
-git clone https://github.com/<your-account>/opencode-go-model-picker.git \
+git clone https://github.com/sogeisetsu/opencode-go-model-picker.git \
   ~/.config/opencode/skills/opencode-go-model-picker
 ```
 
 **Windows (PowerShell)**
 ```powershell
-git clone https://github.com/<your-account>/opencode-go-model-picker.git `
+git clone https://github.com/sogeisetsu/opencode-go-model-picker.git `
   "$env:USERPROFILE\.config\opencode\skills\opencode-go-model-picker"
 ```
 

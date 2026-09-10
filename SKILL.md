@@ -6,7 +6,7 @@ compatibility: opencode
 metadata:
   version: "0.1.0"
   requires: "oh-my-opencode-slim 2.2.x; Node.js 18+ for the optional catalog fetcher"
-  homepage: "https://github.com/<your-account>/opencode-go-model-picker"
+  homepage: "https://github.com/sogeisetsu/opencode-go-model-picker"
 ---
 
 # OpenCode Go Model Picker

@@ -14,7 +14,7 @@
 - `SKILL.md` 中的技能指令，以及套餐数据来源参考（`references/data-sources.md`）与输出格式参考（`references/output-format.md`）。
 - 目录抓取脚本 `scripts/fetch-go-models.mjs`。
 - 双语文档：英文（`README.md`）与中文（`README-ZH.md`），以及对应的中文贡献指南与更新日志。
-- `assets/` 下的视觉资源（SVG 图标、中英文横幅），以及居中的 README 头部与 shields.io 徽章。
+- `assets/` 下的视觉资源（SVG 图标、点阵中英文横幅，以及本地 SVG 徽章），以及居中的 README 头部——不依赖任何外部图片或徽章服务，离线也能正常显示。
 - 仓库文件：`LICENSE`（GPL-3.0-or-later）、`.gitignore`、`.gitattributes` 与 `CONTRIBUTING.md`。
 
-[未发布]: https://github.com/<your-account>/opencode-go-model-picker/commits/main
+[未发布]: https://github.com/sogeisetsu/opencode-go-model-picker/commits/main

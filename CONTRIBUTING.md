@@ -27,8 +27,9 @@ principles intact.
 | `references/data-sources.md` | Where to fetch live plan data and how to parse it. |
 | `references/output-format.md` | The exact six-part report the skill must produce. |
 | `scripts/fetch-go-models.mjs` | Helper that prints the live model catalog as JSON. |
+| `scripts/generate-assets.mjs` | Regenerates the SVG icon, banners and local badges. |
 | `README.md` / `README-ZH.md` | English and Chinese documentation. |
-| `assets/` | SVG icon and banners used in the README headers. |
+| `assets/` | SVG icon, banners and local badges used in the README headers. |
 
 ## Making a change
 
@@ -51,6 +52,9 @@ If you changed the workflow or output structure, walk through the run mentally
 against `references/output-format.md` and confirm all six sections are still
 produced. If you changed model guidance, re-check the affected claims against the
 sources listed in `references/data-sources.md` and update the verified-date notes.
+If you edited any SVG under `assets/` by hand, prefer editing
+`scripts/generate-assets.mjs` and re-running `node scripts/generate-assets.mjs`
+instead, so the assets stay reproducible.
 
 ## Reporting issues
 
