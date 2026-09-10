@@ -24,8 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Banners restyled: `Go` in Xiaomi orange, `Model Picker` in the project green,
   and an old typewriter monospace face (Courier) for every word except the
   dot-matrix `OpenCode`, whose glyphs now share one baseline and an integer grid.
-- Added `AGENTS.md` so future agent sessions in this repo know the project and its
-  conventions.
 - Added a git-ignored Chinese repository-init preferences guide at
   `zh/repo-init-guide-zh.md`.
 - Moved the Chinese `CONTRIBUTING` and `CHANGELOG` into `zh/`, and added a

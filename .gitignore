@@ -27,6 +27,9 @@ Desktop.ini
 # OpenChamber browser artifacts
 .openchamber/
 
+# Local-only personal agent instructions (not for the public repo)
+/AGENTS.md
+
 # Local-only Chinese reading copy of SKILL.md
 zh/skill-zh.md
 
