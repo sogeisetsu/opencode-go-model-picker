@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `zh/repo-init-guide-zh.md`.
 - Documented in the READMEs that `AGENTS.md` is intentionally not committed (for
   privacy), with shareable conventions living in `CONTRIBUTING.md`.
+- Expanded the Installation section in both READMEs: a minimal-install note
+  (`SKILL.md` + `references/` + `scripts/` only) and a copy-paste prompt for
+  letting an AI agent install the skill.
 - Moved the Chinese `CONTRIBUTING` and `CHANGELOG` into `zh/`, and added a
   git-ignored Chinese reading copy of `SKILL.md` at `zh/skill-zh.md`.
 - Repository files: `LICENSE` (GPL-3.0-or-later), `.gitignore`,

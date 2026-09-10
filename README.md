@@ -60,12 +60,34 @@ git clone https://github.com/sogeisetsu/opencode-go-model-picker.git `
   "$env:USERPROFILE\.config\opencode\skills\opencode-go-model-picker"
 ```
 
-Alternatively, copy or symlink this directory to `~/.config/opencode/skills/opencode-go-model-picker`.
+**Minimal install.** You don't need the whole repository — only `SKILL.md`,
+`references/`, and `scripts/` are used at runtime. Copying just those three into
+`~/.config/opencode/skills/opencode-go-model-picker/` is enough and saves space;
+the rest (README, LICENSE, `assets/`, `zh/`, ...) is documentation only.
 
 Verify the script runs:
 
 ```bash
 node scripts/fetch-go-models.mjs   # prints { fetchedAt, source, count, ids }
+```
+
+### Let an AI agent install it
+
+Copy the block below and paste it to your AI agent:
+
+```text
+Install the "OpenCode Go Model Picker" skill for me.
+
+1. Get the repository: https://github.com/sogeisetsu/opencode-go-model-picker
+2. Copy only these into my global OpenCode skills directory
+   (~/.config/opencode/skills/opencode-go-model-picker/):
+   - SKILL.md
+   - references/
+   - scripts/
+3. Do not copy the rest of the repo (README, LICENSE, assets, ...).
+4. Verify by running "node scripts/fetch-go-models.mjs" inside the installed
+   folder and confirming it prints JSON.
+5. Tell me the install path and whether it worked.
 ```
 
 ## Usage

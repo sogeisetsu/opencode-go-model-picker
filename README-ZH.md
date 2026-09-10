@@ -60,12 +60,30 @@ git clone https://github.com/sogeisetsu/opencode-go-model-picker.git `
   "$env:USERPROFILE\.config\opencode\skills\opencode-go-model-picker"
 ```
 
-也可以把本目录复制或软链到 `~/.config/opencode/skills/opencode-go-model-picker`。
+**最小化安装。** 不需要整个仓库——运行时只用到 `SKILL.md`、`references/` 和 `scripts/` 这三样。只把它们复制到 `~/.config/opencode/skills/opencode-go-model-picker/` 即可，还能省空间；其余内容（README、LICENSE、`assets/`、`zh/` 等）只是文档。
 
 验证脚本可运行：
 
 ```bash
 node scripts/fetch-go-models.mjs   # 输出 { fetchedAt, source, count, ids }
+```
+
+### 让 AI Agent 帮你安装
+
+把下面这段复制粘贴给你的 AI Agent：
+
+```text
+帮我安装 "OpenCode Go Model Picker" 这个技能。
+
+1. 获取仓库：https://github.com/sogeisetsu/opencode-go-model-picker
+2. 只把下面这些复制到我的全局 OpenCode 技能目录
+   （~/.config/opencode/skills/opencode-go-model-picker/）：
+   - SKILL.md
+   - references/
+   - scripts/
+3. 不要复制仓库里的其他内容（README、LICENSE、assets 等）。
+4. 验证：在安装目录里运行 "node scripts/fetch-go-models.mjs"，确认能输出 JSON。
+5. 告诉我安装路径以及是否成功。
 ```
 
 ## 用法
