@@ -161,7 +161,19 @@ See [`CHANGELOG.md`](CHANGELOG.md) (English) or [`CHANGELOG-ZH.md`](zh/CHANGELOG
 
 ## License
 
-Licensed under the **GNU General Public License v3.0 or later** (`GPL-3.0-or-later`). See [`LICENSE`](LICENSE).
+Copyright (C) 2026 sogeisetsu
+
+Licensed under the **GNU General Public License v3.0 or later** (`GPL-3.0-or-later`).
+
+This project is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. It is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+See [`LICENSE`](LICENSE) for the full text (the authoritative English version), or
+[`zh/LICENSE-ZH.md`](zh/LICENSE-ZH.md) for an unofficial Chinese reference translation.
 
 ## Provenance
 

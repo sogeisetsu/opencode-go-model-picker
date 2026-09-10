@@ -154,7 +154,13 @@ node scripts/fetch-go-models.mjs   # 输出 { fetchedAt, source, count, ids }
 
 ## 许可证
 
-基于 **GNU 通用公共许可证第 3 版或更新版本**（`GPL-3.0-or-later`）授权。见 [`LICENSE`](LICENSE)。
+版权所有（C）2026 sogeisetsu
+
+基于 **GNU 通用公共许可证第 3 版或更新版本**（`GPL-3.0-or-later`）授权。
+
+本程序为自由软件：你可以依据自由软件基金会发布的 GNU 通用公共许可证条款，对本程序进行再发布及/或修改，许可版本为第三版，或（随你选择）任何更新的版本。发布本程序的目的是希望它有用，但不提供任何担保；甚至不保证其具有经济价值或适合特定用途。详情参见 GNU 通用公共许可证。
+
+完整文本见 [`LICENSE`](LICENSE)（英文原文，具法律效力），或查阅 [`zh/LICENSE-ZH.md`](zh/LICENSE-ZH.md)（非官方中文参考译本）。
 
 ## 由来
 

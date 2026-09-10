@@ -112,3 +112,12 @@ generator `itsmylife44/cliproxyapi-dashboard`
 (`oh-my-opencode-slim-config-generator.tsx`, MIT) and the cost-profile request in
 `code-yeongyu/oh-my-openagent#1768`. Official Go data sources plus
 oh-my-opencode-slim's static per-agent role guidance are reused here.
+
+## License
+
+Copyright (C) 2026 sogeisetsu. Licensed under the **GNU General Public
+License v3.0 or later** (`GPL-3.0-or-later`). This skill is free software: you may
+redistribute it and/or modify it under the terms of the GPL, either version 3 or
+(at your option) any later version, with NO WARRANTY. See [`LICENSE`](LICENSE) for
+the authoritative text, or [`zh/LICENSE-ZH.md`](zh/LICENSE-ZH.md) for an unofficial
+Chinese reference translation.
