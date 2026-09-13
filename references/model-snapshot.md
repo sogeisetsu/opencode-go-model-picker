@@ -85,9 +85,9 @@ Then:
    always gets a fresh score lookup** even inside the window, and a **major plan
    change** (many ids added/removed) or an **explicit user request** forces a full
    score refresh.
-2. Re-verify **only** the models the diff flags as added or changed: prices and
-   limits from `https://opencode.ai/docs/go/`, capabilities (esp. vision) from
-   the lab's own docs.
+2. Read prices and limits from `https://opencode.ai/docs/go/` and compare them
+   with the cached values; deep-verify capabilities (especially vision) from the
+   lab's own docs only for the added or changed models.
 3. Reuse the cached values for everything else.
 
 This is what saves tokens: one compact diff instead of re-reading every page,

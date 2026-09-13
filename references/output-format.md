@@ -5,8 +5,8 @@ the user's language**; the labels below are the reference English wording.
 
 ## 1. Plan Snapshot
 - Sources used + fetch timestamp.
-- Diff vs the cached snapshot (added / removed / changed), if available
-  (`references/model-snapshot.md`).
+- Diff vs the cached snapshot (added / removed ids, plus any price or score
+  changes), if available (`references/model-snapshot.md`).
 - Table of only the models relevant to this user:
   `model | input$/1M | output$/1M | monthly $ limit | est req/5h | context | reasoning | vision | status`.
 

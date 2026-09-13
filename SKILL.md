@@ -1,6 +1,6 @@
 ---
 name: opencode-go-model-picker
-description: "Choose or rebalance which models each OpenCode agent/subagent uses against the LATEST OpenCode Go plan (models, usage limits, limited-time promos), optimizing cost-effectiveness and resilience. Supports multiple agent sources - native OpenCode agents (the `agent` key in opencode.json/opencode.jsonc and Markdown files under ~/.config/opencode/agents/ or .opencode/agents/), oh-my-opencode-slim presets, and other plugins that inject agents. Use when the user asks to pick/tune/optimize agent models for OpenCode Go, asks whether the current agent model config still fits the current Go plan, or wants a paste-ready preset or agent model block. Read-only by default: it fetches the plan, produces recommendations with fallback chains, and never edits config without a preview and explicit confirmation."
+description: "Choose or rebalance which OpenCode Go model each **custom** OpenCode agent/subagent uses, against the LATEST Go plan (models, usage limits, limited-time promos), optimizing cost-effectiveness and resilience. Supports multiple agent sources - native agents (the `agent` key in opencode.json/opencode.jsonc and Markdown files under ~/.config/opencode/agents/ or .opencode/agents/), oh-my-opencode-slim presets, and other plugins that inject agents. OpenCode's own built-in agents (build, plan, and the built-in subagents) are left alone. Use when the user asks to pick/tune/optimize agent models for OpenCode Go, asks whether the current agent model config still fits the current Go plan, or wants a paste-ready preset or agent model block. Read-only by default: it fetches the plan, produces recommendations with fallback chains, and never edits config without a preview and explicit confirmation."
 license: GPL-3.0-or-later
 compatibility: opencode
 metadata:
@@ -11,12 +11,12 @@ metadata:
 
 # OpenCode Go Model Picker
 
-Assign the most cost-effective **OpenCode Go** model to each agent in your
-OpenCode setup — native OpenCode agents, oh-my-opencode-slim presets, or other
-plugins that inject agents — with sensible fallback chains, based on the
-**current** Go plan. The Go plan changes often (per-model monthly limits,
-limited-time usage multipliers, new/retired models), so always fetch fresh data
-before recommending.
+Assign the most cost-effective **OpenCode Go** model to each **custom** agent in
+your OpenCode setup — native agents, oh-my-opencode-slim presets, or other plugins
+that inject agents — with sensible fallback chains, based on the **current** Go
+plan. OpenCode's own built-in agents are not tuned. The Go plan changes often
+(per-model monthly limits, limited-time usage multipliers, new/retired models), so
+always fetch fresh data before recommending.
 
 ## Iron Rules
 
@@ -27,8 +27,9 @@ before recommending.
    and fetch date, and is re-fetched when stale.
 2. **Read-only by default.** Do NOT edit any agent config — `opencode.jsonc`,
    `opencode.json`, `oh-my-opencode-slim.json`, or files under
-   `~/.config/opencode/agents/`. Produce a preview; apply only after the user
-   confirms (use the `question` tool), then show the exact change.
+   `~/.config/opencode/agents/` / `.opencode/agents/`. Produce a preview; apply
+   only after the user confirms (use the `question` tool), then show the exact
+   change.
 3. **Schema-accurate per source.** Match the schema of the source you are reading
    (see `references/agent-sources.md`), not a random online doc. For
    oh-my-opencode-slim use the *installed* `oh-my-opencode-slim.schema.json`; for
@@ -74,9 +75,10 @@ A persistent, normalized snapshot of the Go catalog and model scores lives at
   change (many added/removed models) or an explicit user request forces a full
   refresh. Catalog and prices refresh every run, so plan changes are caught
   immediately.
-- Only re-verify what the diff flags and reuse the rest — that is what keeps runs
-  cheap. Every cached value keeps its source and fetch date; stale values are
-  re-fetched rather than trusted.
+- Prices and limits are read each run, but only the added or changed models get a
+  deeper capability check — that is what keeps runs cheap. Every cached value
+  keeps its source and fetch date; stale values are re-fetched rather than
+  trusted.
 
 ## Data Sources (fetch fresh every run)
 
@@ -98,9 +100,10 @@ Minimum set:
 2. **Read the snapshot cache and refresh it cheaply.** Read
    `~/.cache/opencode/opencode-go-model-picker/snapshot.json`, run
    `node scripts/refresh-snapshot.mjs`, and read the compact diff (see
-   `references/model-snapshot.md`). Then fetch the plan and build this run's
-   snapshot, re-verifying **only** the models the diff reports as `added` or
-   `changed` and reusing cached values for the rest:
+   `references/model-snapshot.md`). The script reports `added` / `removed`
+   catalog ids; prices and limits come from the plan pages and are compared with
+   the cached values. Deep-verify capabilities (especially vision) only for the
+   added or changed models. Build this run's snapshot:
    `model id | input $/1M | output $/1M | monthly $ limit | est. req/5h | context | reasoning | vision | status | source+date`.
 3. **Detect plan changes** vs. the last snapshot (if any): new/removed models,
    changed limits/prices, limited-time promos. Call these out first.

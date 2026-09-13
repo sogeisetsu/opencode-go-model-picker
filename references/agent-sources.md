@@ -1,8 +1,8 @@
 # Agent Sources
 
 How this skill discovers agents across sources and normalizes them into one
-inventory. The skill is **not tied to a single plugin**: any agent OpenCode can
-address by name is in scope.
+inventory. The skill is **not tied to a single plugin**: any **custom** agent
+OpenCode can address by name is in scope.
 
 ## Why this exists
 
@@ -46,6 +46,11 @@ though they appear in the same registry:
 These are maintained by OpenCode and are not the user's to tune. Custom native
 agents (any other name) and plugin agents (such as `oh-my-opencode-slim`'s) are in
 scope. Verified against the official Agents docs (2026-09-11).
+
+Chain support is **not** a requirement for scope. A custom agent configured only
+natively — with a single `model`, not registered in `oh-my-opencode-slim` or any
+other chain-capable tool — is still in scope; the skill just recommends one model
+for it instead of a chain.
 
 ## Adapter interface
 

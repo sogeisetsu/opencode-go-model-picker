@@ -1,7 +1,8 @@
 # Data Sources for OpenCode Go Plan Data
 
-Fetch fresh on every run. Every number is reported with source + fetch date.
-Never guess a price, limit, or model id.
+Fetch fresh on every run, except ranking scores, which are cached with a short TTL
+(see `references/model-snapshot.md`). Every number is reported with source + fetch
+date. Never guess a price, limit, or model id.
 
 | Priority | Source | URL | Gives | Method | Notes |
 |---|---|---|---|---|---|
