@@ -21,6 +21,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (cheapest acceptable), `balanced` (default), and `quality` (strongest
   capability). The chosen mode is stated in the report, with a reason when it is
   not the default.
+- Added **estimated request counts** (per 5h / week / month) as a first-class
+  signal: equal monthly dollar limits do not mean equal throughput, so the skill
+  now reads the counts from the plan pages (the landing page is the more timely
+  one) and prefers the higher count when price and capability tie. The snapshot
+  schema and report gained `est req/week` and `est req/month`.
+- Added mandatory **caveat flags** for picks that depend on a limited-time
+  multiplier (with the base limit it falls back to), for geo-restricted models,
+  and for privacy-for-discount "Contributor" tiers that train on the user's
+  prompts and completions (opt-in, never recommended silently).
+- Added a **balanced price ceiling**: the priciest pick for a normal high-volume
+  agent should be only slightly above the current cheap-but-capable baseline
+  (DeepSeek V4.1 Flash at the time of writing) and clearly stronger; otherwise
+  the baseline itself is the pick.
+- Updated the banner subtitles to say plainly "the right OpenCode Go model for
+  every custom agent".
 - Added a persistent model snapshot cache
   (`~/.cache/opencode/opencode-go-model-picker/snapshot.json`) and
   `scripts/refresh-snapshot.mjs`, which diffs the live catalog and prints a

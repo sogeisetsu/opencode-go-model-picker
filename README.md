@@ -145,12 +145,19 @@ Three modes let you decide the trade-off between price and capability:
 
 Name a mode in your request; if you don't, `balanced` is used.
 
+In `balanced`, the priciest pick for a normal high-volume agent should be only
+slightly more expensive than the current cheap-but-capable baseline (DeepSeek V4.1
+Flash at the time of writing) and clearly stronger; if nothing clears that bar, the
+baseline itself is the pick.
+
 Every run ends with a six-part report:
 
 1. **Plan snapshot** — the models relevant to you, with source and fetch date.
-2. **What changed** — new or removed models, changed limits or prices, active promos.
+2. **What changed** — new or removed models, changed limits, prices, or estimated
+   request counts, active promos.
 3. **Current** — every custom agent found and its current chain (read-only).
-4. **Recommendation** — a model or chain per agent, with the cost tier and the reason.
+4. **Recommendation** — a model or chain per agent, with the cost tier, throughput,
+   and the reason, plus flags for any promo, geo, or privacy caveat.
 5. **Paste-ready** — a JSONC block you can drop into your config.
 6. **Verify** — anything that still needs a human check, plus the commands to do it.
 
@@ -184,6 +191,14 @@ A few details worth knowing:
   20%, weekly = 50%, monthly = 100%. Because each model has its own limit, another
   Go model is still usable when one is capped — which is why the first fallback is
   often another Go model.
+- **Same $ limit ≠ same throughput.** Models burn different numbers of tokens per
+  request, so the plan's estimated request counts matter as much as the dollar
+  limit. The skill reads them from the plan pages (the landing page is the more
+  timely one) and prefers the higher count when price and capability tie.
+- **It flags the fine print.** Limited-time multipliers (with the base limit they
+  fall back to), geo-restricted models, and "Contributor" tiers that train on your
+  prompts and completions are called out — the last one is opt-in and never
+  recommended silently.
 - **Fallback chains depend on your tool.** An array like `model: ["a", "b", "c"]`
   is an ordered failover chain in `oh-my-opencode-slim` 2.2.x (verified against
   `ForegroundFallbackManager`). If every entry fails, the session aborts, so the
@@ -208,8 +223,8 @@ Fetched fresh every run. Full details and parsing notes are in
 
 | Priority | Source | URL | Gives |
 |---|---|---|---|
-| 1 | Go landing page | https://opencode.ai/go | latest promos + featured usage table |
-| 2 | Go docs | https://opencode.ai/docs/go/ | full model / price / monthly-limit table |
+| 1 | Go landing page | https://opencode.ai/go | latest promos + featured usage table with estimated requests per 5h |
+| 2 | Go docs | https://opencode.ai/docs/go/ | full model / price / monthly-limit table + estimated requests |
 | 3 | Models endpoint | https://opencode.ai/zen/go/v1/models | live catalog ids (via `scripts/fetch-go-models.mjs`) |
 | 4 | models.dev | https://models.opencode.ai/providers/opencode-go/ | context / output / price / capabilities |
 | 5 | julien.cloud tracker | https://julien.cloud/opencode-go-models/ | merged view + price-change / deprecation log |

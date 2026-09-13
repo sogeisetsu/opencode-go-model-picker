@@ -12,6 +12,10 @@
 
 - 将智能体发现从 `oh-my-opencode-slim` 扩展到更多来源：技能现在通过新增的 `references/agent-sources.md` 中的来源适配器，读取原生 OpenCode 智能体（`opencode.json`/`opencode.jsonc` 的 `agent` 键，以及 `~/.config/opencode/agents/` 或 `.opencode/agents/` 下的 Markdown 文件）和其他注入智能体的插件。分配策略改为基于角色特征，并用已知角色覆盖保持此前的逐智能体行为。
 - 新增三种在性能与价格之间取舍的推荐模式：`budget`（省钱，能接受的最低价）、`balanced`（默认）、`quality`（最佳性能）。报告会写明所选模式，非默认模式时会说明理由。
+- 新增**预估请求数**（每 5 小时 / 每周 / 每月）作为一等信号：相同的月度美元额度并不意味着相同的吞吐量，所以技能现在会从套餐页面读取请求数（落地页更新更及时），在价格与能力相当时优先选请求数更高者。快照 schema 与报告新增 `est req/week` 与 `est req/month`。
+- 新增强制**注意事项标记**：依赖限时倍数的推荐（附促销结束后回落的基础额度）、有地理限制的模型，以及用用户 prompt 与补全结果训练模型的「隐私换折扣 / Contributor」档（属自愿选择，绝不悄悄推荐）。
+- 新增 **balanced 价格上限**：对常用的高用量智能体，最贵的推荐应该只比当前「便宜但够用」的基线（写作时为 DeepSeek V4.1 Flash）贵一点点、且明显更强；否则就推荐基线本身。
+- 更新横幅副标题，直白地说明「为每个自定义智能体挑选合适的 OpenCode Go 模型」。
 - 新增持久化模型快照缓存（`~/.cache/opencode/opencode-go-model-picker/snapshot.json`）与 `scripts/refresh-snapshot.mjs`：对实时目录做差异，输出紧凑的新增 / 下架差异，使每次运行只重新核实发生变化的部分。排名评分（LiveBench，Apache-2.0）以 7 天 TTL 缓存。详见 `references/model-snapshot.md`。
 - 推荐范围限定为**自定义**智能体：有意跳过 OpenCode 自带的 `build`、`plan` 以及自带 subagent。
 - 把两份 README、横幅与参考文档从“仅 `oh-my-opencode-slim`”的措辞扩展为面向所有智能体来源，并把回退链说明弱化为“建议”而非“必须”。

@@ -112,12 +112,14 @@ node scripts/fetch-go-models.mjs   # 输出 { fetchedAt, source, count, ids }
 
 在提问时带上模式名即可；不带就用 `balanced`。
 
+在 `balanced` 下，对常用的高用量智能体，最贵的推荐应该只比当前「便宜但够用」的基线（写作时为 DeepSeek V4.1 Flash）贵一点点、且明显更强；如果没有模型达标，就推荐基线本身。
+
 每次运行最后会给出一份六段式报告：
 
 1. **套餐快照**——与你相关的模型，附来源和抓取时间。
-2. **变化提示**——新增或下架的模型、额度或价格的变化、进行中的促销。
+2. **变化提示**——新增或下架的模型、额度、价格或预估请求数的变化，以及进行中的促销。
 3. **当前配置**——找到的每个自定义智能体及其现有链路（只读）。
-4. **推荐**——每个智能体推荐一个模型或一条链，附成本档位和理由。
+4. **推荐**——每个智能体推荐一个模型或一条链，附成本档位、吞吐量和理由，并对促销、地理或隐私方面的注意事项加标记。
 5. **可粘贴配置**——一段可以直接放进配置的 JSONC。
 6. **需人工核实**——仍需要人确认的项，以及验证命令。
 
@@ -137,6 +139,8 @@ node scripts/fetch-go-models.mjs   # 输出 { fetchedAt, source, count, ids }
 几点值得了解：
 
 - **Go 额度是按模型计的月度美元金额。** 整体窗口为 5 小时 = 20%、每周 = 50%、每月 = 100%。因为每个模型各有限额，某个被限流时另一个 Go 模型仍然可用——所以第一层回退常常是另一个 Go 模型。
+- **同样的美元额度 ≠ 同样的吞吐量。** 各模型每次请求消耗的 token 不同，所以套餐给出的**预估请求数**和美元额度一样重要。技能会从套餐页面读取（落地页更新更及时），在价格与能力接近时优先选请求数更高的模型。
+- **它会标出隐藏条款。** 限时倍数（以及促销结束后回落到的基础额度）、有地理限制的模型、以及用你的 prompt 和补全结果训练模型的「Contributor」档，都会被明确指出——最后一项属于自愿选择，绝不会被悄悄推荐。
 - **回退链取决于你用的工具。** 形如 `model: ["a", "b", "c"]` 的数组在 `oh-my-opencode-slim` 2.2.x 里是一条有序故障转移链（依据 `ForegroundFallbackManager` 核实）。如果每一项都失败，会话会中止，所以链尾应该是你真正能依赖的模型。直接定义在 OpenCode 里的智能体只接受单个 `model`（没有链），因此那里本技能只推荐一个模型并说明这一点。其他支持模型链的工具同样适用——使用 `oh-my-opencode-slim` 只是一个建议，并非必须。
 - **能力看实验室文档，不看名字。** 模型的能力会去它所属实验室的官方文档里核实，绝不从模型编号猜。这对视觉类智能体（比如 `observer`）需要的**视觉**输入尤其重要。
 - **省 token。** `~/.cache/opencode/opencode-go-model-picker/snapshot.json` 里缓存了一份归一化后的目录和评分，每次运行只重新抓取、重新核实发生变化的部分。缓存绝不取代来源——每个值都带来源和抓取日期。见 [`references/model-snapshot.md`](references/model-snapshot.md)。
@@ -147,8 +151,8 @@ node scripts/fetch-go-models.mjs   # 输出 { fetchedAt, source, count, ids }
 
 | 优先级 | 来源 | 网址 | 提供内容 |
 |---|---|---|---|
-| 1 | Go 落地页 | https://opencode.ai/go | 最新促销 + 精选用量表 |
-| 2 | Go 文档 | https://opencode.ai/docs/go/ | 完整模型 / 价格 / 月度额度表 |
+| 1 | Go 落地页 | https://opencode.ai/go | 最新促销 + 带每 5 小时预估请求数的精选用量表 |
+| 2 | Go 文档 | https://opencode.ai/docs/go/ | 完整模型 / 价格 / 月度额度表 + 预估请求数 |
 | 3 | 模型端点 | https://opencode.ai/zen/go/v1/models | 实时目录编号（经 `scripts/fetch-go-models.mjs`） |
 | 4 | models.dev | https://models.opencode.ai/providers/opencode-go/ | 上下文 / 输出 / 价格 / 能力 |
 | 5 | julien.cloud 追踪 | https://julien.cloud/opencode-go-models/ | 合并视图 + 价格变动 / 弃用日志 |
