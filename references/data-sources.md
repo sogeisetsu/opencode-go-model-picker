@@ -11,7 +11,7 @@ date. Never guess a price, limit, or model id.
 | 3 | Models endpoint | https://opencode.ai/zen/go/v1/models | live catalog (ids) | `node scripts/fetch-go-models.mjs` or curl | Unauthenticated; includes preview/deprecated ids |
 | 4 | Models.dev | https://models.opencode.ai/providers/opencode-go/ | context/output/price/capabilities | webfetch | Third party |
 | 5 | julien.cloud tracker | https://julien.cloud/opencode-go-models/ | merged view + price-change log / deprecation | webfetch | Third party |
-| 6 | LiveBench (rankings) | https://livebench.ai/ | Overall + per-category scores + cost per successful task | webfetch (agent step, 7-day TTL) | Apache-2.0, no key; no stable JSON API |
+| 6 | LiveBench (rankings) | https://livebench.ai/ + [site repo](https://github.com/LiveBench/livebench.github.io/tree/main/public) | Overall + per-category scores (derived) | `node scripts/refresh-scores.mjs` (static CSV, no browser) | Apache-2.0, no key; cost column absent (stays null); seed at `references/model-scores.json` |
 
 ## Estimated request counts (throughput)
 
@@ -108,10 +108,17 @@ score so runs do not re-derive it.
 
 - **Primary — LiveBench** (`https://livebench.ai/`, verified 2026-09-13): Overall
   plus Reasoning / Coding / Agentic Coding / Math / Data Analysis / Language /
-  Instruction Following, and a cost-per-successful-task column. Apache-2.0, no
-  fees, **no stable machine-readable endpoint** — the agent fetches the page and
-  writes scores into the snapshot. Refresh with a 7-day TTL, not every run; new or
-  changed models always get a fresh lookup regardless of the TTL.
+  Instruction Following. Apache-2.0, no fees, no key, and **no browser**: the site
+  is an SPA, but its repo serves the raw table as static files
+  (`LiveBench/livebench.github.io`, `public/table_<date>.csv` +
+  `categories_<date>.json`). `scripts/refresh-scores.mjs` fetches and aggregates
+  them. Overall/category values are **derived** (mean of the task columns), not a
+  published field. The static table has **no cost column**, so
+  `costPerSuccessfulTaskUsd` stays `null`.
+- The committed seed `references/model-scores.json` is reused when its
+  `source.tableDate` is still the latest upstream table (and it covers the current
+  catalog); otherwise the script fetches fresh. See "Bundled score seed" in
+  `references/model-snapshot.md`.
 - **Optional coding cross-check — SWE-bench**:
   `https://raw.githubusercontent.com/SWE-bench/swe-bench.github.io/main/data/leaderboards.json`
   (public JSON, `% Resolved` per model).
