@@ -24,8 +24,9 @@ Desktop.ini
 *.swo
 *~
 
-# OpenChamber browser artifacts
+# OpenChamber browser/session artifacts (screenshots, images)
 .openchamber/
+.opencode/
 
 # Local-only personal agent instructions (not for the public repo)
 /AGENTS.md
