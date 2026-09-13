@@ -29,4 +29,8 @@
 - 中文 `CONTRIBUTING` 与 `CHANGELOG` 归入 `zh/`，并新增被 git 忽略的 `SKILL.md` 中文对读版 `zh/skill-zh.md`。
 - 仓库文件：`LICENSE`（GPL-3.0-or-later）、`.gitignore`、`.gitattributes` 与 `CONTRIBUTING.md`。
 
+### 已变更
+
+- 重写了两份 README，语气更自然易懂，并重新组织了结构，让人一眼能看懂项目在做什么。
+
 [未发布]: https://github.com/sogeisetsu/opencode-go-model-picker/commits/main

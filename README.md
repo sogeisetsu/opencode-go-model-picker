@@ -5,7 +5,7 @@
 <h1 align="center">OpenCode Go Model Picker</h1>
 
 <p align="center">
-  <em>Plan-aware model selection for OpenCode agents — native, oh-my-opencode-slim, or plugin-injected — read-only, source-cited, fallback-ready.</em>
+  <em>Plan-aware model selection for your OpenCode agents — native, oh-my-opencode-slim, or plugin-injected. Read-only, source-cited, fallback-ready.</em>
 </p>
 
 <p align="center">
@@ -24,29 +24,47 @@
   <img src="assets/banner.svg" alt="OpenCode Go Model Picker banner">
 </p>
 
-An [OpenCode](https://opencode.ai/) **Agent Skill** that picks cost-effective OpenCode Go models for your OpenCode agents — native agents defined in `opencode.jsonc` or under `~/.config/opencode/agents/`, [`oh-my-opencode-slim`](https://github.com/alvinunreal/oh-my-opencode-slim) presets, and other plugins that inject agents — with fallback chains, based on the **current** Go plan — read-only, and only ever applies changes after you confirm.
+Choosing models for OpenCode Go is a moving target. Prices, monthly caps, and the
+list of available models change constantly, and the "best" pick depends on whether
+you care more about cost or capability. This skill does that homework for you: it
+reads your OpenCode agent config, checks the **current** Go plan, and suggests a
+model for each of your custom agents — plus a fallback chain when your setup
+supports one. It is **read-only**, so nothing changes until you say yes.
 
 ---
 
-## What it is
+## What it does
 
-OpenCode Go's plan changes constantly — per-model monthly dollar limits, limited-time usage multipliers, and models that appear or get retired. Any hardcoded model list goes stale. This skill makes the agent **fetch the plan fresh on every run**, compare it with your current config, and recommend a model per **custom** agent (plus an ordered fallback chain where the tool supports one), always reported with its **source and fetch date**. OpenCode's built-in agents — Build, Plan, and the built-in subagents — are intentionally left untouched.
+- **Reads your agents** — native OpenCode agents, `oh-my-opencode-slim` presets, or
+  agents from another plugin.
+- **Fetches the Go plan fresh on every run**, so it never suggests a retired model
+  or an outdated price.
+- **Recommends a model for each custom agent.** OpenCode's built-in agents (Build,
+  Plan, and the built-in subagents) are left untouched.
+- **Adds a fallback chain** where the source supports one, so hitting a capped
+  model doesn't end your session.
+- **Shows its work.** Every number comes with a source and a fetch date, and
+  anything it can't verify is flagged instead of guessed.
 
-It is deliberately conservative:
-
-- **Never invents prices, limits, or model IDs.** Anything unverifiable is flagged as pending manual verification.
-- **Read-only by default.** It produces a preview and applies changes only after you confirm via OpenCode's `question` tool.
-- **Matches the installed plugin's schema**, not a random online doc.
+Two things it will never do: invent a price, limit, or model ID, and change your
+config without showing you the change first.
 
 ## Requirements
 
-- OpenCode with skills support (skills load from `~/.config/opencode/skills/`).
-- OpenCode agents to target: native agents, [`oh-my-opencode-slim`](https://github.com/alvinunreal/oh-my-opencode-slim) **2.2.x** (optional — one supported source; the installed schema is its source of truth), or another plugin that injects agents.
-- Node.js **18+** only if you run the optional catalog fetcher (tested on Node 22).
+- **OpenCode** with Agent Skills support. The skill lives in
+  `~/.config/opencode/skills/`.
+- **At least one custom agent to tune** — a native OpenCode agent, an
+  [`oh-my-opencode-slim`](https://github.com/alvinunreal/oh-my-opencode-slim)
+  preset, or an agent from another plugin.
+  - `oh-my-opencode-slim` is **optional**. It is only one of the supported
+    sources; if you happen to use it, the skill treats its installed schema as the
+    source of truth.
+- **Node.js 18+**, only for the helper scripts (tested on Node 22).
 
 ## Installation
 
-Clone the repo directly into your OpenCode skills directory, so the folder name matches the skill's `name`:
+Clone the repository into your OpenCode skills directory, so the folder name
+matches the skill's `name`:
 
 **Linux / macOS**
 ```bash
@@ -60,12 +78,12 @@ git clone https://github.com/sogeisetsu/opencode-go-model-picker.git `
   "$env:USERPROFILE\.config\opencode\skills\opencode-go-model-picker"
 ```
 
-**Minimal install.** You don't need the whole repository — only `SKILL.md`,
-`references/`, and `scripts/` are used at runtime. Copying just those three into
-`~/.config/opencode/skills/opencode-go-model-picker/` is enough and saves space;
-the rest (README, LICENSE, `assets/`, `zh/`, ...) is documentation only.
+**Minimal install.** You don't need the whole repository. At runtime the skill
+only uses `SKILL.md`, `references/`, and `scripts/`. Copy just those three into
+`~/.config/opencode/skills/opencode-go-model-picker/` and skip the rest (README,
+LICENSE, `assets/`, `zh/`, …) — they are documentation only.
 
-Verify the script runs:
+Then check that the helper script runs:
 
 ```bash
 node scripts/fetch-go-models.mjs   # prints { fetchedAt, source, count, ids }
@@ -92,7 +110,7 @@ Install the "OpenCode Go Model Picker" skill for me.
 
 ## Usage
 
-Just ask, in natural language. Example prompts:
+Just ask in plain language. For example:
 
 - "Pick the best OpenCode Go models for each of my agents."
 - "Is my current agent model config still a good fit for the current Go plan?"
@@ -100,40 +118,74 @@ Just ask, in natural language. Example prompts:
 - "I define my agents in `opencode.jsonc` — recommend models for them."
 - "Use budget mode — keep my agent models as cheap as possible."
 
-Three modes trade **performance against price**: `budget` (cheapest acceptable), `balanced` (default, best cost-effectiveness), and `quality` (strongest capability). Name one in your request; otherwise `balanced` is used.
+Three modes let you decide the trade-off between price and capability:
 
-The agent then reads your config, fetches the plan, and returns a six-part report:
+| Mode | What it optimizes for |
+|---|---|
+| `budget` | The cheapest model that still does the job. |
+| `balanced` | The best value — a sensible mix of price and capability (default). |
+| `quality` | The strongest model on Go, with cost as a secondary concern. |
 
-1. **Plan snapshot** — the models relevant to you, with source + fetch date.
-2. **What changed** — new/removed models, changed limits/prices, active promos.
-3. **Current** — every agent found across all sources and its current chain (read-only).
-4. **Recommendation** — per-agent chain, cost tier, and why.
-5. **Paste-ready** — a JSONC preset block.
-6. **Verify** — every unverified item, plus verification commands.
+Name a mode in your request; if you don't, `balanced` is used.
 
-It then **stops and asks** before applying anything.
+Every run ends with a six-part report:
+
+1. **Plan snapshot** — the models relevant to you, with source and fetch date.
+2. **What changed** — new or removed models, changed limits or prices, active promos.
+3. **Current** — every custom agent found and its current chain (read-only).
+4. **Recommendation** — a model or chain per agent, with the cost tier and the reason.
+5. **Paste-ready** — a JSONC block you can drop into your config.
+6. **Verify** — anything that still needs a human check, plus the commands to do it.
+
+The skill then **stops and asks** before applying anything.
 
 ## How it works
 
-The skill is a set of instructions (`SKILL.md`) plus lazily-loaded references. On a run, the agent:
+The skill is a set of instructions (`SKILL.md`) plus references it loads only when
+needed. A typical run goes like this:
 
-1. **Discovers agents** (read-only) across sources: native agents in `opencode.jsonc` / `~/.config/opencode/agents/*.md`, `oh-my-opencode-slim` presets (validated against the installed schema), and any other plugin source you declare. The adapter model, inventory record, and role-trait mapping live in [`references/agent-sources.md`](references/agent-sources.md).
-2. **Refreshes its model snapshot**: runs `scripts/refresh-snapshot.mjs` against a cached file under `~/.cache/`, fetching the live catalog and returning a compact added / removed diff. LiveBench scores are cached and refreshed on a 7-day TTL.
-3. **Fetches the plan**, re-verifying only the models the diff flagged and reusing cached values for the rest.
-4. **Allocates a model per agent** by role trait (with known-role overrides) — see the allocation policy in `SKILL.md`.
-5. **Builds fallback chains** — an ordered `model: [a, b, c]` failover list (2-4 entries).
-6. **Outputs** the six-part report and **asks for confirmation** before writing.
+1. **Find your agents** (read-only) — native agents in `opencode.jsonc` or
+   `~/.config/opencode/agents/*.md`, `oh-my-opencode-slim` presets, and any other
+   plugin source you declare. The details live in
+   [`references/agent-sources.md`](references/agent-sources.md).
+2. **Refresh its model snapshot** — `scripts/refresh-snapshot.mjs` fetches the
+   live catalog and returns a compact added/removed diff. LiveBench scores are
+   cached and refreshed on a 7-day TTL.
+3. **Check the plan** — it re-verifies only the models the diff flagged and reuses
+   cached values for the rest.
+4. **Pick a model per agent** by role trait, with overrides for known roles. See
+   the allocation policy in `SKILL.md`.
+5. **Build fallback chains** — an ordered `model: [a, b, c]` failover list (2–4
+   entries).
+6. **Write the report** and ask for confirmation before touching your config.
 
-Background on the mechanics:
+A few details worth knowing:
 
-- Go limits are **per-model monthly dollar amounts**; the overall window is 5h = 20%, weekly = 50%, monthly = 100%. Because limits are per-model, a different Go model is still usable when one is capped — which is why the first fallback is often another Go model.
-- An array like `model: ["a", "b", "c"]` is an ordered failover chain in `oh-my-opencode-slim` 2.2.x (verified against `ForegroundFallbackManager`). If **all** entries fail, the session aborts — so a chain should always end on a model you can actually rely on. Native OpenCode agents take a single `model`, so for them the skill recommends one model and says a chain is not expressible. Any other tool that supports chains works just as well — using `oh-my-opencode-slim` is only a suggestion, not a requirement.
-- Capabilities are verified from each model's **own lab documentation**, never inferred from its name — this matters especially for **vision** input, which vision-trait agents (such as `observer`) need.
-- **Token saving:** a cached snapshot (`~/.cache/opencode/opencode-go-model-picker/snapshot.json`) keeps the normalized catalog and model scores, so each run re-fetches and re-verifies only what changed. The cache never replaces a source — every value keeps its source and fetch date. See [`references/model-snapshot.md`](references/model-snapshot.md).
+- **Go limits are per model, in monthly dollars.** The overall window is 5 hours =
+  20%, weekly = 50%, monthly = 100%. Because each model has its own limit, another
+  Go model is still usable when one is capped — which is why the first fallback is
+  often another Go model.
+- **Fallback chains depend on your tool.** An array like `model: ["a", "b", "c"]`
+  is an ordered failover chain in `oh-my-opencode-slim` 2.2.x (verified against
+  `ForegroundFallbackManager`). If every entry fails, the session aborts, so the
+  chain should end on a model you can rely on. Native OpenCode agents take a single
+  `model`, so there the skill recommends one model and says a chain isn't possible.
+  Any other tool that supports chains works just as well — using
+  `oh-my-opencode-slim` is only a suggestion, not a requirement.
+- **Capabilities come from the lab, not the name.** The skill verifies a model's
+  abilities in its own lab documentation, never infers them from the model ID.
+  This matters most for **vision** input, which vision-capable agents (such as
+  `observer`) need.
+- **It saves tokens.** A cached snapshot at
+  `~/.cache/opencode/opencode-go-model-picker/snapshot.json` holds the normalized
+  catalog and scores, so each run re-fetches and re-verifies only what changed.
+  The cache never replaces a source — every value keeps its source and fetch date.
+  See [`references/model-snapshot.md`](references/model-snapshot.md).
 
 ## Data sources
 
-Fetched fresh every run; full details and parsing notes in [`references/data-sources.md`](references/data-sources.md).
+Fetched fresh every run. Full details and parsing notes are in
+[`references/data-sources.md`](references/data-sources.md).
 
 | Priority | Source | URL | Gives |
 |---|---|---|---|
@@ -142,28 +194,37 @@ Fetched fresh every run; full details and parsing notes in [`references/data-sou
 | 3 | Models endpoint | https://opencode.ai/zen/go/v1/models | live catalog ids (via `scripts/fetch-go-models.mjs`) |
 | 4 | models.dev | https://models.opencode.ai/providers/opencode-go/ | context / output / price / capabilities |
 | 5 | julien.cloud tracker | https://julien.cloud/opencode-go-models/ | merged view + price-change / deprecation log |
-| 6 | LiveBench (rankings) | https://livebench.ai/ | Overall + per-category scores + cost per successful task (cached; 7-day TTL) |
+| 6 | LiveBench | https://livebench.ai/ | overall + per-category scores + cost per successful task (cached; 7-day TTL) |
 
 ## Safety and privacy
 
-- **Read-only by default.** The skill does not edit `oh-my-opencode-slim.json`, `opencode.jsonc`, agent Markdown files, or any config until you confirm, after which it shows the exact change.
-- **Local reads:** your OpenCode config files under `~/.config/opencode/` (including `agents/`), and the installed plugin's schema.
-- **Network access:** it fetches the public pages above and calls the unauthenticated `opencode.ai` models endpoint via the local Node script. It sends no credentials and no personal data.
-- **No invented numbers:** every figure carries a source and fetch date; unverifiable values are flagged for manual verification.
-- **Unofficial.** This project is not affiliated with, endorsed by, or sponsored by OpenCode, SST, or any model vendor. Model names and prices belong to their respective owners.
+- **Read-only by default.** Nothing is written until you confirm, and then you see
+  exactly what changes — in `oh-my-opencode-slim.json`, `opencode.jsonc`, agent
+  Markdown files, or wherever the change belongs.
+- **Local reads:** your OpenCode config under `~/.config/opencode/` (including
+  `agents/`) and the installed plugin's schema.
+- **Network access:** the public pages above, plus the unauthenticated
+  `opencode.ai` models endpoint through the local Node script. No credentials and
+  no personal data are sent.
+- **No invented numbers.** Every figure carries a source and a fetch date, and
+  anything unverifiable is flagged for a manual check.
+- **Unofficial.** This project is not affiliated with, endorsed by, or sponsored
+  by OpenCode, SST, or any model vendor. Model names and prices belong to their
+  respective owners.
 
 ## Contributing
 
 Contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) (English) or
 [`CONTRIBUTING-ZH.md`](zh/CONTRIBUTING-ZH.md) (Chinese).
 
-Note: for personal privacy, this project intentionally does **not** commit a
-project `AGENTS.md`, contrary to the usual convention. Shareable project
-conventions live in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+For personal privacy this project intentionally does **not** commit a project
+`AGENTS.md`, contrary to the usual convention. Shareable conventions live in
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Changelog
 
-See [`CHANGELOG.md`](CHANGELOG.md) (English) or [`CHANGELOG-ZH.md`](zh/CHANGELOG-ZH.md) (Chinese).
+See [`CHANGELOG.md`](CHANGELOG.md) (English) or
+[`CHANGELOG-ZH.md`](zh/CHANGELOG-ZH.md) (Chinese).
 
 ## License
 
@@ -183,4 +244,13 @@ See [`LICENSE`](LICENSE) for the full text (the authoritative English version), 
 
 ## Provenance
 
-Built after surveying existing options (September 2026): no official or well-known skill does plan-aware OpenCode Go agent model selection. Closest analogs are the dashboard generator [`itsmylife44/cliproxyapi-dashboard`](https://github.com/itsmylife44/cliproxyapi-dashboard) (`oh-my-opencode-slim-config-generator.tsx`, MIT) and the cost-profile request [`code-yeongyu/oh-my-openagent#1768`](https://github.com/code-yeongyu/oh-my-openagent/issues/1768). Official Go data sources plus `oh-my-opencode-slim`'s static per-agent role guidance are reused here. Later generalized from `oh-my-opencode-slim`-only to any OpenCode agent source — see [`references/agent-sources.md`](references/agent-sources.md).
+Built after surveying existing options (September 2026): no official or well-known
+skill does plan-aware OpenCode Go agent model selection. Closest analogs are the
+dashboard generator
+[`itsmylife44/cliproxyapi-dashboard`](https://github.com/itsmylife44/cliproxyapi-dashboard)
+(`oh-my-opencode-slim-config-generator.tsx`, MIT) and the cost-profile request
+[`code-yeongyu/oh-my-openagent#1768`](https://github.com/code-yeongyu/oh-my-openagent/issues/1768).
+Official Go data sources plus `oh-my-opencode-slim`'s static per-agent role
+guidance are reused here. The skill was later generalized from
+`oh-my-opencode-slim`-only to any OpenCode agent source — see
+[`references/agent-sources.md`](references/agent-sources.md).

@@ -62,4 +62,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Repository files: `LICENSE` (GPL-3.0-or-later), `.gitignore`,
   `.gitattributes`, and `CONTRIBUTING.md`.
 
+### Changed
+
+- Rewrote both READMEs in a plainer, more readable style, regrouping them so the
+  project is easy to understand at a glance.
+
 [Unreleased]: https://github.com/sogeisetsu/opencode-go-model-picker/commits/main
