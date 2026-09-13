@@ -180,20 +180,34 @@ const mean = (nums) =>
   nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
 const round2 = (n) => (n === null ? null : Math.round(n * 100) / 100);
 
+async function request(url) {
+  let lastErr;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: { "user-agent": "opencode-go-model-picker/1.0" },
+      });
+      if (!res.ok) {
+        const err = new Error(`HTTP ${res.status} for ${url}`);
+        err.noRetry = true; // 4xx/5xx from the server: retrying will not help here
+        throw err;
+      }
+      return res;
+    } catch (err) {
+      lastErr = err;
+      if (err.noRetry) throw err;
+      if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1000));
+    }
+  }
+  throw lastErr;
+}
+
 async function fetchJson(url) {
-  const res = await fetch(url, {
-    headers: { "user-agent": "opencode-go-model-picker/1.0" },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-  return res.json();
+  return (await request(url)).json();
 }
 
 async function fetchText(url) {
-  const res = await fetch(url, {
-    headers: { "user-agent": "opencode-go-model-picker/1.0" },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-  return res.text();
+  return (await request(url)).text();
 }
 
 async function latestTableDate() {
@@ -381,6 +395,9 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(`Error: ${err.message ?? err}`);
+  const cause = err.cause
+    ? ` (${err.cause.code ?? err.cause.message ?? String(err.cause)})`
+    : "";
+  console.error(`Error: ${err.message ?? err}${cause}`);
   process.exit(1);
 });
