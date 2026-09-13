@@ -15,10 +15,13 @@ principles intact.
    configuration without a preview and explicit confirmation.
 3. **Match the schema of the source you are reading**, not an arbitrary online
    document. For `oh-my-opencode-slim`, the source of truth is its installed
-   `oh-my-opencode-slim.schema.json`; for native OpenCode agents, the official
-   config/agent docs.
+   `oh-my-opencode-slim.schema.json`; for custom native OpenCode agents, the
+   official config/agent docs.
 4. **Verify capabilities from the model's own lab documentation**, never from its
    name. This matters most for vision input, which the `observer` agent needs.
+5. **Only custom agents.** Never recommend models for OpenCode's built-in agents
+   (`build`, `plan`, the built-in subagents, or the hidden system agents).
+   A custom agent stays in scope even without fallback-chain support.
 
 ## Repository layout
 
@@ -30,12 +33,14 @@ principles intact.
 | `references/model-snapshot.md` | Persistent snapshot cache: schema, location, refresh policy, ranking sources, and name matching. |
 | `references/output-format.md` | The exact six-part report the skill must produce. |
 | `scripts/fetch-go-models.mjs` | Helper that prints the live model catalog as JSON. |
-| `scripts/refresh-snapshot.mjs` | Refreshes the snapshot cache and prints a compact added / removed / changed diff. |
+| `scripts/refresh-snapshot.mjs` | Refreshes the snapshot cache and prints a compact added / removed diff. |
 | `scripts/generate-assets.mjs` | Regenerates the SVG icon, banners and local badges. |
 | `scripts/check-docs.mjs` | Checks relative links and English/Chinese doc pairs. |
 | `README.md` / `README-ZH.md` | English and Chinese documentation. |
 | `zh/` | Chinese docs (`CONTRIBUTING-ZH.md`, `CHANGELOG-ZH.md`, and a git-ignored local `skill-zh.md` reading copy). |
 | `assets/` | SVG icon, banners and local badges used in the README headers. |
+| `LICENSE` | The full GPL-3.0-or-later license text. |
+| `CONTRIBUTING.md` / `CHANGELOG.md` | Contribution guide and changelog (English; Chinese under `zh/`). |
 
 ## Making a change
 
@@ -50,7 +55,7 @@ principles intact.
 There is no build step or test suite. Validate manually:
 
 ```bash
-node --check scripts/fetch-go-models.mjs   # syntax check
+node --check scripts/*.mjs                 # syntax check
 node scripts/fetch-go-models.mjs           # confirm the endpoint still works
 node scripts/check-docs.mjs                 # relative links + EN/ZH pair check
 ```

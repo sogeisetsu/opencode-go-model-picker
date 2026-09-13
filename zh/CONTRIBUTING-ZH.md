@@ -8,8 +8,9 @@
 
 1. **绝不编造价格、额度或模型编号。** 推荐中的每个数字都必须来自抓取到的来源，并附带来源与抓取日期。无法核实的值应标记为待人工核实，而不是猜测。
 2. **默认保持只读。** 技能绝不能在没有预览和明确确认的情况下编辑用户配置。
-3. **以你所读取来源的结构规范为准**，而不是随便一份在线文档。对 `oh-my-opencode-slim`，事实来源是随已安装插件版本一起提供的 `oh-my-opencode-slim.schema.json`；对原生 OpenCode 智能体，以官方 config/agent 文档为准。
+3. **以你所读取来源的结构规范为准**，而不是随便一份在线文档。对 `oh-my-opencode-slim`，事实来源是随已安装插件版本一起提供的 `oh-my-opencode-slim.schema.json`；对**自定义的原生** OpenCode 智能体，以官方 config/agent 文档为准。
 4. **从模型所属实验室的官方文档核实能力**，绝不从名字推断。这对 `observer` 智能体所需的视觉输入尤其重要。
+5. **只针对自定义智能体。** 绝不为 OpenCode 自带的智能体（`build`、`plan`、自带 subagent、隐藏的系统智能体）推荐模型。自定义智能体即使不支持回退链，也仍在范围内。
 
 ## 仓库结构
 
@@ -21,12 +22,14 @@
 | `references/model-snapshot.md` | 持久化快照缓存：schema、位置、刷新策略、排名来源与名称匹配。 |
 | `references/output-format.md` | 技能必须产出的六段式报告的具体格式。 |
 | `scripts/fetch-go-models.mjs` | 辅助脚本：把实时模型目录输出为 JSON。 |
-| `scripts/refresh-snapshot.mjs` | 刷新快照缓存，并输出紧凑的新增 / 下架 / 变化差异。 |
+| `scripts/refresh-snapshot.mjs` | 刷新快照缓存，并输出紧凑的新增 / 下架差异。 |
 | `scripts/generate-assets.mjs` | 重新生成 SVG 图标、横幅与本地徽章。 |
 | `scripts/check-docs.mjs` | 校验相对链接与中英文档对是否同步。 |
 | `README.md` / `README-ZH.md` | 英文与中文文档。 |
 | `zh/` | 中文文档（本文件、`CHANGELOG-ZH.md`，以及被 git 忽略的本地对读版 `skill-zh.md`）。 |
 | `assets/` | README 头部使用的 SVG 图标、横幅与本地徽章。 |
+| `LICENSE` | 完整的 GPL-3.0-or-later 许可证文本。 |
+| `CONTRIBUTING.md` / `CHANGELOG.md` | 贡献指南与更新日志（英文；中文在 `zh/` 下）。 |
 
 ## 进行改动
 
@@ -40,7 +43,7 @@
 本项目没有构建步骤或测试套件。请手动验证：
 
 ```bash
-node --check scripts/fetch-go-models.mjs   # 语法检查
+node --check scripts/*.mjs                 # 语法检查
 node scripts/fetch-go-models.mjs           # 确认端点仍然可用
 node scripts/check-docs.mjs                 # 相对链接 + 中英文档对校验
 ```

@@ -24,12 +24,13 @@
   <img src="assets/banner.svg" alt="OpenCode Go Model Picker banner">
 </p>
 
-Choosing models for OpenCode Go is a moving target. Prices, monthly caps, and the
-list of available models change constantly, and the "best" pick depends on whether
-you care more about cost or capability. This skill does that homework for you: it
-reads your OpenCode agent config, checks the **current** Go plan, and suggests a
-model for each of your custom agents — plus a fallback chain when your setup
-supports one. It is **read-only**, so nothing changes until you say yes.
+Choosing which OpenCode Go model each of your agents should use is fiddly. Prices,
+monthly caps, and the list of available models change constantly, and the "best"
+pick depends on whether you care more about cost or capability. This skill does
+that homework for you: it reads your OpenCode agent config, checks the **current**
+Go plan, and suggests a model for each of your custom agents — plus a fallback
+chain when your setup supports one. It is **read-only**, so nothing changes until
+you say yes.
 
 ---
 
@@ -39,8 +40,9 @@ supports one. It is **read-only**, so nothing changes until you say yes.
   agents from another plugin.
 - **Fetches the Go plan fresh on every run**, so it never suggests a retired model
   or an outdated price.
-- **Recommends a model for each custom agent.** OpenCode's built-in agents (Build,
-  Plan, and the built-in subagents) are left untouched.
+- **Recommends a model for each custom agent**, wherever it lives — even one
+  configured only in native OpenCode, with no fallback-chain support. OpenCode's
+  own built-in agents (Build, Plan, and the built-in subagents) are left untouched.
 - **Adds a fallback chain** where the source supports one, so hitting a capped
   model doesn't end your session.
 - **Shows its work.** Every number comes with a source and a fetch date, and
@@ -49,11 +51,21 @@ supports one. It is **read-only**, so nothing changes until you say yes.
 Two things it will never do: invent a price, limit, or model ID, and change your
 config without showing you the change first.
 
+### A suggestion
+
+If you can, register your custom agents through a tool that supports ordered
+fallback chains — `oh-my-opencode-slim` is one, and any other tool or plugin that
+does the same works just as well. The reason is resilience: Go models get
+rate-limited and retired, and a chain keeps your session running when the first
+choice is unavailable. This is only a suggestion. If you don't use one, the skill
+still works — it just recommends a single model for those agents.
+
 ## Requirements
 
 - **OpenCode** with Agent Skills support. The skill lives in
   `~/.config/opencode/skills/`.
-- **At least one custom agent to tune** — a native OpenCode agent, an
+- **At least one custom agent to tune** — a custom native OpenCode agent (not one
+  of OpenCode's built-ins), an
   [`oh-my-opencode-slim`](https://github.com/alvinunreal/oh-my-opencode-slim)
   preset, or an agent from another plugin.
   - `oh-my-opencode-slim` is **optional**. It is only one of the supported
@@ -150,9 +162,11 @@ needed. A typical run goes like this:
    [`references/agent-sources.md`](references/agent-sources.md).
 2. **Refresh its model snapshot** — `scripts/refresh-snapshot.mjs` fetches the
    live catalog and returns a compact added/removed diff. LiveBench scores are
-   cached and refreshed on a 7-day TTL.
-3. **Check the plan** — it re-verifies only the models the diff flagged and reuses
-   cached values for the rest.
+   cached and refreshed on a 7-day TTL (a brand-new model is always looked up
+   right away).
+3. **Check the plan** — prices and limits are read from the current plan pages and
+   compared with the cache; only the added or changed models get a deeper
+   capability check.
 4. **Pick a model per agent** by role trait, with overrides for known roles. See
    the allocation policy in `SKILL.md`.
 5. **Build fallback chains** — an ordered `model: [a, b, c]` failover list (2–4
