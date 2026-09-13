@@ -3,7 +3,8 @@
 // Copyright (C) 2026 sogeisetsu
 //
 // This file is part of opencode-go-model-picker, a skill that picks
-// cost-effective OpenCode Go models for each oh-my-opencode-slim agent.
+// cost-effective OpenCode Go models for each OpenCode agent (native,
+// oh-my-opencode-slim, or another plugin source).
 //
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free Software

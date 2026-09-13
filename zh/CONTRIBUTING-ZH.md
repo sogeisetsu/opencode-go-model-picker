@@ -8,7 +8,7 @@
 
 1. **绝不编造价格、额度或模型编号。** 推荐中的每个数字都必须来自抓取到的来源，并附带来源与抓取日期。无法核实的值应标记为待人工核实，而不是猜测。
 2. **默认保持只读。** 技能绝不能在没有预览和明确确认的情况下编辑用户配置。
-3. **以已安装插件的结构规范为准**，而不是随便一份在线文档。事实来源是随已安装插件版本一起提供的 `oh-my-opencode-slim.schema.json`。
+3. **以你所读取来源的结构规范为准**，而不是随便一份在线文档。对 `oh-my-opencode-slim`，事实来源是随已安装插件版本一起提供的 `oh-my-opencode-slim.schema.json`；对原生 OpenCode 智能体，以官方 config/agent 文档为准。
 4. **从模型所属实验室的官方文档核实能力**，绝不从名字推断。这对 `observer` 智能体所需的视觉输入尤其重要。
 
 ## 仓库结构
@@ -17,8 +17,11 @@
 |---|---|
 | `SKILL.md` | 技能本体：frontmatter、铁律、工作流、分配策略、回退策略、结构规范说明。 |
 | `references/data-sources.md` | 从哪里抓取实时套餐数据，以及如何解析。 |
+| `references/agent-sources.md` | 智能体发现：来源适配器、统一 inventory 记录、角色特征映射，以及来源缺失时的回退。 |
+| `references/model-snapshot.md` | 持久化快照缓存：schema、位置、刷新策略、排名来源与名称匹配。 |
 | `references/output-format.md` | 技能必须产出的六段式报告的具体格式。 |
 | `scripts/fetch-go-models.mjs` | 辅助脚本：把实时模型目录输出为 JSON。 |
+| `scripts/refresh-snapshot.mjs` | 刷新快照缓存，并输出紧凑的新增 / 下架 / 变化差异。 |
 | `scripts/generate-assets.mjs` | 重新生成 SVG 图标、横幅与本地徽章。 |
 | `scripts/check-docs.mjs` | 校验相对链接与中英文档对是否同步。 |
 | `README.md` / `README-ZH.md` | 英文与中文文档。 |
@@ -49,7 +52,7 @@ node scripts/check-docs.mjs                 # 相对链接 + 中英文档对校�
 请附上：
 
 - 你使用的提示词，以及你的预期与实际结果。
-- 你的 OpenCode 版本和已安装的 `oh-my-opencode-slim` 版本。
+- 你的 OpenCode 版本；如相关，还有已安装的 `oh-my-opencode-slim` 版本。
 - 任何相关输出（请先移除敏感信息）。
 
 ## 贡献的许可

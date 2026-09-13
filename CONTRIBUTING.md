@@ -4,7 +4,7 @@ Thanks for your interest in improving the OpenCode Go Model Picker. This is a sm
 focused project, so contributions are easiest to accept when they keep its design
 principles intact.
 
-[中文版](zh/CONTRIBUTING-ZH.md)
+[Chinese version](zh/CONTRIBUTING-ZH.md)
 
 ## Ground rules
 
@@ -13,9 +13,10 @@ principles intact.
    Unverifiable values are flagged for manual verification rather than guessed.
 2. **Keep it read-only by default.** The skill must never edit the user's
    configuration without a preview and explicit confirmation.
-3. **Match the installed plugin's schema**, not an arbitrary online document. The
-   source of truth is the `oh-my-opencode-slim.schema.json` shipped with the
-   installed plugin version.
+3. **Match the schema of the source you are reading**, not an arbitrary online
+   document. For `oh-my-opencode-slim`, the source of truth is its installed
+   `oh-my-opencode-slim.schema.json`; for native OpenCode agents, the official
+   config/agent docs.
 4. **Verify capabilities from the model's own lab documentation**, never from its
    name. This matters most for vision input, which the `observer` agent needs.
 
@@ -25,8 +26,11 @@ principles intact.
 |---|---|
 | `SKILL.md` | The skill itself: frontmatter, iron rules, workflow, allocation policy, fallback policy, schema notes. |
 | `references/data-sources.md` | Where to fetch live plan data and how to parse it. |
+| `references/agent-sources.md` | Agent discovery: source adapters, the uniform inventory record, the role-trait mapping, and fallback when a source is missing. |
+| `references/model-snapshot.md` | Persistent snapshot cache: schema, location, refresh policy, ranking sources, and name matching. |
 | `references/output-format.md` | The exact six-part report the skill must produce. |
 | `scripts/fetch-go-models.mjs` | Helper that prints the live model catalog as JSON. |
+| `scripts/refresh-snapshot.mjs` | Refreshes the snapshot cache and prints a compact added / removed / changed diff. |
 | `scripts/generate-assets.mjs` | Regenerates the SVG icon, banners and local badges. |
 | `scripts/check-docs.mjs` | Checks relative links and English/Chinese doc pairs. |
 | `README.md` / `README-ZH.md` | English and Chinese documentation. |
@@ -64,7 +68,7 @@ instead, so the assets stay reproducible.
 Please include:
 
 - The prompt you used and what you expected versus what happened.
-- Your OpenCode version and your installed `oh-my-opencode-slim` version.
+- Your OpenCode version and, if relevant, your installed `oh-my-opencode-slim` version.
 - Any relevant output, with secrets removed.
 
 ## License of contributions
