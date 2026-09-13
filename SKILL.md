@@ -80,9 +80,12 @@ A persistent, normalized snapshot of the Go catalog and model scores lives at
 
 - Run `node scripts/refresh-snapshot.mjs` — it fetches the live catalog, diffs the
   ids (`added` / `removed`), and prints a compact JSON diff.
-- Refresh **LiveBench** scores (Overall + categories + cost) only when
-  `sources.rankings.fetchedAt` is missing or older than 7 days, then write them
-  into the snapshot.
+- Refresh **LiveBench** scores only when `sources.rankings.fetchedAt` is missing
+  or older than 7 days, using `node scripts/refresh-scores.mjs --snapshot <path>`
+  (no browser). It reuses the committed `references/model-scores.json` seed when
+  its `source.tableDate` is still the latest LiveBench table, and otherwise
+  fetches the raw static table. `costPerSuccessfulTaskUsd` is always `null` (the
+  static table has no cost column).
 - The TTL only throttles re-checking models whose score is already cached: a
   newly added or changed model always gets a fresh score lookup, and a major plan
   change (many added/removed models) or an explicit user request forces a full
@@ -101,6 +104,7 @@ Minimum set:
 - `https://opencode.ai/go` — most timely (promos, "4× usage", featured usage table **with estimated requests per 5h**).
 - `https://opencode.ai/docs/go/` (anchor `#usage-limits`) — full model + price + monthly-limit table, plus the "Estimated requests" assumptions and per-model req/5h / week / month.
 - `https://opencode.ai/zen/go/v1/models` — live catalog (unauthenticated); run `node scripts/fetch-go-models.mjs`.
+- Ranking scores: `node scripts/refresh-scores.mjs` (static LiveBench CSV; committed seed at `references/model-scores.json`) — no browser.
 - Cross-check: `https://models.opencode.ai/providers/opencode-go/`, `https://julien.cloud/opencode-go-models/`.
 
 ## Workflow
@@ -115,15 +119,17 @@ Minimum set:
    `node scripts/refresh-snapshot.mjs`, and read the compact diff (see
    `references/model-snapshot.md`). The script reports `added` / `removed`
    catalog ids; prices and limits come from the plan pages and are compared with
-   the cached values. Deep-verify capabilities (especially vision) only for the
-   added or changed models. Build this run's snapshot:
+   the cached values. If `sources.rankings.fetchedAt` is missing or older than 7
+   days, run `node scripts/refresh-scores.mjs --snapshot <path>` (reuses the
+   committed seed when current; no browser). Deep-verify capabilities (especially
+   vision) only for the added or changed models. Build this run's snapshot:
    `model id | input $/1M | output $/1M | monthly $ limit | est. req/5h | est. req/week | est. req/month | context | reasoning | vision | status | source+date`.
 3. **Detect plan changes** vs. the last snapshot (if any): new/removed models,
    changed limits/prices/estimated request counts, limited-time promos. Call these
    out first.
 4. **Allocate models per agent** by **trait** (policy below) **under the selected
-   recommendation mode** (default `balanced`), using the known-role overrides for
-   backward compatibility.
+   recommendation mode** (see "Choosing a mode on first run" below; default
+   `balanced`), using the known-role overrides for backward compatibility.
 5. **Build fallback chains** where the source supports them (policy below).
 6. **Output** exactly per `references/output-format.md`, then **stop and ask**
    before applying anything.
@@ -162,6 +168,26 @@ at the time of writing; re-check each run, the id may change — as the baseline
   Price still matters in `balanced` — that is the mode's whole point.
 - This ceiling is `balanced`-only: `budget` goes cheaper, and `quality`
   deliberately ignores it.
+
+### Choosing a mode on first run
+
+Resolve the mode in this order; do not ask when an earlier step answers it:
+
+1. **Request names a mode** → use it.
+2. **Remembered** → if `snapshot.preferences.mode` is set, reuse it silently.
+3. **First run, no mode** → run a short diagnostic with the `question` tool: at
+   most three questions, each offering a "you decide / just use balanced" escape.
+   - **Main goal** — save money → `budget`; best value → `balanced`; strongest
+     capability → `quality`.
+   - **Usage** — almost every turn (high volume) vs occasionally.
+   - **Main task** — coding / hard reasoning & review / vision / mixed.
+   The main goal is the primary signal; usage and task only refine it (e.g.
+   "strongest + high volume" stays `quality` but note the balanced price ceiling).
+   Persist the result to `snapshot.preferences` (`mode`, `answers`, `chosenAt`).
+4. **Diagnostic skipped or refused** → `balanced`.
+
+Never ask again once a mode is remembered; a mode named in a later request always
+overrides it, and the user can ask to reset the remembered choice.
 
 State the chosen mode in the report (see `references/output-format.md`), and when
 it was not the default, say why.

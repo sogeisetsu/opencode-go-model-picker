@@ -23,8 +23,10 @@ agents — including but not limited to Build, Plan, and the built-in subagents
 missing description, duplicate names).
 
 ## 4. Recommendation
-State the selected recommendation mode (`budget` / `balanced` / `quality`; default
-`balanced`) and, if not the default, why.
+State the selected recommendation mode (`budget` / `balanced` / `quality`) and
+where it came from: named in the request, remembered from a previous run
+(`snapshot.preferences.mode`), chosen by the first-run diagnostic, or the default
+`balanced`. When it is not the default, say why.
 
 `| source | agent | traits | recommended model/chain | cost tier | why |`
 Explain the cost signal (monthly limit + $/1M), the estimated requests per 5h
