@@ -17,8 +17,9 @@ snapshot. On the first run, state that there is no history to compare.
 ## 3. Current
 The discovered **custom** agents across all sources (read-only), one row per agent:
 `source | agent | mode | current model/chain`. Do not list OpenCode's built-in
-agents (see `references/agent-sources.md`). Include adapter warnings (missing
-source, missing description, duplicate names).
+agents — including but not limited to Build, Plan, and the built-in subagents
+(see `references/agent-sources.md`). Include adapter warnings (missing source,
+missing description, duplicate names).
 
 ## 4. Recommendation
 State the selected recommendation mode (`budget` / `balanced` / `quality`; default

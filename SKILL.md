@@ -1,6 +1,6 @@
 ---
 name: opencode-go-model-picker
-description: "Choose or rebalance which OpenCode Go model each **custom** OpenCode agent/subagent uses, against the LATEST Go plan (models, usage limits, limited-time promos), optimizing cost-effectiveness and resilience. Supports multiple agent sources - native agents (the `agent` key in opencode.json/opencode.jsonc and Markdown files under ~/.config/opencode/agents/ or .opencode/agents/), oh-my-opencode-slim presets, and other plugins that inject agents. OpenCode's own built-in agents (build, plan, and the built-in subagents) are left alone. Use when the user asks to pick/tune/optimize agent models for OpenCode Go, asks whether the current agent model config still fits the current Go plan, or wants a paste-ready preset or agent model block. Read-only by default: it fetches the plan, produces recommendations with fallback chains, and never edits config without a preview and explicit confirmation."
+description: "Choose or rebalance which OpenCode Go model each **custom** OpenCode agent/subagent uses, against the LATEST Go plan (models, usage limits, limited-time promos), optimizing cost-effectiveness and resilience. Supports multiple agent sources - native agents (the `agent` key in opencode.json/opencode.jsonc and Markdown files under ~/.config/opencode/agents/ or .opencode/agents/), oh-my-opencode-slim presets, and other plugins that inject agents. OpenCode's own built-in agents (including but not limited to build, plan, and the built-in subagents) are left alone. Use when the user asks to pick/tune/optimize agent models for OpenCode Go, asks whether the current agent model config still fits the current Go plan, or wants a paste-ready preset or agent model block. Read-only by default: it fetches the plan, produces recommendations with fallback chains, and never edits config without a preview and explicit confirmation."
 license: GPL-3.0-or-later
 compatibility: opencode
 metadata:
@@ -14,7 +14,10 @@ metadata:
 Assign the most cost-effective **OpenCode Go** model to each **custom** agent in
 your OpenCode setup — native agents, oh-my-opencode-slim presets, or other plugins
 that inject agents — with sensible fallback chains, based on the **current** Go
-plan. OpenCode's own built-in agents are not tuned. The Go plan changes often
+plan. OpenCode's own built-in agents (including but not limited to `build`,
+`plan`, and the built-in subagents) are not tuned; which agents ship with OpenCode
+can change between versions, so the rule is "anything OpenCode ships is skipped",
+not a fixed list. The Go plan changes often
 (per-model monthly limits, limited-time usage multipliers, new/retired models), so
 always fetch fresh data before recommending.
 
@@ -48,8 +51,9 @@ always fetch fresh data before recommending.
 The skill is source-agnostic. Read `references/agent-sources.md` for the adapter
 interface, the uniform inventory record, the role-trait mapping, and fallback
 when a source is missing. Only **custom** agents are in scope: skip OpenCode's
-built-in agents (`build`, `plan`, `general`, `explore`, `scout`, and the hidden
-`compaction`/`title`/`summary`). Minimum set of sources to try:
+built-in agents (including but not limited to `build`, `plan`, `general`,
+`explore`, `scout`, and the hidden `compaction`/`title`/`summary`; the exact set
+can change between OpenCode versions). Minimum set of sources to try:
 
 - **native** — `opencode.json` / `opencode.jsonc` `agent.<name>`;
   `~/.config/opencode/agents/*.md`; `.opencode/agents/*.md` (note: plural

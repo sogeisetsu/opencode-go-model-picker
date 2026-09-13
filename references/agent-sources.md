@@ -36,21 +36,22 @@ equally good option.
 
 ## Built-in agents are out of scope
 
-Only suggest models for **custom** agents. Skip OpenCode's built-in agents, even
-though they appear in the same registry:
+Only suggest models for **custom** agents. Skip anything OpenCode ships, even
+though it appears in the same registry. Examples include but are not limited to:
 
 - primary agents: `build`, `plan`
 - built-in subagents: `general`, `explore`, `scout`
 - hidden system agents: `compaction`, `title`, `summary`
 
-These are maintained by OpenCode and are not the user's to tune. Custom native
-agents (any other name) and plugin agents (such as `oh-my-opencode-slim`'s) are in
-scope. Verified against the official Agents docs (2026-09-11).
+The exact set changes between OpenCode versions, so treat this as "OpenCode's own
+agents are skipped", not a fixed list — re-check the official Agents docs when in
+doubt (verified 2026-09-11). Everything else is in scope: custom native agents
+(any name you define) and plugin agents (such as `oh-my-opencode-slim`'s).
 
 Chain support is **not** a requirement for scope. A custom agent configured only
-natively — with a single `model`, not registered in `oh-my-opencode-slim` or any
-other chain-capable tool — is still in scope; the skill just recommends one model
-for it instead of a chain.
+directly in OpenCode — with a single `model`, not registered in
+`oh-my-opencode-slim` or any other chain-capable tool — is still in scope; the
+skill just recommends one model for it instead of a chain.
 
 ## Adapter interface
 
