@@ -92,6 +92,12 @@ node scripts/fetch-go-models.mjs   # 输出 { fetchedAt, source, count, ids }
 5. 告诉我安装路径以及是否成功。
 ```
 
+## 快速上手
+
+安装完成后，在 OpenCode 里直接输入斜杠命令 `/opencode-go-model-picker` 即可调用，不需要再输入任何内容——技能会自己去读你的智能体配置、抓取当前 Go 套餐，然后给出推荐。
+
+TUI 里如果它没出现在 `/` 的补全列表中，先输入 `/skills`，从技能列表里选同名项即可。
+
 ## 用法
 
 用平常的话提问就行，比如：

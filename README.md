@@ -125,6 +125,17 @@ Install the "OpenCode Go Model Picker" skill for me.
 5. Tell me the install path and whether it worked.
 ```
 
+## Quick start
+
+Once installed, invoke the skill from OpenCode with its slash command — no
+input needed:
+
+`/opencode-go-model-picker`
+
+The skill reads your agent config, fetches the current Go plan, and comes back
+with its recommendations. In the TUI, if it does not show up in the `/`
+autocomplete list, type `/skills` and pick it from the skill list.
+
 ## Usage
 
 Just ask in plain language. For example:
