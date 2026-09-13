@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// opencode-go-model-picker — build the LiveBench score seed / merge scores into a snapshot.
+// opencode-go-model-picker — build the LMArena score seed / merge scores into a snapshot.
 // Copyright (C) 2026 sogeisetsu
 //
 // This file is part of opencode-go-model-picker, a skill that picks
@@ -18,83 +18,97 @@
 // You should have received a copy of the GNU General Public License along with
 // this program. If not, see <https://www.gnu.org/licenses/>.
 //
-// LiveBench publishes no machine-readable leaderboard endpoint on livebench.ai
-// (it is a single-page app). Its site repository, however, serves the raw table
-// as static files, so this script needs no browser:
+// Ranking source: the official LMArena leaderboard dataset, served by the
+// Hugging Face datasets-server (no key, no browser):
 //
-//   https://github.com/LiveBench/livebench.github.io/tree/main/public
-//     table_<YYYY_MM_DD>.csv        model + one column per task
-//     categories_<YYYY_MM_DD>.json  task -> category map
+//   dataset: lmarena-ai/leaderboard-dataset
+//   boards:  text_style_control (overall), webdev (Code Arena), vision
+//   fields:  model_name, rating (Arena ELO), rank, vote_count,
+//            category, leaderboard_publish_date
 //
-// Overall and per-category scores are DERIVED here by averaging the task
-// columns (LiveBench's own categories map is used), so they are marked
-// `derived: true`. The static table has no cost column, so
-// `costPerSuccessfulTaskUsd` stays null.
+// Arena ELO is used as the ability signal; the dataset has no cost column, so
+// `costPerSuccessfulTaskUsd` stays null. Overall/coding/vision are read from the
+// three boards; no other category is derived.
+//
+// Proxy: if HTTP(S)_PROXY is set, Node's fetch does not use it by default. This
+// script re-executes itself with NODE_USE_ENV_PROXY=1 so the documented command
+// works unchanged behind a proxy. Pass --no-env-proxy to opt out.
 //
 // Usage:
 //   node scripts/refresh-scores.mjs                     # write references/model-scores.json
 //   node scripts/refresh-scores.mjs --out <seed.json>
 //   node scripts/refresh-scores.mjs --snapshot <snap.json>
-//     # user path: reuse the committed seed when its tableDate is still the
-//     # latest one, else fetch and merge fresh scores into the snapshot.
-//   node scripts/refresh-scores.mjs --pinned 2026-06-25  # pin a specific table
+//     # user path: reuse the committed seed when its publish dates are still the
+//     # latest, else fetch and merge fresh scores into the snapshot.
 //   node scripts/refresh-scores.mjs --seed <seed.json>   # override the seed path
+//   node scripts/refresh-scores.mjs --no-env-proxy
 //
 // Exit code: 1 on error, else 0.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+// --- proxy: make `node scripts/refresh-scores.mjs` work behind a proxy --------
+function maybeReexec() {
+  if (process.argv.includes("--no-env-proxy")) return;
+  const proxy =
+    process.env.HTTPS_PROXY ||
+    process.env.HTTP_PROXY ||
+    process.env.https_proxy ||
+    process.env.http_proxy;
+  if (!proxy) return;
+  if (process.env.NODE_USE_ENV_PROXY === "1") return;
+  if (process.env.OGMP_PROXY_REEXEC === "1") return; // sentinel: never loop
+  const res = spawnSync(process.execPath, process.argv.slice(1), {
+    stdio: "inherit",
+    env: { ...process.env, NODE_USE_ENV_PROXY: "1", OGMP_PROXY_REEXEC: "1" },
+  });
+  process.exit(res.status ?? 1);
+}
+maybeReexec();
+
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const CONTENTS_URL =
-  "https://api.github.com/repos/LiveBench/livebench.github.io/contents/public";
-const RAW_BASE =
-  "https://raw.githubusercontent.com/LiveBench/livebench.github.io/main/public";
-const CATALOG_URL = "https://opencode.ai/zen/go/v1/models";
-const SOURCE_PAGE = "https://livebench.ai/";
-const LICENSE = "Apache-2.0";
+const BASE = "https://datasets-server.huggingface.co";
+const DATASET = "lmarena-ai/leaderboard-dataset";
+const SOURCE_PAGE = "https://lmarena.ai/";
+const PAGE = 100;
+const PAGE_MAX = 5000; // safety cap
 
-const CATEGORY_FIELDS = {
-  Reasoning: "reasoning",
-  Coding: "coding",
-  "Agentic Coding": "agenticCoding",
-  Mathematics: "math",
-  "Data Analysis": "dataAnalysis",
-  Language: "language",
-  IF: "instructionFollowing",
+// Ability signal comes from these three boards only.
+const BOARDS = {
+  overall: { config: "text_style_control", category: "overall" },
+  coding: { config: "webdev", category: "overall" },
+  vision: { config: "vision", category: "overall" },
 };
-const SCORE_FIELDS = [
-  "overall",
-  "reasoning",
-  "coding",
-  "agenticCoding",
-  "math",
-  "dataAnalysis",
-  "language",
-  "instructionFollowing",
-];
 
-// Tokens that may legitimately trail a base name in LiveBench (effort/variant
-// labels). Only these are stripped when matching `kimi-k2.6` -> `kimi-k2.6-thinking`.
+// Tokens that may trail a base model name in LMArena (effort/variant/date).
 const NOISE = new Set([
   "thinking",
   "high",
   "xhigh",
+  "xxhigh",
   "medium",
   "low",
   "auto",
   "effort",
   "preview",
+  "instant",
   "instruct",
   "it",
   "chat",
-  "64k",
-  "128k",
-  "code",
+  "max",
   "mini",
   "nano",
+  "code",
+  "reasoning",
+  "non",
+  "16k",
+  "32k",
+  "64k",
+  "128k",
 ]);
 
 function argValue(name) {
@@ -102,7 +116,6 @@ function argValue(name) {
   return i >= 0 ? process.argv[i + 1] : undefined;
 }
 
-const pinned = argValue("--pinned");
 const snapshotArg = argValue("--snapshot");
 const outArg = argValue("--out");
 const seedPath = argValue("--seed") ?? join(root, "references", "model-scores.json");
@@ -120,65 +133,26 @@ const normalize = (s) =>
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
-// Match a Go model id to a LiveBench model name. Conservative: require an exact
-// normalized match, or a prefix whose remaining tokens are all known suffixes
-// (effort/variant labels) or numeric date stamps. Never fuzzy-guess.
-function matchName(goId, lbNames) {
+// Conservative matcher: exact normalized match, or a prefix whose remaining
+// tokens are all known suffixes / numeric date stamps AND the candidate is
+// unique. Ambiguity (e.g. glm-5.3 vs glm-5.3-max / glm-5.3-flash) yields null.
+function matchName(goId, names) {
   const g = normalize(goId);
   if (!g) return null;
-  const exact = lbNames.find((n) => normalize(n) === g);
+  const exact = names.find((n) => normalize(n) === g);
   if (exact) return exact;
-  let best = null;
-  for (const n of lbNames) {
-    const norm = normalize(n);
-    if (!norm.startsWith(g + " ")) continue;
-    const extra = norm
+  const candidates = new Set();
+  for (const n of names) {
+    const nn = normalize(n);
+    if (!nn.startsWith(g + " ")) continue;
+    const extra = nn
       .slice(g.length + 1)
       .split(" ")
       .filter(Boolean);
-    const ok = extra.every((t) => NOISE.has(t) || /^\d{3,}$/.test(t));
-    if (!ok) continue;
-    if (!best || extra.length < best.extra) best = { name: n, extra: extra.length };
+    if (extra.every((t) => NOISE.has(t) || /^\d{3,}$/.test(t))) candidates.add(n);
   }
-  return best ? best.name : null;
+  return candidates.size === 1 ? [...candidates][0] : null;
 }
-
-// Minimal RFC-4180-ish CSV parser (handles quoted fields).
-function parseCsv(text) {
-  const rows = [];
-  let row = [];
-  let field = "";
-  let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (text[i + 1] === '"') {
-          field += '"';
-          i++;
-        } else inQuotes = false;
-      } else field += c;
-    } else if (c === '"') inQuotes = true;
-    else if (c === ",") {
-      row.push(field);
-      field = "";
-    } else if (c === "\n") {
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = "";
-    } else if (c !== "\r") field += c;
-  }
-  if (field.length || row.length) {
-    row.push(field);
-    rows.push(row);
-  }
-  return rows.filter((r) => r.some((x) => x !== ""));
-}
-
-const mean = (nums) =>
-  nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
-const round2 = (n) => (n === null ? null : Math.round(n * 100) / 100);
 
 async function request(url) {
   let lastErr;
@@ -186,10 +160,12 @@ async function request(url) {
     try {
       const res = await fetch(url, {
         headers: { "user-agent": "opencode-go-model-picker/1.0" },
+        signal: AbortSignal.timeout(45000),
       });
       if (!res.ok) {
         const err = new Error(`HTTP ${res.status} for ${url}`);
-        err.noRetry = true; // 4xx/5xx from the server: retrying will not help here
+        // 4xx is a client-side answer (retrying will not help); 5xx is worth a retry.
+        if (res.status >= 400 && res.status < 500) err.noRetry = true;
         throw err;
       }
       return res;
@@ -202,80 +178,117 @@ async function request(url) {
   throw lastErr;
 }
 
-async function fetchJson(url) {
-  return (await request(url)).json();
+const fetchJson = async (url) => (await request(url)).json();
+
+function filterUrl(board, offset, length) {
+  const where = `"category"='${board.category}'`;
+  return (
+    `${BASE}/filter?dataset=${DATASET}&config=${encodeURIComponent(board.config)}` +
+    `&split=latest&where=${encodeURIComponent(where)}&offset=${offset}&length=${length}`
+  );
 }
 
-async function fetchText(url) {
-  return (await request(url)).text();
+// Cheap freshness probe: one row per board, to read leaderboard_publish_date.
+async function fetchPublishDates() {
+  const entries = await Promise.all(
+    Object.entries(BOARDS).map(async ([name, board]) => {
+      const j = await fetchJson(filterUrl(board, 0, 1));
+      const first = (j.rows ?? [])[0]?.row;
+      return [name, first?.leaderboard_publish_date ?? null];
+    })
+  );
+  return Object.fromEntries(entries);
 }
 
-async function latestTableDate() {
-  if (pinned) return pinned;
-  const listing = await fetchJson(CONTENTS_URL);
-  const dates = [];
-  for (const entry of Array.isArray(listing) ? listing : []) {
-    const m = /^table_(\d{4})_(\d{2})_(\d{2})\.csv$/.exec(entry.name ?? "");
-    if (m) dates.push(`${m[1]}-${m[2]}-${m[3]}`);
-  }
-  if (!dates.length) throw new Error("No table_*.csv found in LiveBench public/");
-  dates.sort();
-  return dates[dates.length - 1];
-}
-
-// Fetch the table + category map and compute per-model scores.
-async function computeScores(tableDate) {
-  const stamp = tableDate.replace(/-/g, "_");
-  const tableUrl = `${RAW_BASE}/table_${stamp}.csv`;
-  const categoriesUrl = `${RAW_BASE}/categories_${stamp}.json`;
-  const [csv, categoriesJson] = await Promise.all([
-    fetchText(tableUrl),
-    fetchJson(categoriesUrl),
-  ]);
-
-  const rows = parseCsv(csv);
-  const header = rows[0];
-  const taskCols = header.slice(1).map((name, i) => ({ name, i: i + 1 }));
-  const byTask = new Map(taskCols.map((c) => [c.name, c.i]));
-
-  const catMap = Object.entries(categoriesJson)
-    .filter(([cat]) => CATEGORY_FIELDS[cat])
-    .map(([cat, tasks]) => ({ field: CATEGORY_FIELDS[cat], tasks }));
-
-  const scores = new Map();
-  for (const row of rows.slice(1)) {
-    const lbName = row[0];
-    if (!lbName) continue;
-    const cell = (i) => {
-      const n = Number(row[i]);
-      return Number.isFinite(n) ? n : null;
-    };
-    const score = { modelName: lbName };
-    for (const { field, tasks } of catMap) {
-      score[field] = round2(mean(tasks.map((t) => cell(byTask.get(t))).filter((n) => n !== null)));
+// Fetch one board (paginated) -> { byName: Map, publishDate }
+async function fetchBoard(board) {
+  const byName = new Map();
+  let publishDate = null;
+  for (let offset = 0; offset < PAGE_MAX; offset += PAGE) {
+    const j = await fetchJson(filterUrl(board, offset, PAGE));
+    const rows = (j.rows ?? []).map((r) => r.row);
+    if (offset === 0 && rows[0]) publishDate = rows[0].leaderboard_publish_date ?? null;
+    for (const row of rows) {
+      if (!row?.model_name) continue;
+      byName.set(row.model_name, {
+        rating: typeof row.rating === "number" ? row.rating : null,
+        rank: typeof row.rank === "number" ? row.rank : null,
+        votes: typeof row.vote_count === "number" ? row.vote_count : null,
+      });
     }
-    score.overall = round2(mean(taskCols.map((c) => cell(c.i)).filter((n) => n !== null)));
-    scores.set(lbName, score);
+    if (rows.length < PAGE) break;
   }
-  return { scores, tableUrl, categoriesUrl, lbNames: [...scores.keys()] };
+  return { byName, publishDate };
 }
 
-function blankScore() {
-  const s = { modelName: null };
-  for (const f of SCORE_FIELDS) s[f] = null;
-  s.costPerSuccessfulTaskUsd = null;
-  s.fetchedAt = null;
-  return s;
+async function fetchBoards() {
+  const entries = await Promise.all(
+    Object.entries(BOARDS).map(async ([name, board]) => {
+      const { byName, publishDate } = await fetchBoard(board);
+      return [name, byName, publishDate];
+    })
+  );
+  const data = {};
+  const publishDates = {};
+  for (const [name, byName, publishDate] of entries) {
+    data[name] = byName;
+    publishDates[name] = publishDate;
+  }
+  return { data, publishDates };
+}
+
+function blankEntry() {
+  return {
+    matchedNames: { overall: null, coding: null, vision: null },
+    overall: null,
+    coding: null,
+    vision: null,
+    rankOverall: null,
+    rankCoding: null,
+    rankVision: null,
+    voteCount: null,
+    costPerSuccessfulTaskUsd: null,
+    fetchedAt: null,
+  };
+}
+
+const round2 = (n) => (typeof n === "number" ? Math.round(n * 100) / 100 : null);
+
+// Build one score entry for a Go id from fetched board data.
+function buildEntry(goId, boardData, fetchedAt) {
+  const entry = blankEntry();
+  const boardNames = {
+    overall: [...boardData.overall.keys()],
+    coding: [...boardData.coding.keys()],
+    vision: [...boardData.vision.keys()],
+  };
+  let any = false;
+  for (const board of ["overall", "coding", "vision"]) {
+    const matched = matchName(goId, boardNames[board]);
+    if (!matched) continue;
+    entry.matchedNames[board] = matched;
+    const row = boardData[board].get(matched);
+    entry[board] = round2(row?.rating ?? null);
+    const rankKey = `rank${board[0].toUpperCase()}${board.slice(1)}`;
+    entry[rankKey] = row?.rank ?? null;
+    if (board === "overall") entry.voteCount = row?.votes ?? null;
+    any = true;
+  }
+  if (any) entry.fetchedAt = fetchedAt;
+  return entry;
 }
 
 const now = new Date().toISOString();
 
-async function main() {
-  const tableDate = await latestTableDate();
-  const catalog = await fetchJson(CATALOG_URL);
-  const goIds = (catalog.data ?? []).map((m) => m && m.id).filter(Boolean).sort();
+async function fetchCatalog() {
+  const url = "https://opencode.ai/zen/go/v1/models";
+  const catalog = await fetchJson(url);
+  return (catalog.data ?? []).map((m) => m && m.id).filter(Boolean).sort();
+}
 
-  // User path: try the committed seed first when it is still current.
+async function main() {
+  const goIds = await fetchCatalog();
+
   if (snapshotArg) {
     const snapshotPath = snapshotArg === "true" ? defaultSnapshot : snapshotArg;
     const snapshot = existsSync(snapshotPath)
@@ -284,51 +297,47 @@ async function main() {
     snapshot.models ??= {};
     snapshot.sources ??= {};
 
-    let source = null;
     let scores = null;
+    let publishDates = null;
+    let seedUsed = false;
+
+    // Try the committed seed first, but only if it is still current.
     if (existsSync(seedPath)) {
       const seed = JSON.parse(readFileSync(seedPath, "utf8"));
       const seedCoversAll = goIds.every((id) => id in (seed.models ?? {}));
-      if (seed.source?.tableDate === tableDate && seedCoversAll) {
-        source = seed;
-        scores = new Map(Object.entries(seed.models ?? {}));
+      if (seedCoversAll && seed.source?.publishDates) {
+        const liveDates = await fetchPublishDates();
+        const sameDates = Object.keys(BOARDS).every(
+          (b) => seed.source.publishDates[b] === liveDates[b]
+        );
+        if (sameDates) {
+          scores = seed.models;
+          publishDates = liveDates;
+          seedUsed = true;
+        }
       }
     }
 
-    let seedUsed = Boolean(scores);
     if (!scores) {
-      const computed = await computeScores(tableDate);
-      source = {
-        url: SOURCE_PAGE,
-        tableDate,
-        tableUrl: computed.tableUrl,
-        categoriesUrl: computed.categoriesUrl,
-      };
-      // Remap via the same matcher the seed generator uses.
-      scores = new Map();
-      for (const id of goIds) {
-        const lb = matchName(id, computed.lbNames);
-        const raw = lb ? computed.scores.get(lb) : null;
-        const entry = blankScore();
-        if (raw) {
-          for (const f of SCORE_FIELDS) entry[f] = raw[f];
-          entry.modelName = lb;
-          entry.fetchedAt = now;
-        }
-        scores.set(id, entry);
-      }
+      console.error("LMArena boards are not covered by the current seed; fetching…");
+      const live = await fetchBoards();
+      publishDates = live.publishDates;
+      scores = {};
+      for (const id of goIds) scores[id] = buildEntry(id, live.data, now);
     }
 
     for (const id of goIds) {
       snapshot.models[id] ??= {};
-      const entry = scores.get(id) ?? blankScore();
-      snapshot.models[id].score = entry;
+      snapshot.models[id].score = scores[id] ?? blankEntry();
     }
     snapshot.sources.rankings = {
       url: SOURCE_PAGE,
       fetchedAt: now,
-      tableDate,
-      matched: [...scores.values()].filter((s) => s.modelName).length,
+      boards: Object.fromEntries(
+        Object.entries(BOARDS).map(([k, v]) => [k, v.config])
+      ),
+      publishDates,
+      matched: Object.values(scores).filter((s) => s.fetchedAt).length,
       seedUsed,
     };
     mkdirSync(dirname(snapshotPath), { recursive: true });
@@ -336,7 +345,7 @@ async function main() {
     process.stdout.write(
       JSON.stringify(
         {
-          tableDate,
+          publishDates,
           out: snapshotPath,
           matched: snapshot.sources.rankings.matched,
           total: goIds.length,
@@ -350,35 +359,24 @@ async function main() {
   }
 
   // Maintainer path: always fetch and write the committed seed.
-  const computed = await computeScores(tableDate);
+  const live = await fetchBoards();
   const models = {};
   const matched = [];
   for (const id of goIds) {
-    const lb = matchName(id, computed.lbNames);
-    const raw = lb ? computed.scores.get(lb) : null;
-    const entry = blankScore();
-    if (raw) {
-      for (const f of SCORE_FIELDS) entry[f] = raw[f];
-      entry.modelName = lb;
-      entry.fetchedAt = now;
-      matched.push(id);
-    }
+    const entry = buildEntry(id, live.data, now);
     models[id] = entry;
+    if (entry.fetchedAt) matched.push(id);
   }
   const seed = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: now,
-    derived: true,
-    derivation:
-      "overall = mean of all task columns; each category = mean of its tasks per categories_<date>.json (LiveBench's own map)",
     source: {
-      name: "LiveBench",
+      name: "LMArena",
       url: SOURCE_PAGE,
-      repo: "https://github.com/LiveBench/livebench.github.io",
-      license: LICENSE,
-      tableDate,
-      tableUrl: computed.tableUrl,
-      categoriesUrl: computed.categoriesUrl,
+      dataset: DATASET,
+      endpoint: BASE,
+      boards: Object.fromEntries(Object.entries(BOARDS).map(([k, v]) => [k, v.config])),
+      publishDates: live.publishDates,
     },
     models,
   };
@@ -387,7 +385,7 @@ async function main() {
   writeFileSync(outPath, JSON.stringify(seed, null, 2) + "\n");
   process.stdout.write(
     JSON.stringify(
-      { tableDate, out: outPath, matched: matched.length, total: goIds.length, ids: matched },
+      { publishDates: live.publishDates, out: outPath, matched: matched.length, total: goIds.length, ids: matched },
       null,
       2
     ) + "\n"

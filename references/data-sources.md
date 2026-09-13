@@ -1,8 +1,8 @@
 # Data Sources for OpenCode Go Plan Data
 
 Fetch fresh on every run, except ranking scores, which are cached with a short TTL
-(see `references/model-snapshot.md`). Every number is reported with source + fetch
-date. Never guess a price, limit, or model id.
+(1 day — see `references/model-snapshot.md`). Every number is reported with source
++ fetch date. Never guess a price, limit, or model id.
 
 | Priority | Source | URL | Gives | Method | Notes |
 |---|---|---|---|---|---|
@@ -11,7 +11,7 @@ date. Never guess a price, limit, or model id.
 | 3 | Models endpoint | https://opencode.ai/zen/go/v1/models | live catalog (ids) | `node scripts/fetch-go-models.mjs` or curl | Unauthenticated; includes preview/deprecated ids |
 | 4 | Models.dev | https://models.opencode.ai/providers/opencode-go/ | context/output/price/capabilities | webfetch | Third party |
 | 5 | julien.cloud tracker | https://julien.cloud/opencode-go-models/ | merged view + price-change log / deprecation | webfetch | Third party |
-| 6 | LiveBench (rankings) | https://livebench.ai/ + [site repo](https://github.com/LiveBench/livebench.github.io/tree/main/public) | Overall + per-category scores (derived) | `node scripts/refresh-scores.mjs` (static CSV, no browser) | Apache-2.0, no key; cost column absent (stays null); seed at `references/model-scores.json` |
+| 6 | LMArena (rankings) | https://lmarena.ai/ — dataset [lmarena-ai/leaderboard-dataset](https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset) via the HF datasets-server | Arena ELO: overall / coding / vision | `node scripts/refresh-scores.mjs` (no key, no browser) | Official LMArena dataset; cost absent (stays null); proxy auto-enabled; seed at `references/model-scores.json` |
 
 ## Estimated request counts (throughput)
 
@@ -106,22 +106,19 @@ changes.
 The snapshot cache (see `references/model-snapshot.md`) stores a per-model ability
 score so runs do not re-derive it.
 
-- **Primary — LiveBench** (`https://livebench.ai/`, verified 2026-09-13): Overall
-  plus Reasoning / Coding / Agentic Coding / Math / Data Analysis / Language /
-  Instruction Following. Apache-2.0, no fees, no key, and **no browser**: the site
-  is an SPA, but its repo serves the raw table as static files
-  (`LiveBench/livebench.github.io`, `public/table_<date>.csv` +
-  `categories_<date>.json`). `scripts/refresh-scores.mjs` fetches and aggregates
-  them. Overall/category values are **derived** (mean of the task columns), not a
-  published field. The static table has **no cost column**, so
-  `costPerSuccessfulTaskUsd` stays `null`.
+- **Primary — LMArena** (`https://lmarena.ai/`, verified 2026-09-13): Arena ELO
+  from three boards — `text_style_control` (overall ability), `webdev` (Code
+  Arena → `coding`), and `vision` (→ `vision`). No key, no browser: the official
+  dataset `lmarena-ai/leaderboard-dataset` is served by the Hugging Face
+  datasets-server (`/filter`, paginate with `offset` / `length=100`), and
+  `scripts/refresh-scores.mjs` reads it. The dataset has **no cost column**, so
+  `costPerSuccessfulTaskUsd` stays `null`. When a system proxy is set the script
+  re-executes itself with `NODE_USE_ENV_PROXY=1`, so the normal command works
+  behind a proxy.
 - The committed seed `references/model-scores.json` is reused when its
-  `source.tableDate` is still the latest upstream table (and it covers the current
+  `source.publishDates` still match the live boards (and it covers the current
   catalog); otherwise the script fetches fresh. See "Bundled score seed" in
   `references/model-snapshot.md`.
-- **Optional coding cross-check — SWE-bench**:
-  `https://raw.githubusercontent.com/SWE-bench/swe-bench.github.io/main/data/leaderboards.json`
-  (public JSON, `% Resolved` per model).
 
 Only use a score that clearly maps to the model; otherwise leave it null and mark
 it for manual verification.

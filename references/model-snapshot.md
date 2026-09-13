@@ -14,14 +14,18 @@ On Windows: `%USERPROFILE%\.cache\opencode\opencode-go-model-picker\snapshot.jso
 
 Override the path with `--snapshot <path>` when running the refresh script.
 
-## Schema (v1)
+## Schema (v2)
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "sources": {
     "catalog":  { "url": "https://opencode.ai/zen/go/v1/models", "fetchedAt": "ISO-8601", "count": 0 },
-    "rankings": { "url": "https://livebench.ai/", "fetchedAt": null, "matched": 0, "tableDate": null, "seedUsed": false }
+    "rankings": {
+      "url": "https://lmarena.ai/", "fetchedAt": null, "matched": 0, "seedUsed": false,
+      "boards": { "overall": "text_style_control", "coding": "webdev", "vision": "vision" },
+      "publishDates": { "overall": null, "coding": null, "vision": null }
+    }
   },
   "preferences": { "mode": null, "answers": null, "chosenAt": null },
   "models": {
@@ -37,17 +41,15 @@ Override the path with `--snapshot <path>` when running the refresh script.
       "vision": null,
       "status": null,
       "score": {
+        "matchedNames": { "overall": null, "coding": null, "vision": null },
         "overall": null,
-        "reasoning": null,
         "coding": null,
-        "agenticCoding": null,
-        "math": null,
-        "dataAnalysis": null,
-        "language": null,
-        "instructionFollowing": null,
+        "vision": null,
+        "rankOverall": null,
+        "rankCoding": null,
+        "rankVision": null,
+        "voteCount": null,
         "costPerSuccessfulTaskUsd": null,
-        "source": "https://livebench.ai/",
-        "modelName": null,
         "fetchedAt": null
       },
       "provenance": "https://opencode.ai/docs/go/",
@@ -57,16 +59,22 @@ Override the path with `--snapshot <path>` when running the refresh script.
 }
 ```
 
+The `score` numbers are **Arena ELO ratings** (roughly 1100–1800), not 0–100
+scores. `overall` comes from the text arena, `coding` from the Code Arena
+(`webdev`), `vision` from the vision arena.
+
 Rules:
 
 - `null` means "not yet verified" — never a guessed number.
 - `sources.*.fetchedAt` is the ISO timestamp of the last successful fetch.
 - A cached value must never outlive its usefulness: re-fetch prices/limits each
   run, and refresh ranking scores when `sources.rankings.fetchedAt` is missing or
-  stale (default freshness window: 7 days). Show the fetch date wherever a cached
-  number is reported.
+  older than **1 day** (LMArena publishes often, and the freshness check is one
+  cheap request per board). Show the fetch date wherever a cached number is
+  reported.
 - Ranking scores are refreshed by `scripts/refresh-scores.mjs`, never by a
-  browser — see "Bundled score seed" and "Ranking source" below.
+  browser — see "Bundled score seed" and "Ranking source" below. The ability
+  scale is **Arena ELO**, not 0–100.
 - `preferences.mode` is the remembered recommendation mode (`budget` /
   `balanced` / `quality`). When it is set, use it without asking again; a mode
   named in the request always wins. `preferences.answers` keeps the diagnostic
@@ -88,20 +96,19 @@ temporary disappearance); pass `--prune` to drop them.
 
 Then:
 
-1. If `sources.rankings.fetchedAt` is missing or older than 7 days, refresh the
-   scores with the bundled helper (no browser):
+1. If `sources.rankings.fetchedAt` is missing or older than 1 day, refresh the
+   scores with the bundled helper (no browser, no key):
 
    ```bash
    node scripts/refresh-scores.mjs --snapshot ~/.cache/opencode/opencode-go-model-picker/snapshot.json
    ```
 
-   It reuses the committed [`model-scores.json`](model-scores.json) seed when that
-   seed is still current, and only downloads the raw LiveBench table when it is
-   not (see "Bundled score seed"). It writes `models.<id>.score` and updates
-   `sources.rankings`. The TTL only avoids re-checking scores that are already
-   cached: a **newly added or changed model** always gets a fresh lookup even
-   inside the window, and a **major plan change** (many ids added/removed) or an
-   **explicit user request** forces a refresh.
+   It reuses the committed [`model-scores.json`](model-scores.json) seed when the
+   three LMArena boards still publish the same dates, and only fetches the live
+   boards when they do not (see "Bundled score seed"). It writes
+   `models.<id>.score` and updates `sources.rankings`. A **newly added or changed
+   model** always gets a fresh lookup, and a **major plan change** (many ids
+   added/removed) or an **explicit user request** forces a refresh.
 2. Read prices and limits from `https://opencode.ai/docs/go/` and compare them
    with the cached values; deep-verify capabilities (especially vision) from the
    lab's own docs only for the added or changed models.
@@ -113,60 +120,58 @@ limited to the models that actually changed.
 
 ## Bundled score seed
 
-`references/model-scores.json` is a committed snapshot of LiveBench scores, so a
-first run does not have to download and parse the table.
+`references/model-scores.json` is a committed snapshot of LMArena scores, so a
+first run does not have to fetch and match the leaderboards.
 
-- It is keyed by Go model id and carries `source.tableDate`, `derived: true` with
-  the aggregation formula, and `fetchedAt` per model.
-- **Freshness rule: upstream table unchanged.** The seed is reused only when its
-  `source.tableDate` equals the latest `table_*.csv` date in the LiveBench repo
-  **and** it has an entry for every current Go catalog id. LiveBench updates its
-  table infrequently (roughly every few months), so a wall-clock TTL would mark the
-  seed stale almost always; identity with the upstream table is the honest test.
-- If the seed is not current, `refresh-scores.mjs --snapshot` downloads the table
-  and merges fresh scores instead — still without a browser.
+- It is keyed by Go model id and carries `source.publishDates` (one date per
+  board) plus `matchedNames` / `fetchedAt` per model.
+- **Freshness rule: upstream boards unchanged.** The seed is reused only when its
+  `source.publishDates` match the live `leaderboard_publish_date` of all three
+  boards **and** it has an entry for every current Go catalog id. LMArena updates
+  its leaderboards on its own cadence; identity with the upstream boards is the
+  honest test rather than a wall-clock age.
+- If the seed is not current, `refresh-scores.mjs --snapshot` fetches the live
+  boards and merges fresh scores instead — still without a browser.
 - The seed is a **cache, not a source of truth**: it carries source + date, is
-  ignored when stale, and `null` scores are never filled in by guessing. Overall
-  and category numbers are **derived** by this project from LiveBench's task
-  columns, not a field LiveBench publishes.
+  ignored when stale, and `null` scores are never filled in by guessing.
 - Maintainers regenerate it with `node scripts/refresh-scores.mjs` and commit the
   result. If nobody does, the seed simply stops being reused (runs fetch instead);
   nothing breaks.
 
 ## Ranking source
 
-**Primary — LiveBench** (verified 2026-09-13):
+**Primary — LMArena** (verified 2026-09-13):
 
-- Site: `https://livebench.ai/`. Provides Overall plus Reasoning / Coding /
-  Agentic Coding / Mathematics / Data Analysis / Language / Instruction Following.
-- The site is a single-page app, but its repository serves the raw table as static
-  files, so **no browser is needed**:
-  - `https://github.com/LiveBench/livebench.github.io/tree/main/public`
-  - `table_<YYYY_MM_DD>.csv` — `model` + one column per task (23 tasks)
-  - `categories_<YYYY_MM_DD>.json` — task → category map
-- License: **Apache-2.0**; no fees, no key.
-- `scripts/refresh-scores.mjs` reads those files with `fetch`, derives Overall and
-  the per-category scores by averaging the task columns (using LiveBench's own
-  category map), and writes them to the seed or the snapshot.
-- The static table has **no cost column**, so `costPerSuccessfulTaskUsd` stays
-  `null`. That is deliberate: `null` means "not verified", never a guessed number.
-- Raw per-task data (if ever needed): Hugging Face `livebench/model_judgment`,
-  split `leaderboard`, columns `question_id, task, model, score, turn, tstamp,
-  category`.
-
-**Optional coding cross-check — SWE-bench**:
-
-- `https://raw.githubusercontent.com/SWE-bench/swe-bench.github.io/main/data/leaderboards.json`
-  (public JSON, `% Resolved` per model).
+- Site: `https://lmarena.ai/`. Arena ELO ratings from three boards:
+  `text_style_control` (overall ability), `webdev` (Code Arena → `coding`), and
+  `vision` (→ `vision`).
+- Machine source: the official dataset `lmarena-ai/leaderboard-dataset`, served
+  by the Hugging Face datasets-server (`/filter`), **no key and no browser**. The
+  fields are `model_name, organization, license, rating, rank, vote_count,
+  category, leaderboard_publish_date`; paginate with `offset` / `length=100`.
+- `scripts/refresh-scores.mjs` reads those boards and writes the seed or the
+  snapshot.
+- There is **no cost column**, so `costPerSuccessfulTaskUsd` stays `null`. That is
+  deliberate: `null` means "not verified", never a guessed number.
+- When a system proxy is configured, the script re-executes itself with
+  `NODE_USE_ENV_PROXY=1` so the normal command works unchanged (pass
+  `--no-env-proxy` to opt out). This is only needed because Node's `fetch` does
+  not read `HTTP(S)_PROXY` on its own.
 
 Never merge a score from a source that does not clearly map to the model. If no
 source covers a model, leave `score` null and mark it for manual verification.
 
 ## Name matching
 
-OpenCode Go model ids (`opencode-go/<id>`) rarely equal a ranking site's model
-name. `scripts/refresh-scores.mjs` matches conservatively: an exact normalized
-match, or a prefix whose remaining tokens are all known effort/variant labels
-(`thinking`, `high`, `preview`, …) or numeric date stamps. It records the exact
-matched name in `score.modelName` so it can be audited. It never fuzzy-matches
-silently; if nothing clearly matches, the score stays `null`.
+OpenCode Go model ids (`opencode-go/<id>`) rarely equal an LMArena model name, and
+LMArena names often carry an effort/variant suffix (`-max`, `-high`, `-preview`,
+numeric dates). `scripts/refresh-scores.mjs` matches conservatively, per board:
+
+- an exact normalized match wins; otherwise
+- a prefix whose remaining tokens are all known effort/variant labels or numeric
+  dates matches only when the candidate is unique on that board; a genuine
+  multi-line ambiguity (for example `kimi-k2.5`, with both `-thinking` and
+  `-instant`) stays `null`.
+
+Every matched name is recorded in `score.matchedNames` so it can be audited. It
+never fuzzy-matches silently; if nothing clearly matches, the score stays `null`.

@@ -22,10 +22,10 @@
 // compact catalog diff (added / removed model ids). The script only stores
 // fetched ids or the existing cached values — it never invents a number.
 //
-// Ranking scores are NOT fetched here: LiveBench has no stable machine-readable
-// endpoint, so the agent refreshes them from the LiveBench page and writes them
-// into the snapshot (see references/model-snapshot.md). This script preserves any
-// existing per-model fields, including `score`.
+// Ranking scores are NOT fetched here: they are handled by
+// scripts/refresh-scores.mjs (LMArena), which writes them into the snapshot (see
+// references/model-snapshot.md). This script preserves any existing per-model
+// fields, including `score`.
 //
 // Usage:
 //   node scripts/refresh-snapshot.mjs [--snapshot <path>] [--prune]
