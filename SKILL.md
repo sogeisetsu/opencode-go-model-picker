@@ -37,7 +37,11 @@ always fetch fresh data before recommending.
    (see `references/agent-sources.md`), not a random online doc. For
    oh-my-opencode-slim use the *installed* `oh-my-opencode-slim.schema.json`; for
    custom native agents use the official OpenCode config/agent docs.
-4. **Explain cost vs. capability per agent**, not just model names.
+4. **Explain cost vs. capability per agent**, not just model names — and compare
+   **throughput**, not price alone. Two models with the same monthly $ limit can
+   serve very different numbers of requests, so report the estimated requests per
+   5h (see `references/data-sources.md`) and prefer the higher one when price and
+   capability tie.
 5. **Verify capabilities from the lab, not the name.** Especially **vision/image
    input** (needed by `observer`, or any `vision`-trait agent): confirm
    modalities in the model's own official docs (e.g. DeepSeek
@@ -45,6 +49,11 @@ always fetch fresh data before recommending.
    docs' image note names only some vision models. Never infer vision — or
    reasoning/long-context — from a model id. Re-check capability each run: new
    models add modalities.
+6. **Surface caveats, never bury them.** Flag, per pick: (a) any **limited-time
+   multiplier** it depends on, with the base limit it falls back to; (b)
+   **geo-restricted** models, and whether the user's region is covered; (c)
+   **privacy-for-discount / Contributor** tiers that train on the user's prompts
+   and completions — opt-in only, never recommended silently.
 
 ## Agent Sources (discover read-only every run)
 
@@ -89,8 +98,8 @@ A persistent, normalized snapshot of the Go catalog and model scores lives at
 Full list, endpoints and parsing notes: `references/data-sources.md`.
 
 Minimum set:
-- `https://opencode.ai/go` — most timely (promos, "4× usage", featured usage table).
-- `https://opencode.ai/docs/go/` (anchor `#usage-limits`) — full model + price + monthly-limit table.
+- `https://opencode.ai/go` — most timely (promos, "4× usage", featured usage table **with estimated requests per 5h**).
+- `https://opencode.ai/docs/go/` (anchor `#usage-limits`) — full model + price + monthly-limit table, plus the "Estimated requests" assumptions and per-model req/5h / week / month.
 - `https://opencode.ai/zen/go/v1/models` — live catalog (unauthenticated); run `node scripts/fetch-go-models.mjs`.
 - Cross-check: `https://models.opencode.ai/providers/opencode-go/`, `https://julien.cloud/opencode-go-models/`.
 
@@ -108,9 +117,10 @@ Minimum set:
    catalog ids; prices and limits come from the plan pages and are compared with
    the cached values. Deep-verify capabilities (especially vision) only for the
    added or changed models. Build this run's snapshot:
-   `model id | input $/1M | output $/1M | monthly $ limit | est. req/5h | context | reasoning | vision | status | source+date`.
+   `model id | input $/1M | output $/1M | monthly $ limit | est. req/5h | est. req/week | est. req/month | context | reasoning | vision | status | source+date`.
 3. **Detect plan changes** vs. the last snapshot (if any): new/removed models,
-   changed limits/prices, limited-time promos. Call these out first.
+   changed limits/prices/estimated request counts, limited-time promos. Call these
+   out first.
 4. **Allocate models per agent** by **trait** (policy below) **under the selected
    recommendation mode** (default `balanced`), using the known-role overrides for
    backward compatibility.
@@ -126,7 +136,7 @@ off **performance vs. price only** — no other dimensions.
 | Mode | Tradeoff | Per-trait selection rule | Fallback shape |
 |---|---|---|---|
 | `budget` | cheapest acceptable | the lowest-cost model that still clears the trait's capability floor, favoring a large monthly limit | cheapest Go → next-cheapest Go → free/different provider |
-| `balanced` (default) | best cost-effectiveness | current policy: match the model's monthly $ limit to the agent's expected volume; balance price vs. capability | best fit → cheaper Go → different provider |
+| `balanced` (default) | best cost-effectiveness | match the model's monthly $ limit to the agent's expected volume; balance price vs. capability; apply the **balanced price ceiling** below | best fit → cheaper Go → different provider |
 | `quality` | maximum capability | the strongest reasoning/capability model on Go for the trait; cost is secondary (limits still apply) | strongest → next-strongest → different provider |
 
 Capability floors apply in **every** mode:
@@ -136,6 +146,22 @@ Capability floors apply in **every** mode:
 - `reasoning` / `orchestration` under `budget` must still be reasoning-capable;
   the absolute cheapest text model is not acceptable.
 - Chains keep the 2–4 entry rule from the Fallback Chain Policy below.
+
+### Balanced price ceiling
+
+In `balanced`, use the current cheap-but-capable Go model — **DeepSeek V4.1 Flash**
+at the time of writing; re-check each run, the id may change — as the baseline:
+
+- For a normal, high-volume agent, the **most expensive model you recommend should
+  be only slightly pricier than that baseline and clearly more capable**. "Clearly"
+  means a real capability gain, not a marginal one.
+- If no model is "slightly pricier and clearly more capable", recommend the
+  baseline itself.
+- Capability-critical but **rarely used** agents (for example a hard debug/review
+  lane) may go above the ceiling, but you must say so and justify the extra price.
+  Price still matters in `balanced` — that is the mode's whole point.
+- This ceiling is `balanced`-only: `budget` goes cheaper, and `quality`
+  deliberately ignores it.
 
 State the chosen mode in the report (see `references/output-format.md`), and when
 it was not the default, say why.
@@ -161,7 +187,9 @@ agents fall back to inferred traits, then to a conservative balanced chain.
 
 Cost tiers (recompute from fetched prices): *cheap* = low $/1M + large monthly
 limit; *premium* = high reasoning, small monthly limit. Prefer models whose
-**monthly $ limit** matches the agent's expected volume.
+**monthly $ limit** matches the agent's expected volume. Tie-break on
+**throughput**: for the same $ limit, prefer the model with the higher estimated
+requests per 5h, since equal dollar limits do not mean equal request counts.
 
 ## Fallback Chain Policy
 

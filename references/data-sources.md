@@ -6,12 +6,28 @@ date. Never guess a price, limit, or model id.
 
 | Priority | Source | URL | Gives | Method | Notes |
 |---|---|---|---|---|---|
-| 1 | Go landing page | https://opencode.ai/go | latest promos + featured usage table | webfetch (markdown) | Most timely; surfaces limited-time multipliers (e.g. "DeepSeek V4.1 Flash 4× usage") |
-| 2 | Go docs | https://opencode.ai/docs/go/ | full model list, price table, monthly limits, overall limits | webfetch | Anchor `#usage-limits`; authoritative for prices |
+| 1 | Go landing page | https://opencode.ai/go | latest promos + featured usage table with estimated requests per 5h | webfetch (markdown) | **Most timely**; surfaces limited-time multipliers (e.g. "DeepSeek V4.1 Flash 4× usage") and estimated request counts |
+| 2 | Go docs | https://opencode.ai/docs/go/ | full model list, price table, monthly limits, overall limits, estimated requests (assumptions + req/5h/week/month) | webfetch | Anchor `#usage-limits`; authoritative for prices; also the "Estimated requests" and privacy/geo sections |
 | 3 | Models endpoint | https://opencode.ai/zen/go/v1/models | live catalog (ids) | `node scripts/fetch-go-models.mjs` or curl | Unauthenticated; includes preview/deprecated ids |
 | 4 | Models.dev | https://models.opencode.ai/providers/opencode-go/ | context/output/price/capabilities | webfetch | Third party |
 | 5 | julien.cloud tracker | https://julien.cloud/opencode-go-models/ | merged view + price-change log / deprecation | webfetch | Third party |
 | 6 | LiveBench (rankings) | https://livebench.ai/ | Overall + per-category scores + cost per successful task | webfetch (agent step, 7-day TTL) | Apache-2.0, no key; no stable JSON API |
+
+## Estimated request counts (throughput)
+
+A monthly dollar limit alone does not tell you how much work a model can do: two
+models with the same $ limit can serve very different numbers of requests, because
+each model burns a different number of tokens per request. The **estimated request
+count** is therefore a primary signal, not a footnote.
+
+- `https://opencode.ai/go` shows a usage table with estimated requests per 5 hours
+  and monthly $ limits, and is the **more timely** source — read it first.
+- `https://opencode.ai/docs/go/` has an "Estimated requests" section stating the
+  per-request token assumptions (input / cached / output) and listing requests per
+  5h / week / month per model. Use it for the assumptions and to cross-check.
+- Record `est req/5h` (plus week/month when shown) in the snapshot, with source +
+  date. When price and capability are close, prefer the model with the **higher
+  estimated request count** for the same $ limit, and report the number.
 
 ## Snapshot file
 
@@ -20,7 +36,7 @@ and refresh it cheaply each run — see `references/model-snapshot.md`.
 
 ## Snapshot shape
 
-`model id (opencode-go/<id>) | input $/1M | output $/1M | monthly $ limit | est. req/5h | context | reasoning | vision | status | source+date`
+`model id (opencode-go/<id>) | input $/1M | output $/1M | monthly $ limit | est. req/5h | est. req/week | est. req/month | context | reasoning | vision | status | source+date`
 
 ## Rules
 
@@ -56,8 +72,34 @@ currently on a **limited-time 4× usage promo** ($15 → $60 monthly, 6,500 → 
 req/5h per https://opencode.ai/go) — re-check on every run; when it ends the limit
 falls back to $15.
 
-Also watch for limited-time promos generally: the `/go` page is the most timely
-signal (e.g. "N× usage for a limited time"), while `/docs/go/` shows base numbers.
+## Limited-time usage multipliers
+
+A promo can multiply a model's allowance (e.g. "4× usage", `$15 → $60` monthly).
+Never present a promo number as the permanent limit:
+
+- Read the current multiplier and the **base** limit it falls back to from
+  `https://opencode.ai/go` (most timely), and cross-check `/docs/go/`.
+- Any recommendation that depends on a promo must say so explicitly and state the
+  base limit it drops to when the promo ends. `references/output-format.md`
+  requires promo-dependent picks to be flagged.
+- Re-check on every run: a promo can end between runs.
+
+## Geo restrictions and privacy-for-discount models
+
+Some Go models carry non-price caveats that must be surfaced before recommending
+them. Check the `/docs/go/` privacy and availability notes each run — the set
+changes.
+
+- **Geo-restricted.** Some models (e.g. `Muse Spark 1.2/1.3 Contributor`) are only
+  available in regions permitted by the provider's policy — Meta's Geographic Use
+  Policy, `https://ai.developer.meta.com/legal/geographic-use-policy`. Say so, and
+  do not recommend one whose region is not covered.
+- **Privacy-for-discount.** A "Contributor" tier trades a large token discount for
+  permission to train future models on the user's prompts and completions. Verbatim
+  from `/docs/go/`: "Heavily discounted token pricing in exchange for permission to
+  use your prompts and completions to train future Meta models." Other models are
+  listed as "Not used" for training. Treat this as opt-in and **never recommend it
+  silently** — flag the training clause and let the user decide.
 
 ## Ranking / ability scores (for the snapshot)
 

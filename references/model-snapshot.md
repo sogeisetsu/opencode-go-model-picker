@@ -29,6 +29,8 @@ Override the path with `--snapshot <path>` when running the refresh script.
       "outputPer1M": null,
       "monthlyLimitUsd": null,
       "estReq5h": null,
+      "estReqWeek": null,
+      "estReqMonth": null,
       "context": null,
       "reasoning": null,
       "vision": null,

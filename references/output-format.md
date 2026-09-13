@@ -8,11 +8,12 @@ the user's language**; the labels below are the reference English wording.
 - Diff vs the cached snapshot (added / removed ids, plus any price or score
   changes), if available (`references/model-snapshot.md`).
 - Table of only the models relevant to this user:
-  `model | input$/1M | output$/1M | monthly $ limit | est req/5h | context | reasoning | vision | status`.
+  `model | input$/1M | output$/1M | monthly $ limit | est req/5h | est req/week | est req/month | context | reasoning | vision | status`.
 
 ## 2. What Changed
-New/removed models, changed limits/prices, active limited-time promos vs. the last
-snapshot. On the first run, state that there is no history to compare.
+New/removed models, changed limits/prices/estimated request counts, and active
+limited-time promos vs. the last snapshot. On the first run, state that there is
+no history to compare.
 
 ## 3. Current
 The discovered **custom** agents across all sources (read-only), one row per agent:
@@ -26,7 +27,18 @@ State the selected recommendation mode (`budget` / `balanced` / `quality`; defau
 `balanced`) and, if not the default, why.
 
 `| source | agent | traits | recommended model/chain | cost tier | why |`
-Explain the cost signal (monthly limit + $/1M) and capability fit per agent.
+Explain the cost signal (monthly limit + $/1M), the estimated requests per 5h
+(throughput), and the capability fit per agent.
+
+Add a **"Flags"** note for any pick that needs one — never hide these in the
+"why" cell:
+
+- **⚠ limited-time** — the pick relies on a promo multiplier; state the base limit
+  it falls back to when the promo ends.
+- **geo-restricted** — available only in certain regions (name the policy); say
+  whether the user's region is covered.
+- **trains on your data** — a privacy-for-discount / Contributor tier that uses
+  prompts and completions to train future models; opt-in, ask before recommending.
 
 ## 5. Paste-ready
 Produce a block for **each** source the user wants to update:
@@ -44,6 +56,10 @@ source cannot express a fallback chain, say so instead of inventing an array.
 
 ## 6. Verify / Manual verification
 - List every item that needs manual verification.
+- For any promo-dependent pick, restate the promo, its base limit, and that it is
+  limited-time.
+- For any geo-restricted or privacy/training pick, restate the caveat and whether
+  it needs the user's decision.
 - Commands to verify: `opencode models --refresh`, `/models`, `opencode debug config`.
 - State that changes apply on the next OpenCode run/restart.
 
