@@ -110,7 +110,7 @@ node scripts/fetch-go-models.mjs   # 输出 { fetchedAt, source, count, ids }
 | `balanced` | 最划算——价格与能力之间取平衡（默认）。 |
 | `quality` | Go 上能力最强的，价格次要。 |
 
-在提问时带上模式名即可；不带就用 `balanced`。
+在提问时带上模式名，就会按你指定的来。不带的话，第一次使用时技能会问几个简短的问题（最在意什么、用得频不频繁、主要做什么），记住答案并在以后沿用——你随时可以点名模式覆盖它；跳过问题则直接用 `balanced`。
 
 在 `balanced` 下，对常用的高用量智能体，最贵的推荐应该只比当前「便宜但够用」的基线（写作时为 DeepSeek V4.1 Flash）贵一点点、且明显更强；如果没有模型达标，就推荐基线本身。
 
@@ -130,7 +130,7 @@ node scripts/fetch-go-models.mjs   # 输出 { fetchedAt, source, count, ids }
 技能由一份指令文件（`SKILL.md`）加若干按需加载的参考文档组成。一次典型的运行是这样的：
 
 1. **找到你的智能体**（只读）——`opencode.jsonc` 或 `~/.config/opencode/agents/*.md` 里的原生智能体、`oh-my-opencode-slim` 预设，以及你声明的其他插件来源。细节见 [`references/agent-sources.md`](references/agent-sources.md)。
-2. **刷新模型快照**——`scripts/refresh-snapshot.mjs` 抓取实时目录，返回一份紧凑的新增/下架差异。LiveBench 评分会被缓存，按 7 天 TTL 刷新（全新模型会立刻查一次）。
+2. **刷新模型快照**——`scripts/refresh-snapshot.mjs` 抓取实时目录，返回一份紧凑的新增/下架差异。LiveBench 能力评分优先取自提交进仓库的种子（`references/model-scores.json`）；只要它仍与 LiveBench 最新表一致就直接用，否则由 `scripts/refresh-scores.mjs` 抓取静态原始表。全程不使用浏览器。全新模型会立刻查一次。
 3. **核对套餐**——从当前套餐页面读取价格和额度并与缓存对比；只有新增或变化的模型才会做更深的能力核实。
 4. **按角色特征给每个智能体挑模型**，并对已知角色做覆盖。策略见 `SKILL.md`。
 5. **构建回退链**——一条有序的 `model: [a, b, c]` 故障转移列表（2–4 项）。
@@ -143,6 +143,7 @@ node scripts/fetch-go-models.mjs   # 输出 { fetchedAt, source, count, ids }
 - **它会标出隐藏条款。** 限时倍数（以及促销结束后回落到的基础额度）、有地理限制的模型、以及用你的 prompt 和补全结果训练模型的「Contributor」档，都会被明确指出——最后一项属于自愿选择，绝不会被悄悄推荐。
 - **回退链取决于你用的工具。** 形如 `model: ["a", "b", "c"]` 的数组在 `oh-my-opencode-slim` 2.2.x 里是一条有序故障转移链（依据 `ForegroundFallbackManager` 核实）。如果每一项都失败，会话会中止，所以链尾应该是你真正能依赖的模型。直接定义在 OpenCode 里的智能体只接受单个 `model`（没有链），因此那里本技能只推荐一个模型并说明这一点。其他支持模型链的工具同样适用——使用 `oh-my-opencode-slim` 只是一个建议，并非必须。
 - **能力看实验室文档，不看名字。** 模型的能力会去它所属实验室的官方文档里核实，绝不从模型编号猜。这对视觉类智能体（比如 `observer`）需要的**视觉**输入尤其重要。
+- **能力评分随技能一起提供。** 提交进仓库的 LiveBench 种子（`references/model-scores.json`）让第一次运行无需下载并解析基准页面。只有种子的表日期仍等于 LiveBench 最新发布时才复用（LiveBench 每隔几个月才更新一次）；匹配不到的分数保持 `null`，绝不猜。Overall/分类分由 LiveBench 的任务分推导而来，静态表没有 cost 列，所以 cost 保持 `null`。
 - **省 token。** `~/.cache/opencode/opencode-go-model-picker/snapshot.json` 里缓存了一份归一化后的目录和评分，每次运行只重新抓取、重新核实发生变化的部分。缓存绝不取代来源——每个值都带来源和抓取日期。见 [`references/model-snapshot.md`](references/model-snapshot.md)。
 
 ## 数据来源
@@ -156,13 +157,13 @@ node scripts/fetch-go-models.mjs   # 输出 { fetchedAt, source, count, ids }
 | 3 | 模型端点 | https://opencode.ai/zen/go/v1/models | 实时目录编号（经 `scripts/fetch-go-models.mjs`） |
 | 4 | models.dev | https://models.opencode.ai/providers/opencode-go/ | 上下文 / 输出 / 价格 / 能力 |
 | 5 | julien.cloud 追踪 | https://julien.cloud/opencode-go-models/ | 合并视图 + 价格变动 / 弃用日志 |
-| 6 | LiveBench | https://livebench.ai/ | Overall + 各分类分 + 每次成功任务成本（缓存；7 天 TTL） |
+| 6 | LiveBench | https://livebench.ai/ + [站点仓库](https://github.com/LiveBench/livebench.github.io/tree/main/public) | Overall + 各分类分（推导值；仓库种子 + 静态 CSV 兜底；无浏览器） |
 
 ## 安全与隐私
 
 - **默认只读。** 在你确认之前不会写入任何东西；确认之后，你会看到确切的改动——无论它落在 `oh-my-opencode-slim.json`、`opencode.jsonc`、智能体 Markdown 文件还是别处。
 - **本地读取：** `~/.config/opencode/` 下的 OpenCode 配置（含 `agents/`），以及已安装插件的结构规范。
-- **网络访问：** 上面那些公开页面，以及通过本地 Node 脚本调用的 `opencode.ai` 免鉴权模型端点。不发送凭据，也不发送个人数据。
+- **网络访问：** 上面那些公开页面、免鉴权的 `opencode.ai` 模型端点，以及仅在评分种子过期时访问的公开 LiveBench 站点仓库（GitHub）。不发送凭据，也不发送个人数据。
 - **不编造数字。** 每个数值都带来源与抓取日期；无法核实的会标记出来等你人工确认。
 - **非官方。** 本项目与 OpenCode、SST 或任何模型厂商均无隶属、背书或赞助关系。模型名称与价格归各自所有者。
 

@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a committed LiveBench score seed (`references/model-scores.json`) and
+  `scripts/refresh-scores.mjs`, which reads the static LiveBench site repo (no
+  browser, no key) and derives Overall plus per-category scores from the task
+  columns. The seed is reused only while its `source.tableDate` still matches the
+  latest upstream table and it covers the current catalog; otherwise the script
+  fetches fresh. Cost stays `null` because the static table has no cost column.
+- Added a first-run mode diagnostic: when the request names no mode and none is
+  remembered, the skill asks a few short questions, stores the answer in
+  `snapshot.preferences` (`mode`, `answers`, `chosenAt`), and reuses it on later
+  runs. An explicitly named mode always overrides it, and skipping the questions
+  falls back to `balanced`.
 - Generalized agent discovery beyond `oh-my-opencode-slim`: the skill now reads
   native OpenCode agents (the `agent` key in `opencode.json`/`opencode.jsonc`,
   and Markdown files under `~/.config/opencode/agents/` or `.opencode/agents/`)

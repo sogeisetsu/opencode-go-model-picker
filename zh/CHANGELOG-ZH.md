@@ -10,6 +10,8 @@
 
 ### 新增
 
+- 新增提交进仓库的 LiveBench 评分种子（`references/model-scores.json`）与 `scripts/refresh-scores.mjs`：脚本读取 LiveBench 静态站点仓库（无浏览器、无 key），由任务分推导 Overall 与各分类分。只有当种子的 `source.tableDate` 仍等于上游最新表、且覆盖当前目录时才复用；否则脚本重新抓取。静态表没有 cost 列，故 cost 保持 `null`。
+- 新增首次使用的模式诊断：请求未指定模式、也没有已记住的模式时，技能会问几个简短问题，把答案存入 `snapshot.preferences`（`mode`、`answers`、`chosenAt`），之后沿用。显式点名的模式始终覆盖它；跳过问题则回退到 `balanced`。
 - 将智能体发现从 `oh-my-opencode-slim` 扩展到更多来源：技能现在通过新增的 `references/agent-sources.md` 中的来源适配器，读取原生 OpenCode 智能体（`opencode.json`/`opencode.jsonc` 的 `agent` 键，以及 `~/.config/opencode/agents/` 或 `.opencode/agents/` 下的 Markdown 文件）和其他注入智能体的插件。分配策略改为基于角色特征，并用已知角色覆盖保持此前的逐智能体行为。
 - 新增三种在性能与价格之间取舍的推荐模式：`budget`（省钱，能接受的最低价）、`balanced`（默认）、`quality`（最佳性能）。报告会写明所选模式，非默认模式时会说明理由。
 - 新增**预估请求数**（每 5 小时 / 每周 / 每月）作为一等信号：相同的月度美元额度并不意味着相同的吞吐量，所以技能现在会从套餐页面读取请求数（落地页更新更及时），在价格与能力相当时优先选请求数更高者。快照 schema 与报告新增 `est req/week` 与 `est req/month`。
