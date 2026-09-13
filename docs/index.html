@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en" data-show="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Plan-aware model selection for OpenCode agents: pick the best OpenCode Go model for every custom agent, read-only and with fallback chains.">
+<title>OpenCode Go Model Picker — Plan-aware Go model selection for OpenCode agents</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%232B2725'/%3E%3Crect x='26' y='38' width='58' height='13' rx='6.5' fill='%23F1ECEC'/%3E%3Crect x='26' y='57.5' width='58' height='13' rx='6.5' fill='%23B7B1B1'/%3E%3Crect x='26' y='77' width='58' height='13' rx='6.5' fill='%238E8B8B'/%3E%3Ccircle cx='100' cy='44.5' r='7' fill='%2303B000'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --fg: #1f2328;
+    --muted: #57606a;
+    --bg: #ffffff;
+    --border: #d0d7de;
+    /* Theme palette from the README banner (scripts/generate-assets.mjs):
+       project green #03B000, Xiaomi orange #FF6900. */
+    --brand-green: #03b000;
+    --brand-orange: #ff6900;
+    --accent: var(--brand-green);
+    /* Banner typeface (scripts/generate-assets.mjs) for the project title. */
+    --font-mono: "Courier New", Courier, "Nimbus Mono PS", "Liberation Mono", monospace;
+    --code: #f6f8fa;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fg: #e6edf3;
+      --muted: #8b949e;
+      --bg: #0d1117;
+      --border: #30363d;
+      --accent: var(--brand-green);
+      --code: #161b22;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.7 system-ui, -apple-system, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  }
+
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 20px 64px;
+  }
+
+  /* Language switch */
+  .lang {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin: 0 0 28px;
+  }
+
+  .langbtn {
+    font: inherit;
+    font-size: 13px;
+    line-height: 1;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+  }
+
+  .langbtn:hover { color: var(--fg); }
+
+  .langbtn[aria-pressed="true"] {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* Masthead: the README icon next to the project name. */
+  .masthead {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin: 0 0 28px;
+  }
+
+  .masthead-text { min-width: 0; }
+
+  .logo {
+    flex: 0 0 auto;
+    display: block;
+  }
+
+  /* Typography */
+  h1 {
+    font-family: var(--font-mono);
+    font-size: 32px;
+    line-height: 1.25;
+    margin: 0 0 4px;
+  }
+
+  .tag {
+    color: var(--muted);
+    font-size: 18px;
+    margin: 0 0 28px;
+  }
+
+  .masthead .tag { margin: 0; }
+
+  h2 {
+    font-size: 20px;
+    margin: 36px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  p { margin: 0 0 16px; }
+
+  ul {
+    padding-left: 22px;
+    margin: 0 0 16px;
+  }
+
+  li { margin: 4px 0; }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    background: var(--code);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: .9em;
+  }
+
+  pre {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    background: var(--code);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    overflow: auto;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    margin: 0 0 8px;
+  }
+
+  a { color: var(--accent); }
+
+  /* Project name echoes the banner: "Go" orange, "Model Picker" green. */
+  .word-go { color: var(--brand-orange); }
+  .word-picker { color: var(--brand-green); }
+
+  /* A labeled code block, so a copy button always belongs to one block. */
+  .block { margin: 0 0 20px; }
+
+  .block-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 8px;
+  }
+
+  .block-label { color: var(--muted); font-size: 13px; }
+
+  .block pre { margin: 0; }
+
+  .copy {
+    font: inherit;
+    font-size: 13px;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .copy:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .copy:disabled {
+    color: var(--muted);
+    cursor: default;
+  }
+
+  .copy.ok {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  /* Bilingual blocks: Chinese is the default, English is revealed by <html data-show="en">. */
+  [data-lang="en"] { display: none; }
+  html[data-show="en"] [data-lang="zh"] { display: none !important; }
+  html[data-show="en"] [data-lang="en"] { display: revert; }
+</style>
+<script>
+  // Set the language before the body paints, so there is no flash of the wrong language.
+  try {
+    var saved = localStorage.getItem("lang");
+    if (saved !== "zh") saved = "en";
+    document.documentElement.setAttribute("data-show", saved);
+    document.documentElement.lang = saved === "zh" ? "zh-CN" : "en";
+  } catch (e) {
+    document.documentElement.setAttribute("data-show", "en");
+  }
+</script>
+</head>
+<body>
+<main>
+
+  <nav class="lang" aria-label="Language">
+    <button class="langbtn" type="button" data-setlang="zh" lang="zh-CN">中文</button>
+    <button class="langbtn" type="button" data-setlang="en" lang="en">English</button>
+  </nav>
+
+  <header class="masthead">
+    <svg class="logo" width="64" height="64" viewBox="0 0 128 128" role="img" aria-label="OpenCode Go Model Picker icon">
+      <defs>
+        <linearGradient id="icon-bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#2B2725"/>
+          <stop offset="1" stop-color="#4B4646"/>
+        </linearGradient>
+      </defs>
+      <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#icon-bg)"/>
+      <rect x="26" y="38" width="58" height="13" rx="6.5" fill="#F1ECEC"/>
+      <rect x="26" y="57.5" width="58" height="13" rx="6.5" fill="#B7B1B1"/>
+      <rect x="26" y="77" width="58" height="13" rx="6.5" fill="#8E8B8B"/>
+      <circle cx="100" cy="44.5" r="7" fill="#03B000"/>
+      <circle cx="100" cy="44.5" r="2.6" fill="#2B2725"/>
+    </svg>
+    <div class="masthead-text">
+      <h1>OpenCode <span class="word-go">Go</span> <span class="word-picker">Model Picker</span></h1>
+      <p class="tag" data-lang="zh">这是一个 OpenCode Agent Skill：读懂你配置里的每个自定义智能体，对照当前的 OpenCode Go 套餐，挑出最划算的模型，并给出带回退链的推荐。</p>
+      <p class="tag" data-lang="en">An OpenCode Agent Skill: it reads every custom agent you have configured, checks the current OpenCode Go plan, and recommends the most cost-effective model &mdash; with fallback chains.</p>
+    </div>
+  </header>
+
+  <p data-lang="zh">为自己的智能体挑一个 OpenCode Go 里的模型，是件麻烦事：价格、月度额度、可用模型一直在变，而「最合适」的那个又取决于你更在意省钱还是更在意能力。这个技能就是替你做完这份功课的：它会读你的 OpenCode 智能体配置、查<strong>当前</strong>的 Go 套餐，然后给你每个自定义智能体推荐一个模型——如果你的配置支持，还会附上一条回退链。整个过程<strong>只读</strong>，在你点头之前什么都不改。</p>
+  <p data-lang="en">Choosing which OpenCode Go model each of your agents should use is fiddly. Prices, monthly caps, and the list of available models change constantly, and the &ldquo;best&rdquo; pick depends on whether you care more about cost or capability. This skill does that homework for you: it reads your OpenCode agent config, checks the <strong>current</strong> Go plan, and suggests a model for each of your custom agents &mdash; plus a fallback chain when your setup supports one. It is <strong>read-only</strong>, so nothing changes until you say yes.</p>
+
+  <h2><span data-lang="zh">产出</span><span data-lang="en">Outputs</span></h2>
+  <p data-lang="zh">每次运行后，它会给你一份六段式报告：</p>
+  <p data-lang="en">Each run ends with a six-part report:</p>
+  <ul>
+    <li data-lang="zh"><strong>套餐快照</strong>：与你相关的模型，附来源和抓取日期。</li>
+    <li data-lang="en"><strong>Plan snapshot</strong>: the models relevant to you, with source and fetch date.</li>
+
+    <li data-lang="zh"><strong>变化提示</strong>：新增或下架的模型、额度、价格或预估请求数的变化，以及进行中的促销。</li>
+    <li data-lang="en"><strong>What changed</strong>: new or removed models, changed limits, prices, or estimated request counts, and active promos.</li>
+
+    <li data-lang="zh"><strong>当前配置</strong>：找到的每个自定义智能体及其现有链路（只读）。</li>
+    <li data-lang="en"><strong>Current</strong>: every custom agent found and its current chain (read-only).</li>
+
+    <li data-lang="zh"><strong>推荐</strong>：每个智能体一个模型或一条链，附成本档位、吞吐量、理由，以及促销、地理或隐私方面的注意事项。</li>
+    <li data-lang="en"><strong>Recommendation</strong>: a model or chain per agent, with the cost tier, throughput, the reason, and flags for promo, geo, or privacy caveats.</li>
+
+    <li data-lang="zh"><strong>可粘贴配置</strong>：一段可直接放进 <code>opencode.jsonc</code> 或 <code>oh-my-opencode-slim.json</code> 的 JSONC。</li>
+    <li data-lang="en"><strong>Paste-ready</strong>: a JSONC block you can drop into <code>opencode.jsonc</code> or <code>oh-my-opencode-slim.json</code>.</li>
+
+    <li data-lang="zh"><strong>需人工核实</strong>：仍需要你确认的项，以及验证命令。</li>
+    <li data-lang="en"><strong>Verify</strong>: anything that still needs a human check, plus the commands to do it.</li>
+  </ul>
+  <p data-lang="zh">报告之后它会<strong>停下来问你</strong>，确认后才应用改动。</p>
+  <p data-lang="en">It then <strong>stops and asks</strong> before applying anything.</p>
+
+  <h2><span data-lang="zh">特点</span><span data-lang="en">Features</span></h2>
+  <ul>
+    <li data-lang="zh"><strong>只读</strong>：在你确认之前绝不写任何配置，改动会先完整预览。</li>
+    <li data-lang="en"><strong>Read-only</strong>: never writes config until you confirm; every change is previewed first.</li>
+
+    <li data-lang="zh"><strong>实时</strong>：每次运行重新抓取 Go 套餐，不推荐已下架模型或过期价格。</li>
+    <li data-lang="en"><strong>Fresh</strong>: re-fetches the Go plan every run, so no retired model and no stale price.</li>
+
+    <li data-lang="zh"><strong>多来源</strong>：原生智能体、<code>oh-my-opencode-slim</code> 预设、其他插件注入的智能体都能读。</li>
+    <li data-lang="en"><strong>Multi-source</strong>: native agents, <code>oh-my-opencode-slim</code> presets, and agents from other plugins.</li>
+
+    <li data-lang="zh"><strong>跳过自带</strong>：OpenCode 自带的 build、plan 及内置 subagent 一律不碰。</li>
+    <li data-lang="en"><strong>Built-ins skipped</strong>: OpenCode&rsquo;s own build, plan, and built-in subagents are left alone.</li>
+
+    <li data-lang="zh"><strong>带回退</strong>：支持链的工具给一条有序故障转移链，首选被限流也不中断会话。</li>
+    <li data-lang="en"><strong>Fallback-ready</strong>: an ordered failover chain wherever the tool supports one, so a cap does not end the session.</li>
+
+    <li data-lang="zh"><strong>有来源</strong>：每个数字都带来源与抓取日期，拿不准的标出，绝不编造。</li>
+    <li data-lang="en"><strong>Sourced</strong>: every number carries a source and a fetch date; unknowns are flagged, never invented.</li>
+
+    <li data-lang="zh"><strong>三种模式</strong>：<code>budget</code> / <code>balanced</code> / <code>quality</code>，按价格与能力的取舍来选。</li>
+    <li data-lang="en"><strong>Three modes</strong>: <code>budget</code> / <code>balanced</code> / <code>quality</code>, trading price against capability.</li>
+
+    <li data-lang="zh"><strong>实验室为准</strong>：能力（尤其视觉输入）以模型所属实验室的官方文档核实，不从模型名推断。</li>
+    <li data-lang="en"><strong>Lab-verified</strong>: capabilities (especially vision) are checked in the model&rsquo;s own lab docs, not inferred from the id.</li>
+  </ul>
+
+  <h2><span data-lang="zh">安装</span><span data-lang="en">Install</span></h2>
+  <p data-lang="zh">把下面这段发给 AI，它会帮你装好。</p>
+  <p data-lang="en">Paste the block below into your AI agent and it will install the skill for you.</p>
+
+  <div class="block" data-lang="zh">
+    <div class="block-head">
+      <span class="block-label">安装提示词 · 复制给 AI</span>
+      <button class="copy" type="button" data-copy="prompt-zh" data-copied="已复制 ✓" data-copyfail="复制失败，请手动选择">复制</button>
+    </div>
+    <pre id="prompt-zh">帮我安装 "OpenCode Go Model Picker" 这个技能。
+
+1. 获取仓库：https://github.com/sogeisetsu/opencode-go-model-picker
+2. 只把下面这些复制到我的全局 OpenCode 技能目录
+   （~/.config/opencode/skills/opencode-go-model-picker/）：
+   - SKILL.md
+   - references/
+   - scripts/
+3. 不要复制仓库里的其他内容（README、LICENSE、assets 等）。
+4. 验证：在安装目录里运行 "node scripts/fetch-go-models.mjs"，确认能输出 JSON。
+5. 告诉我安装路径以及是否成功。</pre>
+  </div>
+
+  <div class="block" data-lang="en">
+    <div class="block-head">
+      <span class="block-label">Install prompt · paste into your AI</span>
+      <button class="copy" type="button" data-copy="prompt-en" data-copied="Copied ✓" data-copyfail="Copy failed — select manually">Copy</button>
+    </div>
+    <pre id="prompt-en">Install the "OpenCode Go Model Picker" skill for me.
+
+1. Get the repository: https://github.com/sogeisetsu/opencode-go-model-picker
+2. Copy only these into my global OpenCode skills directory
+   (~/.config/opencode/skills/opencode-go-model-picker/):
+   - SKILL.md
+   - references/
+   - scripts/
+3. Do not copy the rest of the repo (README, LICENSE, assets, ...).
+4. Verify by running "node scripts/fetch-go-models.mjs" inside the installed
+   folder and confirming it prints JSON.
+5. Tell me the install path and whether it worked.</pre>
+  </div>
+
+  <div class="block">
+    <div class="block-head">
+      <span class="block-label" data-lang="zh">手动安装 · 可选</span>
+      <span class="block-label" data-lang="en">Manual install · optional</span>
+    </div>
+    <pre># Linux / macOS
+git clone https://github.com/sogeisetsu/opencode-go-model-picker.git \
+  ~/.config/opencode/skills/opencode-go-model-picker
+
+# Windows (PowerShell)
+git clone https://github.com/sogeisetsu/opencode-go-model-picker.git `
+  "$env:USERPROFILE\.config\opencode\skills\opencode-go-model-picker"</pre>
+  </div>
+
+  <footer>
+    OpenCode Go Model Picker · GPL-3.0-or-later ·
+    <a href="https://github.com/sogeisetsu/opencode-go-model-picker"><span data-lang="zh">GitHub 仓库</span><span data-lang="en">GitHub repository</span></a>
+  </footer>
+
+</main>
+<script>
+  (function () {
+    var root = document.documentElement;
+    var TITLES = {
+      zh: "OpenCode Go Model Picker — 为 OpenCode 智能体挑选 Go 模型",
+      en: "OpenCode Go Model Picker — Plan-aware Go model selection for OpenCode agents"
+    };
+
+    function setLang(lang) {
+      if (lang !== "en") lang = "zh";
+      root.setAttribute("data-show", lang);
+      root.lang = lang === "en" ? "en" : "zh-CN";
+      document.title = TITLES[lang];
+      var buttons = document.querySelectorAll(".langbtn");
+      for (var i = 0; i < buttons.length; i++) {
+        buttons[i].setAttribute("aria-pressed", String(buttons[i].getAttribute("data-setlang") === lang));
+      }
+      try { localStorage.setItem("lang", lang); } catch (e) {}
+    }
+
+    var buttons = document.querySelectorAll(".langbtn");
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].addEventListener("click", function () {
+        setLang(this.getAttribute("data-setlang"));
+      });
+    }
+
+    // Apply the saved language (the head script already set the attribute; this syncs title + buttons).
+    // English is the default; only an explicit saved "zh" switches to Chinese.
+    var saved = "en";
+    try { saved = localStorage.getItem("lang") === "zh" ? "zh" : "en"; } catch (e) {}
+    setLang(saved);
+
+    // Copy buttons: the async Clipboard API with a hidden-textarea fallback,
+    // and always a visible result so a click is never silent.
+    function fallbackCopy(text) {
+      var area = document.createElement("textarea");
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.top = "-9999px";
+      document.body.appendChild(area);
+      area.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      document.body.removeChild(area);
+      return ok;
+    }
+
+    function flash(button, message, ok) {
+      var original = button.textContent;
+      button.textContent = message;
+      if (ok) button.classList.add("ok");
+      button.disabled = true;
+      setTimeout(function () {
+        button.textContent = original;
+        button.classList.remove("ok");
+        button.disabled = false;
+      }, 1500);
+    }
+
+    var copies = document.querySelectorAll(".copy");
+    for (var j = 0; j < copies.length; j++) {
+      copies[j].addEventListener("click", function () {
+        var button = this;
+        var target = document.getElementById(button.getAttribute("data-copy"));
+        if (!target) return;
+        var text = target.textContent.trim();
+        var done = button.getAttribute("data-copied") || "Copied ✓";
+        var failed = button.getAttribute("data-copyfail") || "Copy failed";
+
+        function finish(ok) {
+          if (!ok) ok = fallbackCopy(text);
+          flash(button, ok ? done : failed, ok);
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(
+            function () { finish(true); },
+            function () { finish(false); }
+          );
+        } else {
+          finish(false);
+        }
+      });
+    }
+  })();
+</script>
+</body>
+</html>
