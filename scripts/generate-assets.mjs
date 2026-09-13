@@ -210,6 +210,9 @@ function badgeSvg(label, value, valueColor, valueTextColor) {
 
 mkdirSync(badgesDir, { recursive: true });
 
+// Banner tagline rule: name both the audience and the action (e.g. "the right
+// <product> for every <audience>"). A tagline that only describes the project
+// reads as unclear — keep the EN and ZH lines meaning-identical.
 const files = {
   [join(assets, "icon.svg")]: iconSvg(),
   [join(assets, "banner.svg")]: bannerSvg({
