@@ -67,10 +67,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rewrote both READMEs in a plainer, more readable style, regrouping them so the
   project is easy to understand at a glance.
 - Clarified scope: the skill recommends models only for custom agents, and a
-  custom agent stays in scope even without fallback-chain support. Added an
-  explicit, optional suggestion to use a chain-capable tool, and fixed snapshot
-  wording that described the diff as `changed` even though the script reports only
-  `added` / `removed`.
+  custom agent stays in scope even without fallback-chain support. Built-ins are
+  skipped "including but not limited to" the known list, since OpenCode's set can
+  change between versions. Added an explicit, optional suggestion to use a
+  chain-capable tool, and fixed snapshot wording that described the diff as
+  `changed` even though the script reports only `added` / `removed`.
 - Corrected the `budget` fallback sequence (cheapest Go → next-cheapest Go) and
   made the per-source schema rule say "custom native agents".
 

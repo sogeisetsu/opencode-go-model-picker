@@ -36,13 +36,17 @@ you say yes.
 
 ## What it does
 
-- **Reads your agents** — native OpenCode agents, `oh-my-opencode-slim` presets, or
-  agents from another plugin.
+- **Reads your agents** — your own agents (JSON or Markdown), `oh-my-opencode-slim`
+  presets, or agents from another plugin.
 - **Fetches the Go plan fresh on every run**, so it never suggests a retired model
   or an outdated price.
-- **Recommends a model for each custom agent**, wherever it lives — even one
-  configured only in native OpenCode, with no fallback-chain support. OpenCode's
-  own built-in agents (Build, Plan, and the built-in subagents) are left untouched.
+- **Recommends a model for each custom agent.** "Custom" means any agent OpenCode
+  doesn't ship: your own agents in `opencode.jsonc` or Markdown files,
+  `oh-my-opencode-slim` presets, and agents from other plugins — even those
+  without fallback-chain support.
+- **Skips OpenCode's built-in agents** — including but not limited to Build, Plan,
+  and the built-in subagents. Which agents OpenCode ships can change between
+  versions, so the rule is "anything OpenCode ships is skipped", not a fixed list.
 - **Adds a fallback chain** where the source supports one, so hitting a capped
   model doesn't end your session.
 - **Shows its work.** Every number comes with a source and a fetch date, and
@@ -64,10 +68,11 @@ still works — it just recommends a single model for those agents.
 
 - **OpenCode** with Agent Skills support. The skill lives in
   `~/.config/opencode/skills/`.
-- **At least one custom agent to tune** — a custom native OpenCode agent (not one
-  of OpenCode's built-ins), an
+- **At least one custom agent to tune** — an agent you define yourself in
+  `opencode.jsonc` or a Markdown file, an
   [`oh-my-opencode-slim`](https://github.com/alvinunreal/oh-my-opencode-slim)
-  preset, or an agent from another plugin.
+  preset, or an agent from another plugin. (OpenCode's built-in agents don't need
+  tuning.)
   - `oh-my-opencode-slim` is **optional**. It is only one of the supported
     sources; if you happen to use it, the skill treats its installed schema as the
     source of truth.
@@ -182,9 +187,9 @@ A few details worth knowing:
 - **Fallback chains depend on your tool.** An array like `model: ["a", "b", "c"]`
   is an ordered failover chain in `oh-my-opencode-slim` 2.2.x (verified against
   `ForegroundFallbackManager`). If every entry fails, the session aborts, so the
-  chain should end on a model you can rely on. Native OpenCode agents take a single
-  `model`, so there the skill recommends one model and says a chain isn't possible.
-  Any other tool that supports chains works just as well — using
+  chain should end on a model you can rely on. Agents defined directly in OpenCode
+  take a single `model` (no chain), so there the skill recommends one model and
+  says so. Any other tool that supports chains works just as well — using
   `oh-my-opencode-slim` is only a suggestion, not a requirement.
 - **Capabilities come from the lab, not the name.** The skill verifies a model's
   abilities in its own lab documentation, never infers them from the model ID.

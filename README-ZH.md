@@ -30,9 +30,10 @@
 
 ## 它能做什么
 
-- **读懂你的智能体**——原生 OpenCode 智能体、`oh-my-opencode-slim` 预设，或其他插件提供的智能体。
+- **读懂你的智能体**——你自己定义的（JSON 或 Markdown）、`oh-my-opencode-slim` 预设里的，或其他插件提供的智能体。
 - **每次运行都重新抓取 Go 套餐**，所以不会推荐已经下架的模型或过期的价格。
-- **只给你的自定义智能体推荐模型**——无论它配置在哪里，哪怕只在原生 OpenCode 里配置、并不支持回退链。OpenCode 自带的 Build、Plan 以及自带 subagent 不会被动。
+- **只给你的自定义智能体推荐模型。**「自定义」指不是 OpenCode 自带的一切：你自己写在 `opencode.jsonc` 或 Markdown 里的智能体、`oh-my-opencode-slim` 预设，以及其他插件提供的智能体——即使不支持回退链也算。
+- **跳过 OpenCode 自带的智能体**——包括但不限于 Build、Plan 以及自带 subagent。OpenCode 各版本自带的智能体可能不同，所以规则是「OpenCode 自带的一律跳过」，而不是一份固定名单。
 - **在支持的情况下给出回退链**，某个模型被限流时不会直接中断你的会话。
 - **把依据摆出来。** 每个数字都带来源和抓取日期；拿不准的会明确标出，而不是猜。
 
@@ -45,7 +46,7 @@
 ## 前置要求
 
 - **OpenCode**，且支持 Agent Skills。技能会被放进 `~/.config/opencode/skills/`。
-- **至少有一个自定义智能体**需要调优——一个自定义的原生 OpenCode 智能体（不是 OpenCode 自带的）、一个 [`oh-my-opencode-slim`](https://github.com/alvinunreal/oh-my-opencode-slim) 预设，或其他插件提供的智能体。
+- **至少有一个自定义智能体**需要调优——你自己在 `opencode.jsonc` 或 Markdown 里定义的、一个 [`oh-my-opencode-slim`](https://github.com/alvinunreal/oh-my-opencode-slim) 预设里的，或其他插件提供的智能体。（OpenCode 自带的智能体不需要调优。）
   - `oh-my-opencode-slim` 是**可选**的。它只是本技能支持的来源之一；如果你正好在用，本技能会以它已安装的结构规范为准。
 - **Node.js 18+**，仅辅助脚本需要（已在 Node 22 上测试）。
 
@@ -136,7 +137,7 @@ node scripts/fetch-go-models.mjs   # 输出 { fetchedAt, source, count, ids }
 几点值得了解：
 
 - **Go 额度是按模型计的月度美元金额。** 整体窗口为 5 小时 = 20%、每周 = 50%、每月 = 100%。因为每个模型各有限额，某个被限流时另一个 Go 模型仍然可用——所以第一层回退常常是另一个 Go 模型。
-- **回退链取决于你用的工具。** 形如 `model: ["a", "b", "c"]` 的数组在 `oh-my-opencode-slim` 2.2.x 里是一条有序故障转移链（依据 `ForegroundFallbackManager` 核实）。如果每一项都失败，会话会中止，所以链尾应该是你真正能依赖的模型。原生 OpenCode 智能体只接受单个 `model`，因此那里本技能只推荐一个模型，并说明无法表达链。其他支持模型链的工具同样适用——使用 `oh-my-opencode-slim` 只是一个建议，并非必须。
+- **回退链取决于你用的工具。** 形如 `model: ["a", "b", "c"]` 的数组在 `oh-my-opencode-slim` 2.2.x 里是一条有序故障转移链（依据 `ForegroundFallbackManager` 核实）。如果每一项都失败，会话会中止，所以链尾应该是你真正能依赖的模型。直接定义在 OpenCode 里的智能体只接受单个 `model`（没有链），因此那里本技能只推荐一个模型并说明这一点。其他支持模型链的工具同样适用——使用 `oh-my-opencode-slim` 只是一个建议，并非必须。
 - **能力看实验室文档，不看名字。** 模型的能力会去它所属实验室的官方文档里核实，绝不从模型编号猜。这对视觉类智能体（比如 `observer`）需要的**视觉**输入尤其重要。
 - **省 token。** `~/.cache/opencode/opencode-go-model-picker/snapshot.json` 里缓存了一份归一化后的目录和评分，每次运行只重新抓取、重新核实发生变化的部分。缓存绝不取代来源——每个值都带来源和抓取日期。见 [`references/model-snapshot.md`](references/model-snapshot.md)。
 

@@ -20,8 +20,9 @@ principles intact.
 4. **Verify capabilities from the model's own lab documentation**, never from its
    name. This matters most for vision input, which the `observer` agent needs.
 5. **Only custom agents.** Never recommend models for OpenCode's built-in agents
-   (`build`, `plan`, the built-in subagents, or the hidden system agents).
-   A custom agent stays in scope even without fallback-chain support.
+   (including but not limited to `build`, `plan`, the built-in subagents, and the
+   hidden system agents; the set can change between versions). A custom agent
+   stays in scope even without fallback-chain support.
 
 ## Repository layout
 
