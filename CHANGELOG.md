@@ -5,12 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-[中文版](zh/CHANGELOG-ZH.md)
+[Chinese version](zh/CHANGELOG-ZH.md)
 
 ## [Unreleased]
 
 ### Added
 
+- Generalized agent discovery beyond `oh-my-opencode-slim`: the skill now reads
+  native OpenCode agents (the `agent` key in `opencode.json`/`opencode.jsonc`,
+  and Markdown files under `~/.config/opencode/agents/` or `.opencode/agents/`)
+  and other plugins that inject agents, through source adapters described in the
+  new `references/agent-sources.md`. The allocation policy now works on role
+  traits, with known-role overrides preserving the previous per-agent behavior.
+- Added three recommendation modes trading performance against price: `budget`
+  (cheapest acceptable), `balanced` (default), and `quality` (strongest
+  capability). The chosen mode is stated in the report, with a reason when it is
+  not the default.
+- Added a persistent model snapshot cache
+  (`~/.cache/opencode/opencode-go-model-picker/snapshot.json`) and
+  `scripts/refresh-snapshot.mjs`, which diffs the live catalog and prints a
+  compact added / removed diff so runs only re-verify what changed. Ranking
+  scores (LiveBench, Apache-2.0) are cached with a 7-day TTL. Documented in
+  `references/model-snapshot.md`.
+- Restricted recommendations to **custom** agents: OpenCode's built-in agents
+  (`build`, `plan`, and the built-in subagents) are intentionally skipped.
+- Broadened the READMEs, banners, and references from `oh-my-opencode-slim`-only
+  wording to all agent sources, and softened the fallback-chain note to a
+  suggestion rather than a requirement.
 - Initial public scaffolding of the `opencode-go-model-picker` skill.
 - Skill instructions in `SKILL.md`, with the plan data-source reference
   (`references/data-sources.md`) and the output-format reference

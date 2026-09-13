@@ -10,6 +10,11 @@
 
 ### 新增
 
+- 将智能体发现从 `oh-my-opencode-slim` 扩展到更多来源：技能现在通过新增的 `references/agent-sources.md` 中的来源适配器，读取原生 OpenCode 智能体（`opencode.json`/`opencode.jsonc` 的 `agent` 键，以及 `~/.config/opencode/agents/` 或 `.opencode/agents/` 下的 Markdown 文件）和其他注入智能体的插件。分配策略改为基于角色特征，并用已知角色覆盖保持此前的逐智能体行为。
+- 新增三种在性能与价格之间取舍的推荐模式：`budget`（省钱，能接受的最低价）、`balanced`（默认）、`quality`（最佳性能）。报告会写明所选模式，非默认模式时会说明理由。
+- 新增持久化模型快照缓存（`~/.cache/opencode/opencode-go-model-picker/snapshot.json`）与 `scripts/refresh-snapshot.mjs`：对实时目录做差异，输出紧凑的新增 / 下架差异，使每次运行只重新核实发生变化的部分。排名评分（LiveBench，Apache-2.0）以 7 天 TTL 缓存。详见 `references/model-snapshot.md`。
+- 推荐范围限定为**自定义**智能体：有意跳过 OpenCode 自带的 `build`、`plan` 以及自带 subagent。
+- 把两份 README、横幅与参考文档从“仅 `oh-my-opencode-slim`”的措辞扩展为面向所有智能体来源，并把回退链说明弱化为“建议”而非“必须”。
 - `opencode-go-model-picker` 技能的初始开源脚手架。
 - `SKILL.md` 中的技能指令，以及套餐数据来源参考（`references/data-sources.md`）与输出格式参考（`references/output-format.md`）。
 - 目录抓取脚本 `scripts/fetch-go-models.mjs`。
