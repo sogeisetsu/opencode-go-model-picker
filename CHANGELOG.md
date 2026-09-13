@@ -36,6 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the baseline itself is the pick.
 - Updated the banner subtitles to say plainly "the right OpenCode Go model for
   every custom agent".
+- Extended `scripts/check-docs.mjs` into a one-stop documentation check: it now
+  also validates frontmatter (including the unquoted `: ` case that silently broke
+  `SKILL.md`) and verifies English docs contain no CJK characters. Added a
+  terminology section to `CONTRIBUTING` (EN/ZH) that pins "custom agent" vs
+  "built-in agent" and warns against "native OpenCode" as a synonym for custom.
 - Added a persistent model snapshot cache
   (`~/.cache/opencode/opencode-go-model-picker/snapshot.json`) and
   `scripts/refresh-snapshot.mjs`, which diffs the live catalog and prints a

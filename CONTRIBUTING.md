@@ -24,6 +24,21 @@ principles intact.
    hidden system agents; the set can change between versions). A custom agent
    stays in scope even without fallback-chain support.
 
+## Terminology
+
+Keep the audience distinction exact — it drives the whole skill:
+
+- **custom agent** — any agent the user defines or installs (a native JSON or
+  Markdown agent, an `oh-my-opencode-slim` preset, or an agent from another
+  plugin). This is what the skill tunes.
+- **built-in agent** — an agent OpenCode ships (including but not limited to
+  `build`, `plan`, the built-in subagents, and the hidden system agents). Never
+  tuned; the set can change between versions.
+
+Avoid using "native OpenCode" to mean a *custom* agent: it reads as "built-in" and
+has already caused real confusion. Say "an agent you define in `opencode.jsonc` or
+a Markdown file" instead.
+
 ## Repository layout
 
 | Path | Responsibility |
@@ -36,7 +51,7 @@ principles intact.
 | `scripts/fetch-go-models.mjs` | Helper that prints the live model catalog as JSON. |
 | `scripts/refresh-snapshot.mjs` | Refreshes the snapshot cache and prints a compact added / removed diff. |
 | `scripts/generate-assets.mjs` | Regenerates the SVG icon, banners and local badges. |
-| `scripts/check-docs.mjs` | Checks relative links and English/Chinese doc pairs. |
+| `scripts/check-docs.mjs` | One-stop doc check: relative links, EN/ZH doc pairs, frontmatter, and no CJK in English docs. |
 | `README.md` / `README-ZH.md` | English and Chinese documentation. |
 | `zh/` | Chinese docs (`CONTRIBUTING-ZH.md`, `CHANGELOG-ZH.md`, and a git-ignored local `skill-zh.md` reading copy). |
 | `assets/` | SVG icon, banners and local badges used in the README headers. |
@@ -58,8 +73,12 @@ There is no build step or test suite. Validate manually:
 ```bash
 node --check scripts/*.mjs                 # syntax check
 node scripts/fetch-go-models.mjs           # confirm the endpoint still works
-node scripts/check-docs.mjs                 # relative links + EN/ZH pair check
+node scripts/check-docs.mjs                # one-stop doc check (see below)
 ```
+
+`check-docs.mjs` validates relative links, English/Chinese doc pairs, frontmatter
+validity, and that English docs contain no CJK characters — run it after any
+documentation or `SKILL.md` edit.
 
 If you changed the workflow or output structure, walk through the run mentally
 against `references/output-format.md` and confirm all six sections are still
