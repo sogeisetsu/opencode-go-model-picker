@@ -11,12 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added a committed LiveBench score seed (`references/model-scores.json`) and
-  `scripts/refresh-scores.mjs`, which reads the static LiveBench site repo (no
-  browser, no key) and derives Overall plus per-category scores from the task
-  columns. The seed is reused only while its `source.tableDate` still matches the
-  latest upstream table and it covers the current catalog; otherwise the script
-  fetches fresh. Cost stays `null` because the static table has no cost column.
+- Added a committed LMArena score seed (`references/model-scores.json`) and
+  `scripts/refresh-scores.mjs`, which reads the official LMArena leaderboard
+  dataset through the Hugging Face datasets-server (no key, no browser) and uses
+  Arena ELO from three boards (overall / coding / vision). The seed is reused only
+  while its `source.publishDates` match the live boards and it covers the current
+  catalog; otherwise the script fetches fresh. Cost stays `null` because the
+  dataset has no cost column, and the script auto-enables a configured system
+  proxy.
 - Added a first-run mode diagnostic: when the request names no mode and none is
   remembered, the skill asks a few short questions, stores the answer in
   `snapshot.preferences` (`mode`, `answers`, `chosenAt`), and reuses it on later
@@ -56,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`~/.cache/opencode/opencode-go-model-picker/snapshot.json`) and
   `scripts/refresh-snapshot.mjs`, which diffs the live catalog and prints a
   compact added / removed diff so runs only re-verify what changed. Ranking
-  scores (LiveBench, Apache-2.0) are cached with a 7-day TTL. Documented in
+  scores (LMArena, Arena ELO) are cached with a 1-day TTL. Documented in
   `references/model-snapshot.md`.
 - Restricted recommendations to **custom** agents: OpenCode's built-in agents
   (`build`, `plan`, and the built-in subagents) are intentionally skipped.

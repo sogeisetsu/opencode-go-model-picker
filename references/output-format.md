@@ -30,7 +30,8 @@ where it came from: named in the request, remembered from a previous run
 
 `| source | agent | traits | recommended model/chain | cost tier | why |`
 Explain the cost signal (monthly limit + $/1M), the estimated requests per 5h
-(throughput), and the capability fit per agent.
+(throughput), and the capability fit per agent — where capability comes from the
+LMArena Arena ELO scores (`overall` / `coding` / `vision`).
 
 Add a **"Flags"** note for any pick that needs one — never hide these in the
 "why" cell:

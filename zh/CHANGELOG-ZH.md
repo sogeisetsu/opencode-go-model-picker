@@ -10,7 +10,7 @@
 
 ### 新增
 
-- 新增提交进仓库的 LiveBench 评分种子（`references/model-scores.json`）与 `scripts/refresh-scores.mjs`：脚本读取 LiveBench 静态站点仓库（无浏览器、无 key），由任务分推导 Overall 与各分类分。只有当种子的 `source.tableDate` 仍等于上游最新表、且覆盖当前目录时才复用；否则脚本重新抓取。静态表没有 cost 列，故 cost 保持 `null`。
+- 新增提交进仓库的 LMArena 评分种子（`references/model-scores.json`）与 `scripts/refresh-scores.mjs`：脚本经 Hugging Face datasets-server 读取官方 LMArena 排行榜数据集（免 key、无浏览器），使用三个榜单（overall / coding / vision）的 Arena ELO。只有当种子的 `source.publishDates` 仍与线上榜单一致、且覆盖当前目录时才复用；否则脚本重新抓取。数据集没有 cost 列，故 cost 保持 `null`；脚本会在配置了系统代理时自动启用。
 - 新增首次使用的模式诊断：请求未指定模式、也没有已记住的模式时，技能会问几个简短问题，把答案存入 `snapshot.preferences`（`mode`、`answers`、`chosenAt`），之后沿用。显式点名的模式始终覆盖它；跳过问题则回退到 `balanced`。
 - 将智能体发现从 `oh-my-opencode-slim` 扩展到更多来源：技能现在通过新增的 `references/agent-sources.md` 中的来源适配器，读取原生 OpenCode 智能体（`opencode.json`/`opencode.jsonc` 的 `agent` 键，以及 `~/.config/opencode/agents/` 或 `.opencode/agents/` 下的 Markdown 文件）和其他注入智能体的插件。分配策略改为基于角色特征，并用已知角色覆盖保持此前的逐智能体行为。
 - 新增三种在性能与价格之间取舍的推荐模式：`budget`（省钱，能接受的最低价）、`balanced`（默认）、`quality`（最佳性能）。报告会写明所选模式，非默认模式时会说明理由。
@@ -19,7 +19,7 @@
 - 新增 **balanced 价格上限**：对常用的高用量智能体，最贵的推荐应该只比当前「便宜但够用」的基线（写作时为 DeepSeek V4.1 Flash）贵一点点、且明显更强；否则就推荐基线本身。
 - 更新横幅副标题，直白地说明「为每个自定义智能体挑选合适的 OpenCode Go 模型」。
 - 把 `scripts/check-docs.mjs` 扩展为一站式文档校验：现在还校验 frontmatter（包括曾悄悄让 `SKILL.md` 失效的未加引号 `: ` 情况），并检查英文文档中不含中文字符。在 `CONTRIBUTING`（中英）新增术语约定，钉死「custom agent」与「built-in agent」，并提醒不要用「原生 OpenCode」指代自定义智能体。
-- 新增持久化模型快照缓存（`~/.cache/opencode/opencode-go-model-picker/snapshot.json`）与 `scripts/refresh-snapshot.mjs`：对实时目录做差异，输出紧凑的新增 / 下架差异，使每次运行只重新核实发生变化的部分。排名评分（LiveBench，Apache-2.0）以 7 天 TTL 缓存。详见 `references/model-snapshot.md`。
+- 新增持久化模型快照缓存（`~/.cache/opencode/opencode-go-model-picker/snapshot.json`）与 `scripts/refresh-snapshot.mjs`：对实时目录做差异，输出紧凑的新增 / 下架差异，使每次运行只重新核实发生变化的部分。排名评分（LMArena，Arena ELO）以 1 天 TTL 缓存。详见 `references/model-snapshot.md`。
 - 推荐范围限定为**自定义**智能体：有意跳过 OpenCode 自带的 `build`、`plan` 以及自带 subagent。
 - 把两份 README、横幅与参考文档从“仅 `oh-my-opencode-slim`”的措辞扩展为面向所有智能体来源，并把回退链说明弱化为“建议”而非“必须”。
 - `opencode-go-model-picker` 技能的初始开源脚手架。

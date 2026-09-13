@@ -177,11 +177,11 @@ needed. A typical run goes like this:
    plugin source you declare. The details live in
    [`references/agent-sources.md`](references/agent-sources.md).
 2. **Refresh its model snapshot** — `scripts/refresh-snapshot.mjs` fetches the
-   live catalog and returns a compact added/removed diff. LiveBench ability scores
+   live catalog and returns a compact added/removed diff. LMArena ability scores
    come from a committed seed (`references/model-scores.json`) when it still
-   matches the latest LiveBench table; otherwise `scripts/refresh-scores.mjs`
-   fetches the raw static table. No browser is involved. A brand-new model is
-   always looked up right away.
+   matches the latest LMArena boards; otherwise `scripts/refresh-scores.mjs`
+   fetches them. No key and no browser are involved. A brand-new model is always
+   looked up right away.
 3. **Check the plan** — prices and limits are read from the current plan pages and
    compared with the cache; only the added or changed models get a deeper
    capability check.
@@ -216,13 +216,12 @@ A few details worth knowing:
   abilities in its own lab documentation, never infers them from the model ID.
   This matters most for **vision** input, which vision-capable agents (such as
   `observer`) need.
-- **Ability scores ship with the skill.** A committed LiveBench seed
-  (`references/model-scores.json`) means the first run does not have to download
-  and parse a benchmark page. It is reused only while its table date still matches
-  LiveBench's latest release (those come out every few months); `null` scores are
-  left unfilled rather than guessed. The overall/category numbers are derived from
-  LiveBench's task columns, and the static table has no cost column, so cost stays
-  `null`.
+- **Ability scores ship with the skill.** A committed LMArena seed
+  (`references/model-scores.json`) means the first run does not have to fetch and
+  match the leaderboards. It is reused only while its board dates still match
+  LMArena's latest release; `null` scores are left unfilled rather than guessed.
+  The scores are LMArena Arena ELO ratings (`overall` / `coding` / `vision`), not
+  0–100, and LMArena has no cost column, so cost stays `null`.
 - **It saves tokens.** A cached snapshot at
   `~/.cache/opencode/opencode-go-model-picker/snapshot.json` holds the normalized
   catalog and scores, so each run re-fetches and re-verifies only what changed.
@@ -241,7 +240,7 @@ Fetched fresh every run. Full details and parsing notes are in
 | 3 | Models endpoint | https://opencode.ai/zen/go/v1/models | live catalog ids (via `scripts/fetch-go-models.mjs`) |
 | 4 | models.dev | https://models.opencode.ai/providers/opencode-go/ | context / output / price / capabilities |
 | 5 | julien.cloud tracker | https://julien.cloud/opencode-go-models/ | merged view + price-change / deprecation log |
-| 6 | LiveBench | https://livebench.ai/ + [site repo](https://github.com/LiveBench/livebench.github.io/tree/main/public) | overall + per-category scores (derived; committed seed, static CSV fallback; no browser) |
+| 6 | LMArena | https://lmarena.ai/ ([dataset](https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset) via the HF datasets-server) | Arena ELO: overall / coding / vision (committed seed; no key, no browser) |
 
 ## Safety and privacy
 
@@ -251,8 +250,9 @@ Fetched fresh every run. Full details and parsing notes are in
 - **Local reads:** your OpenCode config under `~/.config/opencode/` (including
   `agents/`) and the installed plugin's schema.
 - **Network access:** the public pages above, the unauthenticated `opencode.ai`
-  models endpoint, and — only when the score seed is stale — the public LiveBench
-  site repo on GitHub. No credentials and no personal data are sent.
+  models endpoint, and — only when the score seed is stale — the public LMArena
+  dataset on Hugging Face. A system proxy is used automatically if configured. No
+  credentials and no personal data are sent.
 - **No invented numbers.** Every figure carries a source and a fetch date, and
   anything unverifiable is flagged for a manual check.
 - **Unofficial.** This project is not affiliated with, endorsed by, or sponsored

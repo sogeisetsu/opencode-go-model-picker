@@ -80,12 +80,12 @@ A persistent, normalized snapshot of the Go catalog and model scores lives at
 
 - Run `node scripts/refresh-snapshot.mjs` — it fetches the live catalog, diffs the
   ids (`added` / `removed`), and prints a compact JSON diff.
-- Refresh **LiveBench** scores only when `sources.rankings.fetchedAt` is missing
-  or older than 7 days, using `node scripts/refresh-scores.mjs --snapshot <path>`
-  (no browser). It reuses the committed `references/model-scores.json` seed when
-  its `source.tableDate` is still the latest LiveBench table, and otherwise
-  fetches the raw static table. `costPerSuccessfulTaskUsd` is always `null` (the
-  static table has no cost column).
+- Refresh **LMArena** scores only when `sources.rankings.fetchedAt` is missing or
+  older than 1 day, using `node scripts/refresh-scores.mjs --snapshot <path>` (no
+  key, no browser). It reuses the committed `references/model-scores.json` seed
+  when its `source.publishDates` still match the live boards, and otherwise
+  fetches them. `costPerSuccessfulTaskUsd` is always `null` (LMArena has no cost
+  column). The script auto-enables the system proxy when one is configured.
 - The TTL only throttles re-checking models whose score is already cached: a
   newly added or changed model always gets a fresh score lookup, and a major plan
   change (many added/removed models) or an explicit user request forces a full
@@ -104,7 +104,7 @@ Minimum set:
 - `https://opencode.ai/go` — most timely (promos, "4× usage", featured usage table **with estimated requests per 5h**).
 - `https://opencode.ai/docs/go/` (anchor `#usage-limits`) — full model + price + monthly-limit table, plus the "Estimated requests" assumptions and per-model req/5h / week / month.
 - `https://opencode.ai/zen/go/v1/models` — live catalog (unauthenticated); run `node scripts/fetch-go-models.mjs`.
-- Ranking scores: `node scripts/refresh-scores.mjs` (static LiveBench CSV; committed seed at `references/model-scores.json`) — no browser.
+- Ranking scores: `node scripts/refresh-scores.mjs` (LMArena via the HF datasets-server; committed seed at `references/model-scores.json`) — no key, no browser.
 - Cross-check: `https://models.opencode.ai/providers/opencode-go/`, `https://julien.cloud/opencode-go-models/`.
 
 ## Workflow
@@ -119,9 +119,9 @@ Minimum set:
    `node scripts/refresh-snapshot.mjs`, and read the compact diff (see
    `references/model-snapshot.md`). The script reports `added` / `removed`
    catalog ids; prices and limits come from the plan pages and are compared with
-   the cached values. If `sources.rankings.fetchedAt` is missing or older than 7
-   days, run `node scripts/refresh-scores.mjs --snapshot <path>` (reuses the
-   committed seed when current; no browser). Deep-verify capabilities (especially
+   the cached values. If `sources.rankings.fetchedAt` is missing or older than 1
+   day, run `node scripts/refresh-scores.mjs --snapshot <path>` (reuses the
+   committed seed when current; no key, no browser). Deep-verify capabilities (especially
    vision) only for the added or changed models. Build this run's snapshot:
    `model id | input $/1M | output $/1M | monthly $ limit | est. req/5h | est. req/week | est. req/month | context | reasoning | vision | status | source+date`.
 3. **Detect plan changes** vs. the last snapshot (if any): new/removed models,

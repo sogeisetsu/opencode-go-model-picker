@@ -48,10 +48,10 @@ a Markdown file" instead.
 | `references/agent-sources.md` | Agent discovery: source adapters, the uniform inventory record, the role-trait mapping, and fallback when a source is missing. |
 | `references/model-snapshot.md` | Persistent snapshot cache: schema, location, refresh policy, ranking sources, and name matching. |
 | `references/output-format.md` | The exact six-part report the skill must produce. |
-| `references/model-scores.json` | Committed LiveBench score seed, reused when its table date is still current. |
+| `references/model-scores.json` | Committed LMArena score seed, reused while its board dates are still current. |
 | `scripts/fetch-go-models.mjs` | Helper that prints the live model catalog as JSON. |
 | `scripts/refresh-snapshot.mjs` | Refreshes the snapshot cache and prints a compact added / removed diff. |
-| `scripts/refresh-scores.mjs` | Fetches LiveBench scores from the static site repo (no browser) into the seed or a snapshot. |
+| `scripts/refresh-scores.mjs` | Fetches LMArena scores via the HF datasets-server (no key, no browser) into the seed or a snapshot. |
 | `scripts/generate-assets.mjs` | Regenerates the SVG icon, banners and local badges. |
 | `scripts/check-docs.mjs` | One-stop doc check: relative links, EN/ZH doc pairs, frontmatter, and no CJK in English docs. |
 | `README.md` / `README-ZH.md` | English and Chinese documentation. |
@@ -80,7 +80,7 @@ node scripts/check-docs.mjs                # one-stop doc check (see below)
 
 `check-docs.mjs` validates relative links, English/Chinese doc pairs, frontmatter
 validity, and that English docs contain no CJK characters — run it after any
-documentation or `SKILL.md` edit. To regenerate the LiveBench score seed after an
+documentation or `SKILL.md` edit. To regenerate the LMArena score seed after an
 upstream release, run `node scripts/refresh-scores.mjs` and commit
 `references/model-scores.json`.
 
