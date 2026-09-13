@@ -33,7 +33,7 @@ always fetch fresh data before recommending.
 3. **Schema-accurate per source.** Match the schema of the source you are reading
    (see `references/agent-sources.md`), not a random online doc. For
    oh-my-opencode-slim use the *installed* `oh-my-opencode-slim.schema.json`; for
-   native agents use the official OpenCode config/agent docs.
+   custom native agents use the official OpenCode config/agent docs.
 4. **Explain cost vs. capability per agent**, not just model names.
 5. **Verify capabilities from the lab, not the name.** Especially **vision/image
    input** (needed by `observer`, or any `vision`-trait agent): confirm
@@ -121,7 +121,7 @@ off **performance vs. price only** — no other dimensions.
 
 | Mode | Tradeoff | Per-trait selection rule | Fallback shape |
 |---|---|---|---|
-| `budget` | cheapest acceptable | the lowest-cost model that still clears the trait's capability floor, favoring a large monthly limit | cheapest Go → cheaper Go → free/different provider |
+| `budget` | cheapest acceptable | the lowest-cost model that still clears the trait's capability floor, favoring a large monthly limit | cheapest Go → next-cheapest Go → free/different provider |
 | `balanced` (default) | best cost-effectiveness | current policy: match the model's monthly $ limit to the agent's expected volume; balance price vs. capability | best fit → cheaper Go → different provider |
 | `quality` | maximum capability | the strongest reasoning/capability model on Go for the trait; cost is secondary (limits still apply) | strongest → next-strongest → different provider |
 

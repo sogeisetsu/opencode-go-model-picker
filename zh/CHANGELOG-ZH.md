@@ -33,5 +33,6 @@
 
 - 重写了两份 README，语气更自然易懂，并重新组织了结构，让人一眼能看懂项目在做什么。
 - 明确范围：只对自定义智能体推荐模型；自定义智能体即使不支持回退链也在范围内。新增一条明确但可选的建议——使用支持回退链的工具。修正快照说明中把差异写成 `changed`（脚本实际只报告 `added` / `removed`）的措辞。
+- 修正 `budget` 的回退顺序（最便宜的 Go → 次便宜的 Go），并把按来源的 Schema 规则明确为「自定义的原生智能体」。
 
 [未发布]: https://github.com/sogeisetsu/opencode-go-model-picker/commits/main

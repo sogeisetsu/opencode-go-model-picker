@@ -71,5 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   explicit, optional suggestion to use a chain-capable tool, and fixed snapshot
   wording that described the diff as `changed` even though the script reports only
   `added` / `removed`.
+- Corrected the `budget` fallback sequence (cheapest Go → next-cheapest Go) and
+  made the per-source schema rule say "custom native agents".
 
 [Unreleased]: https://github.com/sogeisetsu/opencode-go-model-picker/commits/main
