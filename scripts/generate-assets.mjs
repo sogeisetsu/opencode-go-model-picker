@@ -213,7 +213,7 @@ mkdirSync(badgesDir, { recursive: true });
 const files = {
   [join(assets, "icon.svg")]: iconSvg(),
   [join(assets, "banner.svg")]: bannerSvg({
-    subtitle: "Plan-aware model selection for OpenCode agents",
+    subtitle: "The right OpenCode Go model for every custom agent",
     footer: "read-only . source-cited . fallback-ready",
     subtitleFont: MONO_TYPEWRITER,
     subtitleSize: 22,
@@ -221,7 +221,7 @@ const files = {
     aria: "OpenCode Go Model Picker banner",
   }),
   [join(assets, "banner-zh.svg")]: bannerSvg({
-    subtitle: "为 OpenCode 智能体做感知套餐的模型选择",
+    subtitle: "为每个自定义智能体挑选合适的 OpenCode Go 模型",
     footer: "只读 · 有来源 · 可回退",
     subtitleFont: CJK_OLD,
     subtitleSize: 22,
