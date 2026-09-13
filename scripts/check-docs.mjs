@@ -25,6 +25,11 @@
 // 2. The English/Chinese documentation pairs must both exist.
 // 3. If only one side of a pair changed, warn to sync it: git status for
 //    tracked pairs, mtime for local-only (gitignored) copies.
+// 4. Frontmatter is well-formed: delimiters present, top-level lines are keys,
+//    and an unquoted top-level value does not contain ": " (which silently
+//    breaks YAML).
+// 5. English docs contain no CJK characters (Chinese docs live under zh/ or
+//    carry a -ZH filename; the local AGENTS.md is exempt).
 //
 // External URLs (http/https/mailto/...) and pure anchors are skipped.
 // Exit code: 1 if any error, else 0. Warnings do not fail the run.
@@ -35,7 +40,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const SKIP_DIRS = new Set(["node_modules", ".git", ".openchamber"]);
+const SKIP_DIRS = new Set(["node_modules", ".git", ".openchamber", ".opencode"]);
 const rel = (p) => relative(root, p).replace(/\\/g, "/");
 
 function walk(dir, out = []) {
@@ -132,6 +137,56 @@ if (changed.length) {
       warnings++;
       console.log(`WARN  changed one side only: ${enChanged ? p.en : p.zh} -> also update ${enChanged ? p.zh : p.en}`);
     }
+  }
+}
+
+// --- 4. frontmatter validity ----------------------------------------------
+// Dependency-free: no YAML library required. Catches the failure that silently
+// invalidated SKILL.md's description until the value was quoted.
+function checkFrontmatter(file) {
+  const lines = readFileSync(file, "utf8").split(/\r?\n/);
+  if (lines[0] !== "---") return;
+  const close = lines.indexOf("---", 1);
+  if (close < 0) {
+    errors++;
+    console.log(`ERROR frontmatter not closed: ${rel(file)}`);
+    return;
+  }
+  for (let i = 1; i < close; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    if (/^\s/.test(line)) continue; // nested value under a key
+    const m = line.match(/^([A-Za-z0-9_-]+):(.*)$/);
+    if (!m) {
+      errors++;
+      console.log(`ERROR malformed frontmatter line ${i + 1}: ${rel(file)} -> ${line}`);
+      continue;
+    }
+    const value = m[2].trim();
+    if (value && !/^["'|>]/.test(value) && value.includes(": ")) {
+      warnings++;
+      console.log(`WARN  frontmatter value contains ': ' unquoted (line ${i + 1}): ${rel(file)} -> quote it`);
+    }
+  }
+}
+for (const file of files) checkFrontmatter(file);
+
+// --- 5. English docs must stay English -------------------------------------
+// Chinese docs live under zh/ or carry a -ZH filename; AGENTS.md is a local
+// (gitignored) Chinese file. Everything else must contain no CJK characters.
+const CJK = /[\u3400-\u9FFF\uF900-\uFAFF]/;
+const isChineseDoc = (p) => {
+  const r = rel(p);
+  return r.startsWith("zh/") || /-zh\.md$/i.test(r) || r === "AGENTS.md";
+};
+for (const file of files) {
+  if (isChineseDoc(file)) continue;
+  const hit = readFileSync(file, "utf8")
+    .split(/\r?\n/)
+    .findIndex((l) => CJK.test(l));
+  if (hit >= 0) {
+    errors++;
+    console.log(`ERROR CJK in English doc (line ${hit + 1}): ${rel(file)}`);
   }
 }
 
