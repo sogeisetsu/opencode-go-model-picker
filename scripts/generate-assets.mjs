@@ -3,7 +3,8 @@
 // Copyright (C) 2026 sogeisetsu
 //
 // This file is part of opencode-go-model-picker, a skill that picks
-// cost-effective OpenCode Go models for each oh-my-opencode-slim agent.
+// cost-effective OpenCode Go models for each OpenCode agent (native,
+// oh-my-opencode-slim, or another plugin source).
 //
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free Software
@@ -212,7 +213,7 @@ mkdirSync(badgesDir, { recursive: true });
 const files = {
   [join(assets, "icon.svg")]: iconSvg(),
   [join(assets, "banner.svg")]: bannerSvg({
-    subtitle: "Plan-aware model selection for oh-my-opencode-slim agents",
+    subtitle: "Plan-aware model selection for OpenCode agents",
     footer: "read-only . source-cited . fallback-ready",
     subtitleFont: MONO_TYPEWRITER,
     subtitleSize: 22,
@@ -220,7 +221,7 @@ const files = {
     aria: "OpenCode Go Model Picker banner",
   }),
   [join(assets, "banner-zh.svg")]: bannerSvg({
-    subtitle: "为 oh-my-opencode-slim 智能体做感知套餐的模型选择",
+    subtitle: "为 OpenCode 智能体做感知套餐的模型选择",
     footer: "只读 · 有来源 · 可回退",
     subtitleFont: CJK_OLD,
     subtitleSize: 22,
