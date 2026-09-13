@@ -10,6 +10,12 @@ Never guess a price, limit, or model id.
 | 3 | Models endpoint | https://opencode.ai/zen/go/v1/models | live catalog (ids) | `node scripts/fetch-go-models.mjs` or curl | Unauthenticated; includes preview/deprecated ids |
 | 4 | Models.dev | https://models.opencode.ai/providers/opencode-go/ | context/output/price/capabilities | webfetch | Third party |
 | 5 | julien.cloud tracker | https://julien.cloud/opencode-go-models/ | merged view + price-change log / deprecation | webfetch | Third party |
+| 6 | LiveBench (rankings) | https://livebench.ai/ | Overall + per-category scores + cost per successful task | webfetch (agent step, 7-day TTL) | Apache-2.0, no key; no stable JSON API |
+
+## Snapshot file
+
+Persist fetched data in `~/.cache/opencode/opencode-go-model-picker/snapshot.json`
+and refresh it cheaply each run — see `references/model-snapshot.md`.
 
 ## Snapshot shape
 
@@ -20,7 +26,7 @@ Never guess a price, limit, or model id.
 - Config uses `opencode-go/<modelID>` (e.g. `opencode-go/kimi-k3`).
 - Go limits are **per-model monthly dollar amounts**; overall limits are 5h = 20% of
   monthly, weekly = 50%, monthly = 100% ($12 / $30 / $60 at time of writing — re-check).
-- If a number is not in a fetched source, write `需人工核实`; do not infer it.
+- If a number is not in a fetched source, mark it for manual verification; do not infer it.
 - The endpoint catalog ≠ what the user's key can use. Tell the user to run
   `/models` (or `opencode models --refresh`) to see their actual entitlement.
 
@@ -51,3 +57,21 @@ falls back to $15.
 
 Also watch for limited-time promos generally: the `/go` page is the most timely
 signal (e.g. "N× usage for a limited time"), while `/docs/go/` shows base numbers.
+
+## Ranking / ability scores (for the snapshot)
+
+The snapshot cache (see `references/model-snapshot.md`) stores a per-model ability
+score so runs do not re-derive it.
+
+- **Primary — LiveBench** (`https://livebench.ai/`, verified 2026-09-13): Overall
+  plus Reasoning / Coding / Agentic Coding / Math / Data Analysis / Language /
+  Instruction Following, and a cost-per-successful-task column. Apache-2.0, no
+  fees, **no stable machine-readable endpoint** — the agent fetches the page and
+  writes scores into the snapshot. Refresh with a 7-day TTL, not every run; new or
+  changed models always get a fresh lookup regardless of the TTL.
+- **Optional coding cross-check — SWE-bench**:
+  `https://raw.githubusercontent.com/SWE-bench/swe-bench.github.io/main/data/leaderboards.json`
+  (public JSON, `% Resolved` per model).
+
+Only use a score that clearly maps to the model; otherwise leave it null and mark
+it for manual verification.
