@@ -25,6 +25,10 @@ Override the path with `--snapshot <path>` when running the refresh script.
       "url": "https://lmarena.ai/", "fetchedAt": null, "matched": 0, "seedUsed": false,
       "boards": { "overall": "text_style_control", "coding": "webdev", "vision": "vision" },
       "publishDates": { "overall": null, "coding": null, "vision": null }
+    },
+    "prices": {
+      "url": "https://models.dev/api.json", "provider": "opencode-go",
+      "fetchedAt": null, "matched": 0, "total": 0, "seedUsed": false
     }
   },
   "preferences": { "mode": null, "answers": null, "chosenAt": null },
@@ -52,6 +56,24 @@ Override the path with `--snapshot <path>` when running the refresh script.
         "costPerSuccessfulTaskUsd": null,
         "fetchedAt": null
       },
+      "price": {
+        "inputPer1M": null,
+        "outputPer1M": null,
+        "cacheReadPer1M": null,
+        "context": null,
+        "outputLimit": null,
+        "monthlyLimitUsd": null,
+        "estReq5h": null,
+        "estReqWeek": null,
+        "estReqMonth": null,
+        "promo": null,
+        "status": null,
+        "priceSource": null,
+        "planSource": null,
+        "upstreamUpdatedAt": null,
+        "priceVerifiedAt": null,
+        "planVerifiedAt": null
+      },
       "provenance": "https://opencode.ai/docs/go/",
       "verifiedAt": null
     }
@@ -62,6 +84,10 @@ Override the path with `--snapshot <path>` when running the refresh script.
 The `score` numbers are **Arena ELO ratings** (roughly 1100–1800), not 0–100
 scores. `overall` comes from the text arena, `coding` from the Code Arena
 (`webdev`), `vision` from the vision arena.
+
+`models.<id>.price` is the committed price-seed entry copied verbatim (16 keys —
+see "Bundled price seed"). The seed flags (`seedUsed`, `matched`, `total`,
+`fetchedAt`) live in `sources.prices`, not in the per-model entry.
 
 Rules:
 
@@ -109,14 +135,49 @@ Then:
    `models.<id>.score` and updates `sources.rankings`. A **newly added or changed
    model** always gets a fresh lookup, and a **major plan change** (many ids
    added/removed) or an **explicit user request** forces a refresh.
-2. Read prices and limits from `https://opencode.ai/docs/go/` and compare them
+2. Refresh prices with the bundled helper:
+
+   ```bash
+   node scripts/refresh-prices.mjs --snapshot ~/.cache/opencode/opencode-go-model-picker/snapshot.json
+   ```
+
+   It reads the committed [`model-prices.json`](model-prices.json) seed when it
+   covers the catalog and every `upstreamUpdatedAt` still equals models.dev's
+   live `last_updated`, and otherwise fetches live; it writes
+   `models.<id>.price` and `sources.prices` (see "Bundled price seed"). Live
+   prices and limits always win over cached or seed values; the seed is read
+   directly from disk only when the plan pages or models.dev are unreachable.
+3. Read prices and limits from `https://opencode.ai/docs/go/` and compare them
    with the cached values; deep-verify capabilities (especially vision) from the
    lab's own docs only for the added or changed models.
-3. Reuse the cached values for everything else.
+4. Reuse the cached values for everything else.
 
 This is what saves tokens: one compact diff instead of re-reading every page,
 scores that usually come straight from the committed seed, and deep verification
 limited to the models that actually changed.
+
+## Bundled price seed
+
+`references/model-prices.json` is a committed per-model price seed, keyed by Go
+model id, so an offline or first run does not have to guess numbers.
+
+- It holds, per model: `inputPer1M`, `outputPer1M`, `cacheReadPer1M`,
+  `context`, `outputLimit`, `monthlyLimitUsd`, `estReq5h`, `estReqWeek`,
+  `estReqMonth`, `promo`, `status`, `priceSource`, `planSource`,
+  `upstreamUpdatedAt`, `priceVerifiedAt`, `planVerifiedAt`. `null` means "not
+  verified" and is never filled by guessing.
+- **Freshness rule: upstream identity plus full coverage.** The seed is reused
+  only while it covers every current Go catalog id **and** each entry's
+  `upstreamUpdatedAt` equals that model's live models.dev `last_updated`;
+  otherwise `refresh-prices.mjs --snapshot` fetches live.
+- Plan-page fields (monthly limit, est req, promo, status) are maintained by
+  hand; the script only preserves them and never invents them.
+- The seed may be read directly from disk when the plan pages or models.dev are
+  unreachable — labelled a seed with its date, never presented as current. A
+  live read always wins.
+- Maintainers regenerate it with `node scripts/refresh-prices.mjs` and commit
+  the result. If nobody does, the seed simply stops being reused (runs fetch
+  instead); nothing breaks.
 
 ## Bundled score seed
 

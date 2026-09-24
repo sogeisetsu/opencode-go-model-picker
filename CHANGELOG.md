@@ -11,6 +11,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a committed price seed (`references/model-prices.json`) and
+  `scripts/refresh-prices.mjs`, which reads the models.dev `opencode-go`
+  provider into per-model `inputPer1M` / `outputPer1M` / `cacheReadPer1M` /
+  `context` / `outputLimit`, plus maintainer-verified monthly limit, estimated
+  request, promo, and status fields. `null` means not verified and is never
+  guessed. The seed is reused only while every entry's `upstreamUpdatedAt` still
+  equals the live models.dev `last_updated` and it covers the catalog; when the
+  plan pages cannot be fetched the skill reads the seed directly as a dated
+  offline fallback, and a live read always wins.
+- Added a first-run mode diagnostic: when the request names no mode and none is
+  remembered, the skill asks two short weighted questions (main goal 0.7, main
+  task 0.3), resolves them through a table, stores the answer in
+  `snapshot.preferences` (`mode`, `answers`, `chosenAt`), and reuses it on later
+  runs. An explicitly named mode always overrides it, and skipping the questions
+  falls back to `balanced`.
+- Added an auditable decision-factors table to the report: each of the two
+  first-run diagnostic questions is listed with its answer and its weight, so
+  the chosen mode can be traced back to the inputs rather than taken on faith.
+- Declared the never-commit-to-`main` rule in `CONTRIBUTING` (EN/ZH) as Ground
+  rule 6: every change starts on a topic branch cut from `main` (`feat/…`,
+  `fix/…`, `docs/…`, `chore/…`) and merges back to `main` only after the checks
+  pass. The rule applies to maintainers too, so `main` stays green and
+  reviewable; "Making a change" step 1 now points at it.
 - Added a committed LMArena score seed (`references/model-scores.json`) and
   `scripts/refresh-scores.mjs`, which reads the official LMArena leaderboard
   dataset through the Hugging Face datasets-server (no key, no browser) and uses
@@ -19,11 +42,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   catalog; otherwise the script fetches fresh. Cost stays `null` because the
   dataset has no cost column, and the script auto-enables a configured system
   proxy.
-- Added a first-run mode diagnostic: when the request names no mode and none is
-  remembered, the skill asks a few short questions, stores the answer in
-  `snapshot.preferences` (`mode`, `answers`, `chosenAt`), and reuses it on later
-  runs. An explicitly named mode always overrides it, and skipping the questions
-  falls back to `balanced`.
 - Generalized agent discovery beyond `oh-my-opencode-slim`: the skill now reads
   native OpenCode agents (the `agent` key in `opencode.json`/`opencode.jsonc`,
   and Markdown files under `~/.config/opencode/agents/` or `.opencode/agents/`)

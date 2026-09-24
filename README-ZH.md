@@ -116,7 +116,7 @@ TUI 里如果它没出现在 `/` 的补全列表中，先输入 `/skills`，从�
 | `balanced` | 最划算——价格与能力之间取平衡（默认）。 |
 | `quality` | Go 上能力最强的，价格次要。 |
 
-在提问时带上模式名，就会按你指定的来。不带的话，第一次使用时技能会问几个简短的问题（最在意什么、用得频不频繁、主要做什么），记住答案并在以后沿用——你随时可以点名模式覆盖它；跳过问题则直接用 `balanced`。
+在提问时带上模式名，就会按你指定的来。不带的话，第一次使用时技能会问两个简短的加权问题（最在意什么、主要做什么），解析出模式，记住答案并在以后沿用——你随时可以点名模式覆盖它；跳过问题则直接用 `balanced`。报告里会附一张可审计的决策因素表。
 
 在 `balanced` 下，对常用的高用量智能体，最贵的推荐应该只比当前「便宜但够用」的基线（写作时为 DeepSeek V4.1 Flash）贵一点点、且明显更强；如果没有模型达标，就推荐基线本身。
 
@@ -150,6 +150,7 @@ TUI 里如果它没出现在 `/` 的补全列表中，先输入 `/skills`，从�
 - **回退链取决于你用的工具。** 形如 `model: ["a", "b", "c"]` 的数组在 `oh-my-opencode-slim` 2.2.x 里是一条有序故障转移链（依据 `ForegroundFallbackManager` 核实）。如果每一项都失败，会话会中止，所以链尾应该是你真正能依赖的模型。直接定义在 OpenCode 里的智能体只接受单个 `model`（没有链），因此那里本技能只推荐一个模型并说明这一点。其他支持模型链的工具同样适用——使用 `oh-my-opencode-slim` 只是一个建议，并非必须。
 - **能力看实验室文档，不看名字。** 模型的能力会去它所属实验室的官方文档里核实，绝不从模型编号猜。这对视觉类智能体（比如 `observer`）需要的**视觉**输入尤其重要。
 - **能力评分随技能一起提供。** 提交进仓库的 LMArena 种子（`references/model-scores.json`）让第一次运行无需抓取并匹配排行榜。只有种子的榜单日期仍等于 LMArena 最新发布时才复用；匹配不到的分数保持 `null`，绝不猜。评分是 LMArena 的 Arena ELO（`overall` / `coding` / `vision`），不是 0–100；LMArena 没有 cost 列，所以 cost 保持 `null`。
+- **价格同样随技能一起提供。** 提交进仓库的价格种子（`references/model-prices.json`）让套餐页面抓取不到时，逐模型价格依然离线可读。只有实时读取才算当前值；种子值汇报时一定附带日期。
 - **省 token。** `~/.cache/opencode/opencode-go-model-picker/snapshot.json` 里缓存了一份归一化后的目录和评分，每次运行只重新抓取、重新核实发生变化的部分。缓存绝不取代来源——每个值都带来源和抓取日期。见 [`references/model-snapshot.md`](references/model-snapshot.md)。
 
 ## 数据来源
@@ -164,6 +165,7 @@ TUI 里如果它没出现在 `/` 的补全列表中，先输入 `/skills`，从�
 | 4 | models.dev | https://models.opencode.ai/providers/opencode-go/ | 上下文 / 输出 / 价格 / 能力 |
 | 5 | julien.cloud 追踪 | https://julien.cloud/opencode-go-models/ | 合并视图 + 价格变动 / 弃用日志 |
 | 6 | LMArena | https://lmarena.ai/（[数据集](https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset)，经 HF datasets-server） | Arena ELO：overall / coding / vision（仓库种子；免 key、无浏览器） |
+| — | 价格种子 | `references/model-prices.json`，经 https://models.dev/api.json（provider `opencode-go`）刷新 | 提交进仓库的逐模型输入 / 输出 / 缓存读取价格、上下文、输出上限（带日期的离线回退；实时读取始终优先） |
 
 ## 安全与隐私
 

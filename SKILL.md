@@ -27,7 +27,10 @@ always fetch fresh data before recommending.
    fetched source (see `references/data-sources.md`) and be reported with its
    **fetch date**. Anything unverifiable is marked for manual verification. A cached value
    (see `references/model-snapshot.md`) counts only while it carries its source
-   and fetch date, and is re-fetched when stale.
+   and fetch date, and is re-fetched when stale. If the plan pages cannot be
+   fetched at all, the committed price seed (`references/model-prices.json`) may
+   be used as a dated fallback — it must be labelled a seed rather than a live
+   fetch, and its numbers must never be presented as current.
 2. **Read-only by default.** Do NOT edit any agent config — `opencode.jsonc`,
    `opencode.json`, `oh-my-opencode-slim.json`, or files under
    `~/.config/opencode/agents/` / `.opencode/agents/`. Produce a preview; apply
@@ -86,6 +89,10 @@ A persistent, normalized snapshot of the Go catalog and model scores lives at
   when its `source.publishDates` still match the live boards, and otherwise
   fetches them. `costPerSuccessfulTaskUsd` is always `null` (LMArena has no cost
   column). The script auto-enables the system proxy when one is configured.
+- Refresh prices with `node scripts/refresh-prices.mjs --snapshot <path>`; the
+  committed `references/model-prices.json` is the offline fallback, read
+  directly when the plan pages or models.dev are unreachable. Live prices and
+  limits always win over cached or seed values.
 - The TTL only throttles re-checking models whose score is already cached: a
   newly added or changed model always gets a fresh score lookup, and a major plan
   change (many added/removed models) or an explicit user request forces a full
@@ -105,6 +112,7 @@ Minimum set:
 - `https://opencode.ai/docs/go/` (anchor `#usage-limits`) — full model + price + monthly-limit table, plus the "Estimated requests" assumptions and per-model req/5h / week / month.
 - `https://opencode.ai/zen/go/v1/models` — live catalog (unauthenticated); run `node scripts/fetch-go-models.mjs`.
 - Ranking scores: `node scripts/refresh-scores.mjs` (LMArena via the HF datasets-server; committed seed at `references/model-scores.json`) — no key, no browser.
+- Machine-readable prices: `node scripts/refresh-prices.mjs` (models.dev provider `opencode-go`) — reuses the committed seed `references/model-prices.json` while each model's `upstreamUpdatedAt` still matches models.dev.
 - Cross-check: `https://models.opencode.ai/providers/opencode-go/`, `https://julien.cloud/opencode-go-models/`.
 
 ## Workflow
@@ -119,7 +127,10 @@ Minimum set:
    `node scripts/refresh-snapshot.mjs`, and read the compact diff (see
    `references/model-snapshot.md`). The script reports `added` / `removed`
    catalog ids; prices and limits come from the plan pages and are compared with
-   the cached values. If `sources.rankings.fetchedAt` is missing or older than 1
+   the cached values. Prices and limits can additionally be refreshed with
+   `scripts/refresh-prices.mjs`, and the committed seed
+   (`references/model-prices.json`) is the offline fallback when the pages are
+   unreachable. If `sources.rankings.fetchedAt` is missing or older than 1
    day, run `node scripts/refresh-scores.mjs --snapshot <path>` (reuses the
    committed seed when current; no key, no browser). Deep-verify capabilities (especially
    vision) only for the added or changed models. Build this run's snapshot:
@@ -175,14 +186,25 @@ Resolve the mode in this order; do not ask when an earlier step answers it:
 
 1. **Request names a mode** → use it.
 2. **Remembered** → if `snapshot.preferences.mode` is set, reuse it silently.
-3. **First run, no mode** → run a short diagnostic with the `question` tool: at
-   most three questions, each offering a "you decide / just use balanced" escape.
-   - **Main goal** — save money → `budget`; best value → `balanced`; strongest
-     capability → `quality`.
-   - **Usage** — almost every turn (high volume) vs occasionally.
-   - **Main task** — coding / hard reasoning & review / vision / mixed.
-   The main goal is the primary signal; usage and task only refine it (e.g.
-   "strongest + high volume" stays `quality` but note the balanced price ceiling).
+3. **First run, no mode** → run a short diagnostic of **two** questions with the
+   `question` tool, each offering a "you decide / just use balanced" escape.
+   - **Q1 — Main goal** (the primary signal, weight 0.7): save money → `budget`;
+     best value → `balanced`; strongest capability → `quality`.
+   - **Q2 — Main task** (weight 0.3, only refines Q1): simple / mechanical or
+     high-volume → lean cheaper; coding, hard reasoning & review, vision, or a
+     mixed load → lean toward capability.
+   Resolve the two answers with this table; an answer of "you decide" counts as
+   skipped:
+
+   | Q1 goal (0.7) | Q2 task (0.3) | Mode |
+   |---|---|---|
+   | save money | any | `budget` |
+   | best value | simple / high-volume | `balanced` |
+   | best value | coding / hard reasoning / vision / mixed | `balanced` (the balanced price ceiling may be exceeded for a capability-critical, rarely used lane — say why) |
+   | strongest capability | any | `quality` |
+   | skipped | simple / high-volume | `budget` |
+   | skipped | any other / skipped | `balanced` |
+
    Persist the result to `snapshot.preferences` (`mode`, `answers`, `chosenAt`).
 4. **Diagnostic skipped or refused** → `balanced`.
 

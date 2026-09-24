@@ -5,6 +5,9 @@ the user's language**; the labels below are the reference English wording.
 
 ## 1. Plan Snapshot
 - Sources used + fetch timestamp.
+- State the price source; when a price came from the committed seed
+  (`references/model-prices.json`) rather than a live read, say so explicitly
+  and give the seed's date — never present seed numbers as current.
 - Diff vs the cached snapshot (added / removed ids, plus any price or score
   changes), if available (`references/model-snapshot.md`).
 - Table of only the models relevant to this user:
@@ -27,6 +30,14 @@ State the selected recommendation mode (`budget` / `balanced` / `quality`) and
 where it came from: named in the request, remembered from a previous run
 (`snapshot.preferences.mode`), chosen by the first-run diagnostic, or the default
 `balanced`. When it is not the default, say why.
+
+When the first-run diagnostic was used, include this auditable decision-factors
+table:
+
+`| factor | answer | weight | effect |`
+
+with rows for **main goal** (weight 0.7) and **main task** (weight 0.3), showing
+each answer and how it resolved to the mode.
 
 `| source | agent | traits | recommended model/chain | cost tier | why |`
 Explain the cost signal (monthly limit + $/1M), the estimated requests per 5h

@@ -12,6 +12,26 @@ Fetch fresh on every run, except ranking scores, which are cached with a short T
 | 4 | Models.dev | https://models.opencode.ai/providers/opencode-go/ | context/output/price/capabilities | webfetch | Third party |
 | 5 | julien.cloud tracker | https://julien.cloud/opencode-go-models/ | merged view + price-change log / deprecation | webfetch | Third party |
 | 6 | LMArena (rankings) | https://lmarena.ai/ — dataset [lmarena-ai/leaderboard-dataset](https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset) via the HF datasets-server | Arena ELO: overall / coding / vision | `node scripts/refresh-scores.mjs` (no key, no browser) | Official LMArena dataset; cost absent (stays null); proxy auto-enabled; seed at `references/model-scores.json` |
+| 7 | models.dev (prices) | https://models.dev/api.json — provider `opencode-go` | machine-readable prices, context, output limit per model | `node scripts/refresh-prices.mjs` | Committed seed `references/model-prices.json` reused while each model's `upstreamUpdatedAt` still matches models.dev; plan-page monthly limits and est req stay manually verified |
+
+## Offline fallback (committed price seed)
+
+`references/model-prices.json` is a committed per-model price seed, keyed by Go
+model id. Each entry holds `inputPer1M`, `outputPer1M`, `cacheReadPer1M`,
+`context`, `outputLimit`, `monthlyLimitUsd`, `estReq5h`, `estReqWeek`,
+`estReqMonth`, `promo`, `status`, `priceSource`, `planSource`,
+`upstreamUpdatedAt`, `priceVerifiedAt`, and `planVerifiedAt`.
+
+- `null` always means "not verified" — never a guessed number.
+- Freshness is upstream identity: the seed may be reused only while it covers
+  the whole catalog **and** every entry's `upstreamUpdatedAt` still equals that
+  model's live models.dev `last_updated`; otherwise fetch live.
+- Plan-page fields (`monthlyLimitUsd`, `estReq5h` / `Week` / `Month`,
+  `promo`, `status`) are maintained by hand; `refresh-prices.mjs` only
+  preserves them and never invents them.
+- When the plan pages or models.dev cannot be fetched, the seed may be read
+  directly as a dated fallback — labelled a seed with its date, never presented
+  as current. A live read always wins.
 
 ## Estimated request counts (throughput)
 

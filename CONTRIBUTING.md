@@ -23,6 +23,10 @@ principles intact.
    (including but not limited to `build`, `plan`, the built-in subagents, and the
    hidden system agents; the set can change between versions). A custom agent
    stays in scope even without fallback-chain support.
+6. **Never commit to `main` directly.** Every change starts on a topic branch cut
+   from `main` (`feat/…`, `fix/…`, `docs/…`, `chore/…`) and merges back to `main`
+   only after the checks below pass. This applies to maintainers too, so `main`
+   stays green and reviewable.
 
 ## Terminology
 
@@ -49,9 +53,11 @@ a Markdown file" instead.
 | `references/model-snapshot.md` | Persistent snapshot cache: schema, location, refresh policy, ranking sources, and name matching. |
 | `references/output-format.md` | The exact six-part report the skill must produce. |
 | `references/model-scores.json` | Committed LMArena score seed, reused while its board dates are still current. |
+| `references/model-prices.json` | Committed price seed from models.dev: per-model `inputPer1M` / `outputPer1M` / `cacheReadPer1M` / `context` / `outputLimit`; `null` means unverified and is never guessed. |
 | `scripts/fetch-go-models.mjs` | Helper that prints the live model catalog as JSON. |
 | `scripts/refresh-snapshot.mjs` | Refreshes the snapshot cache and prints a compact added / removed diff. |
 | `scripts/refresh-scores.mjs` | Fetches LMArena scores via the HF datasets-server (no key, no browser) into the seed or a snapshot. |
+| `scripts/refresh-prices.mjs` | Refreshes the committed price seed from the models.dev `opencode-go` provider. |
 | `scripts/generate-assets.mjs` | Regenerates the SVG icon, banners and local badges. |
 | `scripts/check-docs.mjs` | One-stop doc check: relative links, EN/ZH doc pairs, frontmatter, and no CJK in English docs. |
 | `README.md` / `README-ZH.md` | English and Chinese documentation. |
@@ -62,7 +68,8 @@ a Markdown file" instead.
 
 ## Making a change
 
-1. Fork the repository and create a branch.
+1. Fork the repository, then create a topic branch from `main` — see Ground
+   rule 6 (`feat/…`, `fix/…`, `docs/…`, `chore/…`).
 2. Make your change. If you touch `SKILL.md`, keep `references/` and both READMEs
    consistent with it.
 3. Validate (see below).
@@ -82,7 +89,9 @@ node scripts/check-docs.mjs                # one-stop doc check (see below)
 validity, and that English docs contain no CJK characters — run it after any
 documentation or `SKILL.md` edit. To regenerate the LMArena score seed after an
 upstream release, run `node scripts/refresh-scores.mjs` and commit
-`references/model-scores.json`.
+`references/model-scores.json`. To regenerate the price seed after a models.dev
+update, run `node scripts/refresh-prices.mjs` and commit
+`references/model-prices.json`.
 
 If you changed the workflow or output structure, walk through the run mentally
 against `references/output-format.md` and confirm all six sections are still

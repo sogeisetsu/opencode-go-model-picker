@@ -155,10 +155,10 @@ Three modes let you decide the trade-off between price and capability:
 | `quality` | The strongest model on Go, with cost as a secondary concern. |
 
 Name a mode in your request and it is used as-is. If you don't name one, the skill
-asks a couple of quick questions the first time (what matters most, how often you
-use it, what you use it for), remembers the answer, and reuses it on later runs —
-you can always name a mode to override it, and skipping the questions just uses
-`balanced`.
+asks two short weighted questions the first time (what matters most, what you mainly
+use it for), resolves them into a mode, remembers the answer, and reuses it on later
+runs — you can always name a mode to override it, and skipping the questions just
+uses `balanced`. The report includes an auditable table of the decision factors.
 
 In `balanced`, the priciest pick for a normal high-volume agent should be only
 slightly more expensive than the current cheap-but-capable baseline (DeepSeek V4.1
@@ -233,6 +233,10 @@ A few details worth knowing:
   LMArena's latest release; `null` scores are left unfilled rather than guessed.
   The scores are LMArena Arena ELO ratings (`overall` / `coding` / `vision`), not
   0–100, and LMArena has no cost column, so cost stays `null`.
+- **Prices ship with the skill too.** A committed price seed
+  (`references/model-prices.json`) keeps per-model prices readable offline when
+  the plan pages cannot be fetched. Only a live read counts as current, and a
+  seed value is always reported with its date.
 - **It saves tokens.** A cached snapshot at
   `~/.cache/opencode/opencode-go-model-picker/snapshot.json` holds the normalized
   catalog and scores, so each run re-fetches and re-verifies only what changed.
@@ -252,6 +256,7 @@ Fetched fresh every run. Full details and parsing notes are in
 | 4 | models.dev | https://models.opencode.ai/providers/opencode-go/ | context / output / price / capabilities |
 | 5 | julien.cloud tracker | https://julien.cloud/opencode-go-models/ | merged view + price-change / deprecation log |
 | 6 | LMArena | https://lmarena.ai/ ([dataset](https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset) via the HF datasets-server) | Arena ELO: overall / coding / vision (committed seed; no key, no browser) |
+| — | Price seed | `references/model-prices.json`, refreshed from https://models.dev/api.json (provider `opencode-go`) | committed per-model input / output / cache-read price, context, output limit (dated offline fallback; a live read always wins) |
 
 ## Safety and privacy
 

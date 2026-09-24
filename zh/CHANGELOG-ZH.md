@@ -10,8 +10,11 @@
 
 ### 新增
 
+- 新增提交进仓库的价格种子（`references/model-prices.json`）与 `scripts/refresh-prices.mjs`：脚本读取 models.dev 的 `opencode-go` provider，写入逐模型的 `inputPer1M` / `outputPer1M` / `cacheReadPer1M` / `context` / `outputLimit`，以及维护者人工核实的月度额度、预估请求、促销与状态字段。`null` 表示未核实，绝不猜测。只有当每条记录的 `upstreamUpdatedAt` 仍等于线上 models.dev 的 `last_updated`、且覆盖整个目录时才复用种子；套餐页面无法抓取时，技能直接把种子当作**带日期的离线回退**读取，而实时读取始终优先。
+- 新增首次使用的模式诊断：请求未指定模式、也没有已记住的模式时，技能会问两个简短的加权问题（主要目标 0.7，主要任务 0.3），经表格解析出模式，把答案存入 `snapshot.preferences`（`mode`、`answers`、`chosenAt`），之后沿用。显式点名的模式始终覆盖它；跳过问题则回退到 `balanced`。
+- 报告新增可审计的**决策因素表**：首次诊断的两个问题各自列出答案与权重，所选模式可以追溯回输入，而不是凭空给出。
+- 在 `CONTRIBUTING`（中英）把「绝不直接提交到 `main`」正式写成基本原则 6：每项改动都从 `main` 切出的主题分支（`feat/…`、`fix/…`、`docs/…`、`chore/…`）开始，只有检查全部通过后才合并回 `main`；这条对维护者同样适用，以保证 `main` 始终通过检查、可审查。「进行改动」第 1 步现在指向该原则。
 - 新增提交进仓库的 LMArena 评分种子（`references/model-scores.json`）与 `scripts/refresh-scores.mjs`：脚本经 Hugging Face datasets-server 读取官方 LMArena 排行榜数据集（免 key、无浏览器），使用三个榜单（overall / coding / vision）的 Arena ELO。只有当种子的 `source.publishDates` 仍与线上榜单一致、且覆盖当前目录时才复用；否则脚本重新抓取。数据集没有 cost 列，故 cost 保持 `null`；脚本会在配置了系统代理时自动启用。
-- 新增首次使用的模式诊断：请求未指定模式、也没有已记住的模式时，技能会问几个简短问题，把答案存入 `snapshot.preferences`（`mode`、`answers`、`chosenAt`），之后沿用。显式点名的模式始终覆盖它；跳过问题则回退到 `balanced`。
 - 将智能体发现从 `oh-my-opencode-slim` 扩展到更多来源：技能现在通过新增的 `references/agent-sources.md` 中的来源适配器，读取原生 OpenCode 智能体（`opencode.json`/`opencode.jsonc` 的 `agent` 键，以及 `~/.config/opencode/agents/` 或 `.opencode/agents/` 下的 Markdown 文件）和其他注入智能体的插件。分配策略改为基于角色特征，并用已知角色覆盖保持此前的逐智能体行为。
 - 新增三种在性能与价格之间取舍的推荐模式：`budget`（省钱，能接受的最低价）、`balanced`（默认）、`quality`（最佳性能）。报告会写明所选模式，非默认模式时会说明理由。
 - 新增**预估请求数**（每 5 小时 / 每周 / 每月）作为一等信号：相同的月度美元额度并不意味着相同的吞吐量，所以技能现在会从套餐页面读取请求数（落地页更新更及时），在价格与能力相当时优先选请求数更高者。快照 schema 与报告新增 `est req/week` 与 `est req/month`。

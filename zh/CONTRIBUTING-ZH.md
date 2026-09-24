@@ -11,6 +11,7 @@
 3. **以你所读取来源的结构规范为准**，而不是随便一份在线文档。对 `oh-my-opencode-slim`，事实来源是随已安装插件版本一起提供的 `oh-my-opencode-slim.schema.json`；对**自定义的原生** OpenCode 智能体，以官方 config/agent 文档为准。
 4. **从模型所属实验室的官方文档核实能力**，绝不从名字推断。这对 `observer` 智能体所需的视觉输入尤其重要。
 5. **只针对自定义智能体。** 绝不为 OpenCode 自带的智能体（包括但不限于 `build`、`plan`、自带 subagent、隐藏的系统智能体；自带名单可能随版本变化）推荐模型。自定义智能体即使不支持回退链，也仍在范围内。
+6. **绝不直接提交到 `main`。** 每项改动都从 `main` 切出的主题分支（`feat/…`、`fix/…`、`docs/…`、`chore/…`）开始，只有下文的检查全部通过后才合并回 `main`。这条对维护者同样适用，以保证 `main` 始终通过检查、可审查。
 
 ## 术语约定
 
@@ -31,9 +32,11 @@
 | `references/model-snapshot.md` | 持久化快照缓存：schema、位置、刷新策略、排名来源与名称匹配。 |
 | `references/output-format.md` | 技能必须产出的六段式报告的具体格式。 |
 | `references/model-scores.json` | 提交进仓库的 LMArena 评分种子；榜单日期仍为最新时复用。 |
+| `references/model-prices.json` | 提交进仓库的 models.dev 价格种子：逐模型的 `inputPer1M` / `outputPer1M` / `cacheReadPer1M` / `context` / `outputLimit`；`null` 表示未核实，绝不猜测。 |
 | `scripts/fetch-go-models.mjs` | 辅助脚本：把实时模型目录输出为 JSON。 |
 | `scripts/refresh-snapshot.mjs` | 刷新快照缓存，并输出紧凑的新增 / 下架差异。 |
 | `scripts/refresh-scores.mjs` | 经 HF datasets-server 抓取 LMArena 评分（免 key、无浏览器），写入种子或快照。 |
+| `scripts/refresh-prices.mjs` | 从 models.dev 的 `opencode-go` provider 刷新提交进仓库的价格种子。 |
 | `scripts/generate-assets.mjs` | 重新生成 SVG 图标、横幅与本地徽章。 |
 | `scripts/check-docs.mjs` | 一站式文档校验：相对链接、中英文档对、frontmatter、英文文档不含中文。 |
 | `README.md` / `README-ZH.md` | 英文与中文文档。 |
@@ -44,7 +47,7 @@
 
 ## 进行改动
 
-1. 复刻仓库并新建分支。
+1. 复刻仓库，然后从 `main` 切出主题分支——见基本原则 6（`feat/…`、`fix/…`、`docs/…`、`chore/…`）。
 2. 完成改动。如果你改动了 `SKILL.md`，请让 `references/` 与两份 README 与其保持一致。
 3. 按下文进行验证。
 4. 提交拉取请求，说明改了什么、为什么。
@@ -59,7 +62,7 @@ node scripts/fetch-go-models.mjs           # 确认端点仍然可用
 node scripts/check-docs.mjs                # 一站式文档校验（见下）
 ```
 
-`check-docs.mjs` 会校验相对链接、中英文档对、frontmatter 合法性，以及英文文档中不含中文字符——任何文档或 `SKILL.md` 改动后都要运行它。上游发布新榜单后要重生成 LMArena 评分种子，运行 `node scripts/refresh-scores.mjs` 并提交 `references/model-scores.json`。
+`check-docs.mjs` 会校验相对链接、中英文档对、frontmatter 合法性，以及英文文档中不含中文字符——任何文档或 `SKILL.md` 改动后都要运行它。上游发布新榜单后要重生成 LMArena 评分种子，运行 `node scripts/refresh-scores.mjs` 并提交 `references/model-scores.json`。models.dev 更新后要重生成价格种子，运行 `node scripts/refresh-prices.mjs` 并提交 `references/model-prices.json`。
 
 如果你改动了工作流或输出结构，请对照 `references/output-format.md` 在心里走一遍流程，确认六个章节仍然都能产出。如果你改动了模型指引，请对照 `references/data-sources.md` 中列出的来源重新核实相关论断，并更新“已核实日期”的标注。如果你手工编辑了 `assets/` 下的任何 SVG，建议改为编辑 `scripts/generate-assets.mjs` 并重新运行 `node scripts/generate-assets.mjs`，让资源保持可复现。
 
