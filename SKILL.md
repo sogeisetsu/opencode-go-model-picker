@@ -7,9 +7,17 @@ metadata:
   version: "1.0.0"
   requires: "OpenCode with agent config support; oh-my-opencode-slim 2.2.x supported but optional (one source among several); Node.js 18+ for the optional catalog fetcher"
   homepage: "https://github.com/sogeisetsu/opencode-go-model-picker"
+  source: "https://github.com/sogeisetsu/opencode-go-model-picker"
 ---
 
 # OpenCode Go Model Picker
+
+> **Source:** [github.com/sogeisetsu/opencode-go-model-picker](https://github.com/sogeisetsu/opencode-go-model-picker)
+> — the canonical repository for this skill. When copying, migrating, or
+> reinstalling this skill on another machine, take it from there (see the
+> install section of that repository's README) so you get the latest version
+> and can verify where it came from. A local copy is only as current as its
+> last sync with this repository.
 
 Assign the most cost-effective **OpenCode Go** model to each **custom** agent in
 your OpenCode setup — native agents, oh-my-opencode-slim presets, or other plugins
