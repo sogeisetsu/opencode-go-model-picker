@@ -14,6 +14,7 @@
   <img src="assets/badges/node.svg" alt="Node.js 18 or later">
   <img src="assets/badges/agent-skill.svg" alt="OpenCode Agent Skill">
   <img src="assets/badges/prs-welcome.svg" alt="PRs welcome">
+  <a href="https://skills.sh/sogeisetsu/opencode-go-model-picker"><img src="https://skills.sh/b/sogeisetsu/opencode-go-model-picker" alt="skills.sh"></a>
 </p>
 
 <p align="center">
