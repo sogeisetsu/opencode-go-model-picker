@@ -67,7 +67,7 @@ listed here, report it to the user before improvising.
 |---|---|---|
 | Two refresh scripts write the snapshot concurrently and clobber it (read-back shows `sources.<key>` missing) | Run refresh scripts **serially** in this order: `refresh-snapshot.mjs` → `refresh-scores.mjs` → `refresh-prices.mjs`; re-run the last script and read back `snapshot.json` to confirm `sources.<key>` exists | Re-run `refresh-snapshot.mjs` to rebuild the base, then re-run the failed script once; if it still fails, fall back to the rows below |
 | `refresh-scores.mjs` / `refresh-prices.mjs` cannot reach HF / models.dev | Use the committed seeds (`references/model-scores.json`, `references/model-prices.json`) and label every number with the seed's own date | If the seed is stale (board `publishDates` / `upstreamUpdatedAt` no longer match live), report the value as `null` → **manual verification required**; never guess |
-| Go catalog endpoints (`opencode.ai/go`, `/docs/go/`, `/zen/go/v1/models`) unreachable | Use the snapshot cache, labelled with `sources.catalog.fetchedAt` | With no snapshot either: report "data unavailable" and give no numeric recommendations (Iron Rule 1) |
+| Go catalog endpoints (`opencode.ai/go`, `/docs/go/`, `/zen/go/v1/models`) unreachable | Use the snapshot cache, labelled with `sources.catalog.fetchedAt` | With no snapshot either: fall back to the price seed (`references/model-prices.json`), labelled with its own date (Iron Rule 1); only when that is impossible too, report "data unavailable" and give no numeric recommendations |
 | Node.js missing or a script exits non-zero | Fall back to direct fetch of the plan pages + the committed seeds; state that the script path degraded and include the script's error text | Network also down → stop and report that no data source is reachable; do not improvise numbers |
 | A non-Go fallback id (`opencode/*`, other providers) cannot be confirmed in the Go catalog | Verify it against the local registry `~/.cache/opencode/models.json` (`status` field) before recommending it | `status` is not `active` (e.g. `deprecated`) or the id is absent → **never put it in a chain**; pick a verified alternative or mark that slot for manual verification |
 | Discovery finds zero custom agents | Report the inventory with its adapter warnings and stop before allocation — there is nothing to reallocate | If the user insists sources exist, re-run the adapters and use the question tool to ask which source file to read |
@@ -125,8 +125,8 @@ Minimum set:
 - `https://opencode.ai/go` — most timely (promos, "4× usage", featured usage table **with estimated requests per 5h**).
 - `https://opencode.ai/docs/go/` (anchor `#usage-limits`) — full model + price + monthly-limit table, plus the "Estimated requests" assumptions and per-model req/5h / week / month.
 - `https://opencode.ai/zen/go/v1/models` — live catalog (unauthenticated); run `node scripts/fetch-go-models.mjs`.
-- Ranking scores: `node scripts/refresh-scores.mjs` (LMArena via the HF datasets-server; committed seed at `references/model-scores.json`) — no key, no browser.
-- Machine-readable prices: `node scripts/refresh-prices.mjs` (models.dev provider `opencode-go`) — reuses the committed seed `references/model-prices.json` while each model's `upstreamUpdatedAt` still matches models.dev.
+- Ranking scores: LMArena via the HF datasets-server — no key, no browser (refresh command and seed: see Snapshot Cache above).
+- Machine-readable prices: models.dev provider `opencode-go` (refresh command and seed: see Snapshot Cache above).
 - Cross-check: `https://models.opencode.ai/providers/opencode-go/`, `https://julien.cloud/opencode-go-models/`.
 
 ## Workflow
@@ -136,18 +136,12 @@ Minimum set:
    `name | source | mode | description | model | hidden | traits | provenance`.
    Report warnings (missing source, missing description, duplicate names) rather
    than dropping records.
-2. **Read the snapshot cache and refresh it cheaply.** Read
-   `~/.cache/opencode/opencode-go-model-picker/snapshot.json`, run
-   `node scripts/refresh-snapshot.mjs`, and read the compact diff (see
-   `references/model-snapshot.md`). The script reports `added` / `removed`
-   catalog ids; prices and limits come from the plan pages and are compared with
-   the cached values. Prices and limits can additionally be refreshed with
-   `scripts/refresh-prices.mjs`, and the committed seed
-   (`references/model-prices.json`) is the offline fallback when the pages are
-   unreachable. If `sources.rankings.fetchedAt` is missing or older than 1
-   day, run `node scripts/refresh-scores.mjs --snapshot <path>` (reuses the
-   committed seed when current; no key, no browser). Deep-verify capabilities (especially
-   vision) only for the added or changed models. Build this run's snapshot:
+2. **Read the snapshot cache and refresh it cheaply.** Apply the refresh
+   strategy in "Snapshot Cache" above, then read
+   `~/.cache/opencode/opencode-go-model-picker/snapshot.json` and its compact
+   diff (see `references/model-snapshot.md`) for the `added` / `removed`
+   catalog ids. Deep-verify capabilities (especially vision) only for the added
+   or changed models. Build this run's snapshot:
    `model id | input $/1M | output $/1M | monthly $ limit | est. req/5h | est. req/week | est. req/month | context | reasoning | vision | status | source+date`.
 3. **Detect plan changes** vs. the last snapshot (if any): new/removed models,
    changed limits/prices/estimated request counts, limited-time promos. Call these
