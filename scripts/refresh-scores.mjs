@@ -293,7 +293,7 @@ async function main() {
     const snapshotPath = snapshotArg === "true" ? defaultSnapshot : snapshotArg;
     const snapshot = existsSync(snapshotPath)
       ? JSON.parse(readFileSync(snapshotPath, "utf8"))
-      : { schemaVersion: 1, sources: {}, models: {} };
+      : { schemaVersion: 2, sources: {}, models: {} };
     snapshot.models ??= {};
     snapshot.sources ??= {};
 

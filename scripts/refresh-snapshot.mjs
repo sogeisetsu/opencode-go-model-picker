@@ -46,18 +46,30 @@ const snapshotPath =
   join(homedir(), ".cache", "opencode", "opencode-go-model-picker", "snapshot.json");
 const prune = process.argv.includes("--prune");
 
+// Keep in sync with the "Schema (v2)" section of references/model-snapshot.md.
+const SCHEMA_VERSION = 2;
+
 function loadSnapshot(path) {
-  if (!existsSync(path)) return { schemaVersion: 1, sources: {}, models: {} };
+  const fresh = () => ({ schemaVersion: SCHEMA_VERSION, sources: {}, models: {} });
+  if (!existsSync(path)) return fresh();
   try {
     const parsed = JSON.parse(readFileSync(path, "utf8"));
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      throw new Error("root value is not a JSON object");
+    }
+    // Spread the parsed file first so every other top-level key (`preferences`
+    // and anything else the skill stores) is preserved on write-back; only
+    // schemaVersion / sources / models are owned and refreshed by this script.
+    // Key order stays as in the file (2-space indent unchanged).
     return {
-      schemaVersion: parsed.schemaVersion ?? 1,
+      ...parsed,
+      schemaVersion: SCHEMA_VERSION,
       sources: parsed.sources ?? {},
       models: parsed.models ?? {},
     };
   } catch (err) {
     console.error(`Warning: could not parse ${path} (${err.message}); starting fresh.`);
-    return { schemaVersion: 1, sources: {}, models: {} };
+    return fresh();
   }
 }
 

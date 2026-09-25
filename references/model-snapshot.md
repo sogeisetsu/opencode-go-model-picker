@@ -28,7 +28,7 @@ Override the path with `--snapshot <path>` when running the refresh script.
     },
     "prices": {
       "url": "https://models.dev/api.json", "provider": "opencode-go",
-      "fetchedAt": null, "matched": 0, "total": 0, "seedUsed": false
+      "fetchedAt": null, "total": 0, "priced": 0, "nullUpstream": [], "seedUsed": false
     }
   },
   "preferences": { "mode": null, "answers": null, "chosenAt": null },
@@ -86,8 +86,13 @@ scores. `overall` comes from the text arena, `coding` from the Code Arena
 (`webdev`), `vision` from the vision arena.
 
 `models.<id>.price` is the committed price-seed entry copied verbatim (16 keys —
-see "Bundled price seed"). The seed flags (`seedUsed`, `matched`, `total`,
-`fetchedAt`) live in `sources.prices`, not in the per-model entry.
+see "Bundled price seed"). The seed flags (`seedUsed`, `priced`, `nullUpstream`,
+`total`, `fetchedAt`) live in `sources.prices`, not in the per-model entry.
+`seedUsed: true` means the seed covered **every** catalog id (full coverage);
+`priced` / `total` counts how many of those ids actually carry an upstream price,
+and `nullUpstream` lists the ids models.dev does not price at all — `null`
+upstream, not a gap in the seed. So `seedUsed: true` with `priced: 40` of
+`total: 42` is consistent, not a partial seed.
 
 Rules:
 
@@ -119,6 +124,11 @@ It fetches the live catalog (`https://opencode.ai/zen/go/v1/models`), diffs the
 ids against the snapshot, reports `added` / `removed`, writes the snapshot back,
 and prints a compact JSON diff. Removed ids are kept (so cached scores survive a
 temporary disappearance); pass `--prune` to drop them.
+
+On write-back the script owns exactly three top-level keys — `schemaVersion`,
+`sources`, `models` — and preserves every other top-level key as-is, including
+`preferences`. That is what lets the remembered mode (`preferences.mode`)
+survive a refresh (2-space indent, key order unchanged).
 
 Then:
 

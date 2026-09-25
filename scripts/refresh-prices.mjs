@@ -76,6 +76,9 @@ const MODELS_DEV_URL = "https://models.dev/api.json";
 const CATALOG_URL = "https://opencode.ai/zen/go/v1/models";
 const PROVIDER = "opencode-go";
 const PLAN_URL = "https://opencode.ai/docs/go/";
+// Snapshot schema version — keep in sync with references/model-snapshot.md
+// ("Schema (v2)"). Not to be confused with the price seed's own schemaVersion.
+const SNAPSHOT_SCHEMA_VERSION = 2;
 
 function argValue(name) {
   const i = process.argv.indexOf(name);
@@ -219,7 +222,7 @@ async function main() {
     const snapshotPath = snapshotArg === "true" ? defaultSnapshot : snapshotArg;
     const snapshot = existsSync(snapshotPath)
       ? JSON.parse(readFileSync(snapshotPath, "utf8"))
-      : { schemaVersion: 1, sources: {}, models: {} };
+      : { schemaVersion: SNAPSHOT_SCHEMA_VERSION, sources: {}, models: {} };
     snapshot.models ??= {};
     snapshot.sources ??= {};
 
@@ -243,20 +246,42 @@ async function main() {
       snapshot.models[id] ??= {};
       snapshot.models[id].price = entries[id];
     }
-    const matched = goIds.filter((id) => hasPrice(entries[id])).length;
+    // Two independent facts, kept apart on purpose:
+    //   - seedUsed=true  → the seed covered EVERY catalog id (freshness rule);
+    //   - priced/total   → how many ids actually carry an upstream price;
+    //   - nullUpstream   → ids models.dev does not price at all (null upstream,
+    //     not a gap in the seed — seedUsed stays true).
+    const pricedIds = goIds.filter((id) => hasPrice(entries[id]));
+    const nullUpstreamIds = goIds.filter((id) => !hasPrice(entries[id]));
+    const priced = pricedIds.length;
+    const total = goIds.length;
     snapshot.sources.prices = {
       url: MODELS_DEV_URL,
       provider: PROVIDER,
       fetchedAt: now,
-      matched,
-      total: goIds.length,
+      total,
+      priced,
+      nullUpstream: nullUpstreamIds,
       seedUsed,
     };
     mkdirSync(dirname(snapshotPath), { recursive: true });
     writeFileSync(snapshotPath, JSON.stringify(snapshot, null, 2) + "\n");
+    const summary =
+      `seedUsed=${seedUsed}` +
+      `; priced ${priced}/${total}` +
+      (nullUpstreamIds.length
+        ? `; ${nullUpstreamIds.length} null upstream (${nullUpstreamIds.join(", ")})`
+        : "; no null upstream");
     process.stdout.write(
       JSON.stringify(
-        { out: snapshotPath, matched, total: goIds.length, seedUsed },
+        {
+          out: snapshotPath,
+          summary,
+          seedUsed,
+          priced,
+          total,
+          nullUpstream: nullUpstreamIds,
+        },
         null,
         2
       ) + "\n"
