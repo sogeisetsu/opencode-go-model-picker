@@ -96,6 +96,23 @@ git clone https://github.com/sogeisetsu/opencode-go-model-picker.git `
   "$env:USERPROFILE\.config\opencode\skills\opencode-go-model-picker"
 ```
 
+**Via the skills.sh CLI**
+
+Install straight from [skills.sh](https://skills.sh) with the
+[`skills`](https://github.com/vercel-labs/skills) CLI:
+
+```bash
+npx skills add sogeisetsu/opencode-go-model-picker
+```
+
+By default it installs into the current project's skill directories. Add
+`-g` to install into your user directory instead, and pick target agents
+with `-a` (for example `opencode`):
+
+```bash
+npx skills add sogeisetsu/opencode-go-model-picker -g -a opencode
+```
+
 **Minimal install.** You don't need the whole repository. At runtime the skill
 only uses `SKILL.md`, `references/`, and `scripts/`. Copy just those three into
 `~/.config/opencode/skills/opencode-go-model-picker/` and skip the rest (README,

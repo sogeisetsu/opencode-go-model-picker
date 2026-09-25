@@ -67,6 +67,20 @@ git clone https://github.com/sogeisetsu/opencode-go-model-picker.git `
   "$env:USERPROFILE\.config\opencode\skills\opencode-go-model-picker"
 ```
 
+**用 skills.sh CLI 安装**
+
+直接从 [skills.sh](https://skills.sh) 目录用 [`skills`](https://github.com/vercel-labs/skills) CLI 安装：
+
+```bash
+npx skills add sogeisetsu/opencode-go-model-picker
+```
+
+默认装进当前项目的技能目录；加 `-g` 改为装到用户目录，用 `-a` 限定目标 agent（如 `opencode`）：
+
+```bash
+npx skills add sogeisetsu/opencode-go-model-picker -g -a opencode
+```
+
 **最小化安装。** 你不需要整个仓库。运行时只会用到 `SKILL.md`、`references/` 和 `scripts/`。只把这三样复制进 `~/.config/opencode/skills/opencode-go-model-picker/` 就行，其余（README、LICENSE、`assets/`、`zh/`……）都只是文档。
 
 然后确认辅助脚本能跑起来：
