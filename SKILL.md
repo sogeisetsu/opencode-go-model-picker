@@ -150,8 +150,8 @@ Minimum set:
    recommendation mode** (see "Choosing a mode on first run" below; default
    `balanced`), using the known-role overrides for backward compatibility.
 5. **Build fallback chains** where the source supports them (policy below).
-6. **Output** exactly per `references/output-format.md`, then **stop and ask**
-   before applying anything.
+6. **Output** exactly per `references/output-format.md`, then 🛑 **STOP — stop
+   and ask** before applying anything.
 
 ## Recommendation Modes
 
@@ -194,8 +194,9 @@ Resolve the mode in this order; do not ask when an earlier step answers it:
 
 1. **Request names a mode** → use it.
 2. **Remembered** → if `snapshot.preferences.mode` is set, reuse it silently.
-3. **First run, no mode** → run a short diagnostic of **two** questions with the
-   `question` tool, each offering a "you decide / just use balanced" escape.
+3. **First run, no mode** → 🔴 **CHECKPOINT —** run a short diagnostic of
+   **two** questions with the `question` tool, each offering a "you decide /
+   just use balanced" escape.
    - **Q1 — Main goal** (the primary signal, weight 0.7): save money → `budget`;
      best value → `balanced`; strongest capability → `quality`.
    - **Q2 — Main task** (weight 0.3, only refines Q1): simple / mechanical or
@@ -281,6 +282,8 @@ Suggesting `oh-my-opencode-slim` is only a suggestion, not a requirement.
 - Always read the relevant source before writing, and mirror its actual shape.
 
 ## Applying Changes (only after confirmation)
+
+🛑 **STOP — no configuration writes before the user confirms.**
 
 1. Show the exact block (a slim preset entry, or a native `agent.<name>` entry)
    and which keys change.
