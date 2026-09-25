@@ -232,7 +232,7 @@ const files = {
     aria: "OpenCode Go Model Picker banner",
   }),
   [join(badgesDir, "license.svg")]: badgeSvg("license", "GPL-3.0-or-later", C.dark, C.ink),
-  [join(badgesDir, "version.svg")]: badgeSvg("version", "0.1.0", C.green, C.greenInk),
+  [join(badgesDir, "version.svg")]: badgeSvg("version", "1.0.0", C.green, C.greenInk),
   [join(badgesDir, "node.svg")]: badgeSvg("node", ">=18", C.dark, C.ink),
   [join(badgesDir, "agent-skill.svg")]: badgeSvg("OpenCode", "Agent Skill", C.dark, C.ink),
   [join(badgesDir, "prs-welcome.svg")]: badgeSvg("PRs", "welcome", C.green, C.greenInk),

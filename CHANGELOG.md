@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-25
+
 ### Added
 
 - Added a committed price seed (`references/model-prices.json`) and
@@ -112,6 +114,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   git-ignored Chinese reading copy of `SKILL.md` at `zh/skill-zh.md`.
 - Repository files: `LICENSE` (GPL-3.0-or-later), `.gitignore`,
   `.gitattributes`, and `CONTRIBUTING.md`.
+- Added an explicit `## Failure Modes (if → then → still failing)` table
+  covering serial refresh on snapshot write races, dated seed/cache fallbacks,
+  local-registry `status` verification for non-Go fallback ids, and the
+  zero-agent stop branch.
+- Added visible 🛑/🔴 checkpoint markers at the output gate, the first-run mode
+  diagnostic, and the apply gate.
 
 ### Changed
 
@@ -125,5 +133,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `changed` even though the script reports only `added` / `removed`.
 - Corrected the `budget` fallback sequence (cheapest Go → next-cheapest Go) and
   made the per-source schema rule say "custom native agents".
+- Deduplicated the refresh strategy to a single source of truth (the
+  `Snapshot Cache` section), and disambiguated Failure Modes row 5 (explicit
+  `deprecated` / `removed` blocks; an absent `status` field means
+  default-active).
+- README (EN/ZH) now document the explicit failure-path handling.
+
+### Fixed
+
+- `scripts/refresh-snapshot.mjs` no longer drops top-level keys such as
+  `preferences` on write, so the remembered recommendation mode actually
+  persists; snapshot `schemaVersion` now writes `2` to match
+  `references/model-snapshot.md`.
+- `scripts/refresh-prices.mjs` output now separates seed coverage
+  (`seedUsed`), priced count (`priced 40/42`), and null-upstream ids instead of
+  a misleading `matched` number.
 
 [Unreleased]: https://github.com/sogeisetsu/opencode-go-model-picker/commits/main

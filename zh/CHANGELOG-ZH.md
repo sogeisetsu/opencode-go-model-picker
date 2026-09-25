@@ -8,6 +8,8 @@
 
 ## [未发布]
 
+## [1.0.0] - 2026-09-25
+
 ### 新增
 
 - 新增提交进仓库的价格种子（`references/model-prices.json`）与 `scripts/refresh-prices.mjs`：脚本读取 models.dev 的 `opencode-go` provider，写入逐模型的 `inputPer1M` / `outputPer1M` / `cacheReadPer1M` / `context` / `outputLimit`，以及维护者人工核实的月度额度、预估请求、促销与状态字段。`null` 表示未核实，绝不猜测。只有当每条记录的 `upstreamUpdatedAt` 仍等于线上 models.dev 的 `last_updated`、且覆盖整个目录时才复用种子；套餐页面无法抓取时，技能直接把种子当作**带日期的离线回退**读取，而实时读取始终优先。
@@ -38,11 +40,20 @@
 - 新增 `scripts/check-docs.mjs`，用于校验相对链接与中英文档对是否同步，并在 `CONTRIBUTING`（中英）与本地 `AGENTS.md` 中说明用法。
 - 中文 `CONTRIBUTING` 与 `CHANGELOG` 归入 `zh/`，并新增被 git 忽略的 `SKILL.md` 中文对读版 `zh/skill-zh.md`。
 - 仓库文件：`LICENSE`（GPL-3.0-or-later）、`.gitignore`、`.gitattributes` 与 `CONTRIBUTING.md`。
+- 新增明确的 `## Failure Modes (if → then → still failing)` 表格，覆盖快照写入竞争时的串行刷新、带日期的种子/缓存回退、非 Go 回退 id 的本地 registry `status` 核验，以及零智能体时的停止分支。
+- 在输出闸门、首次使用的模式诊断与应用闸门处显示 🛑/🔴 检查点标记。
 
 ### 已变更
 
 - 重写了两份 README，语气更自然易懂，并重新组织了结构，让人一眼能看懂项目在做什么。
 - 明确范围：只对自定义智能体推荐模型；自定义智能体即使不支持回退链也在范围内。自带智能体按「包括但不限于」已知名单的方式跳过（OpenCode 各版本自带名单可能变化）。新增一条明确但可选的建议——使用支持回退链的工具。修正快照说明中把差异写成 `changed`（脚本实际只报告 `added` / `removed`）的措辞。
 - 修正 `budget` 的回退顺序（最便宜的 Go → 次便宜的 Go），并把按来源的 Schema 规则明确为「自定义的原生智能体」。
+- 刷新策略去重为单一事实来源（`Snapshot Cache` 章节）；Failure Modes 第 5 行消歧（明确区分 `deprecated` / `removed` 区块；缺少 `status` 字段表示默认启用）。
+- 两份 README（中英）现在都写明了显式的失败路径处理。
+
+### 修复
+
+- `scripts/refresh-snapshot.mjs` 写入时不再丢弃 `preferences` 等顶层键，因此记住的推荐模式真正能够持久化；快照 `schemaVersion` 现在写入 `2`，与 `references/model-snapshot.md` 一致。
+- `scripts/refresh-prices.mjs` 的输出现在区分种子覆盖情况（`seedUsed`）、已定价数量（`priced 40/42`）与上游为 `null` 的 id，不再给出误导性的 `matched` 数字。
 
 [未发布]: https://github.com/sogeisetsu/opencode-go-model-picker/commits/main
