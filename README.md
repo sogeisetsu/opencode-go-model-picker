@@ -237,6 +237,13 @@ A few details worth knowing:
   (`references/model-prices.json`) keeps per-model prices readable offline when
   the plan pages cannot be fetched. Only a live read counts as current, and a
   seed value is always reported with its date.
+- **Failure paths are explicit.** A failed refresh script — or two of them writing
+  the snapshot concurrently — is re-run serially and the result read back. If the
+  catalog or network is unreachable, the skill falls back to the snapshot cache and
+  the committed, dated seeds and labels every value with that date. A non-Go
+  fallback id is verified against the local model registry's `status` before being
+  recommended, and with no data source reachable it stops rather than inventing
+  numbers.
 - **It saves tokens.** A cached snapshot at
   `~/.cache/opencode/opencode-go-model-picker/snapshot.json` holds the normalized
   catalog and scores, so each run re-fetches and re-verifies only what changed.

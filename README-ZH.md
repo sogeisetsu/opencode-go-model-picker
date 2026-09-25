@@ -151,6 +151,7 @@ TUI 里如果它没出现在 `/` 的补全列表中，先输入 `/skills`，从�
 - **能力看实验室文档，不看名字。** 模型的能力会去它所属实验室的官方文档里核实，绝不从模型编号猜。这对视觉类智能体（比如 `observer`）需要的**视觉**输入尤其重要。
 - **能力评分随技能一起提供。** 提交进仓库的 LMArena 种子（`references/model-scores.json`）让第一次运行无需抓取并匹配排行榜。只有种子的榜单日期仍等于 LMArena 最新发布时才复用；匹配不到的分数保持 `null`，绝不猜。评分是 LMArena 的 Arena ELO（`overall` / `coding` / `vision`），不是 0–100；LMArena 没有 cost 列，所以 cost 保持 `null`。
 - **价格同样随技能一起提供。** 提交进仓库的价格种子（`references/model-prices.json`）让套餐页面抓取不到时，逐模型价格依然离线可读。只有实时读取才算当前值；种子值汇报时一定附带日期。
+- **失败路径是显式的。** 刷新脚本失败、或两个脚本并发写同一份快照时，会改为串行重跑并读回确认。目录或网络不可达时，技能回退到快照缓存和提交进仓库的带日期种子，并给每个数值标注其日期。非 Go 回退 id 会先对照本地模型注册表的 `status` 核实才会被推荐；所有数据源都不可达时直接停止，绝不编造数字。
 - **省 token。** `~/.cache/opencode/opencode-go-model-picker/snapshot.json` 里缓存了一份归一化后的目录和评分，每次运行只重新抓取、重新核实发生变化的部分。缓存绝不取代来源——每个值都带来源和抓取日期。见 [`references/model-snapshot.md`](references/model-snapshot.md)。
 
 ## 数据来源
