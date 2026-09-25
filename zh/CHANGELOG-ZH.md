@@ -57,3 +57,4 @@
 - `scripts/refresh-prices.mjs` 的输出现在区分种子覆盖情况（`seedUsed`）、已定价数量（`priced 40/42`）与上游为 `null` 的 id，不再给出误导性的 `matched` 数字。
 
 [未发布]: https://github.com/sogeisetsu/opencode-go-model-picker/commits/main
+[1.0.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.0.0

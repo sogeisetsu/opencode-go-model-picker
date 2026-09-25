@@ -150,3 +150,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a misleading `matched` number.
 
 [Unreleased]: https://github.com/sogeisetsu/opencode-go-model-picker/commits/main
+[1.0.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.0.0
