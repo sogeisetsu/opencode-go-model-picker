@@ -58,6 +58,20 @@ always fetch fresh data before recommending.
    **privacy-for-discount / Contributor** tiers that train on the user's prompts
    and completions — opt-in only, never recommended silently.
 
+## Failure Modes (if → then → still failing)
+
+Every known failure path gets an explicit branch. If a run hits a symptom not
+listed here, report it to the user before improvising.
+
+| If | Then (first line) | If still failing |
+|---|---|---|
+| Two refresh scripts write the snapshot concurrently and clobber it (read-back shows `sources.<key>` missing) | Run refresh scripts **serially** in this order: `refresh-snapshot.mjs` → `refresh-scores.mjs` → `refresh-prices.mjs`; re-run the last script and read back `snapshot.json` to confirm `sources.<key>` exists | Re-run `refresh-snapshot.mjs` to rebuild the base, then re-run the failed script once; if it still fails, fall back to the rows below |
+| `refresh-scores.mjs` / `refresh-prices.mjs` cannot reach HF / models.dev | Use the committed seeds (`references/model-scores.json`, `references/model-prices.json`) and label every number with the seed's own date | If the seed is stale (board `publishDates` / `upstreamUpdatedAt` no longer match live), report the value as `null` → **manual verification required**; never guess |
+| Go catalog endpoints (`opencode.ai/go`, `/docs/go/`, `/zen/go/v1/models`) unreachable | Use the snapshot cache, labelled with `sources.catalog.fetchedAt` | With no snapshot either: report "data unavailable" and give no numeric recommendations (Iron Rule 1) |
+| Node.js missing or a script exits non-zero | Fall back to direct fetch of the plan pages + the committed seeds; state that the script path degraded and include the script's error text | Network also down → stop and report that no data source is reachable; do not improvise numbers |
+| A non-Go fallback id (`opencode/*`, other providers) cannot be confirmed in the Go catalog | Verify it against the local registry `~/.cache/opencode/models.json` (`status` field) before recommending it | `status` is not `active` (e.g. `deprecated`) or the id is absent → **never put it in a chain**; pick a verified alternative or mark that slot for manual verification |
+| Discovery finds zero custom agents | Report the inventory with its adapter warnings and stop before allocation — there is nothing to reallocate | If the user insists sources exist, re-run the adapters and use the question tool to ask which source file to read |
+
 ## Agent Sources (discover read-only every run)
 
 The skill is source-agnostic. Read `references/agent-sources.md` for the adapter
