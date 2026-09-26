@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Reworked the output format from a six-part report into a three-part body plus
+  a data appendix: a **recommendation table** (one row per custom agent — agent
+  name, capability focus (trait), current model, recommended model, and the
+  cost/throughput/capability reason, with ⚠ markers for limited-time, geo, or
+  training caveats), **paste-ready config** (a complete copy-pasteable JSONC
+  block per detected source — `oh-my-opencode-slim.json` for the slim preset,
+  `opencode.jsonc` for a native `agent` block, both when both are detected, with
+  fallback chains preserved where the source supports them), and **highlights**
+  (one paragraph covering mode + rationale, price ceiling, full caveat text, and
+  plan changes vs the last snapshot), followed by a **data appendix** (sources
+  and fetch dates with seed labeling, the snapshot diff, the relevant-models
+  price table, the first-run decision-factors table, the manual-verification
+  list, and the verify commands). The apply gate is unchanged: the skill still
+  stops and asks before touching any config. Synced across `README.md` /
+  `README-ZH.md`, `CONTRIBUTING` (EN/ZH), `docs/index.html`, and
+  `test-prompts.json`.
+
 ## [1.0.0] - 2026-09-25
 
 ### Added

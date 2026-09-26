@@ -30,7 +30,7 @@
 | `references/data-sources.md` | 从哪里抓取实时套餐数据，以及如何解析。 |
 | `references/agent-sources.md` | 智能体发现：来源适配器、统一 inventory 记录、角色特征映射，以及来源缺失时的回退。 |
 | `references/model-snapshot.md` | 持久化快照缓存：schema、位置、刷新策略、排名来源与名称匹配。 |
-| `references/output-format.md` | 技能必须产出的六段式报告的具体格式。 |
+| `references/output-format.md` | 技能必须产出的输出结构：三段正文（推荐表、可粘贴配置、要点说明）加一份数据附录。 |
 | `references/model-scores.json` | 提交进仓库的 LMArena 评分种子；榜单日期仍为最新时复用。 |
 | `references/model-prices.json` | 提交进仓库的 models.dev 价格种子：逐模型的 `inputPer1M` / `outputPer1M` / `cacheReadPer1M` / `context` / `outputLimit`；`null` 表示未核实，绝不猜测。 |
 | `scripts/fetch-go-models.mjs` | 辅助脚本：把实时模型目录输出为 JSON。 |
@@ -64,7 +64,7 @@ node scripts/check-docs.mjs                # 一站式文档校验（见下）
 
 `check-docs.mjs` 会校验相对链接、中英文档对、frontmatter 合法性，以及英文文档中不含中文字符——任何文档或 `SKILL.md` 改动后都要运行它。上游发布新榜单后要重生成 LMArena 评分种子，运行 `node scripts/refresh-scores.mjs` 并提交 `references/model-scores.json`。models.dev 更新后要重生成价格种子，运行 `node scripts/refresh-prices.mjs` 并提交 `references/model-prices.json`。
 
-如果你改动了工作流或输出结构，请对照 `references/output-format.md` 在心里走一遍流程，确认六个章节仍然都能产出。如果你改动了模型指引，请对照 `references/data-sources.md` 中列出的来源重新核实相关论断，并更新“已核实日期”的标注。如果你手工编辑了 `assets/` 下的任何 SVG，建议改为编辑 `scripts/generate-assets.mjs` 并重新运行 `node scripts/generate-assets.mjs`，让资源保持可复现。
+如果你改动了工作流或输出结构，请对照 `references/output-format.md` 在心里走一遍流程，确认三段正文（推荐表、可粘贴配置、要点说明）与数据附录仍然都能产出。如果你改动了模型指引，请对照 `references/data-sources.md` 中列出的来源重新核实相关论断，并更新“已核实日期”的标注。如果你手工编辑了 `assets/` 下的任何 SVG，建议改为编辑 `scripts/generate-assets.mjs` 并重新运行 `node scripts/generate-assets.mjs`，让资源保持可复现。
 
 ## 报告问题
 

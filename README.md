@@ -183,16 +183,21 @@ slightly more expensive than the current cheap-but-capable baseline (DeepSeek V4
 Flash at the time of writing) and clearly stronger; if nothing clears that bar, the
 baseline itself is the pick.
 
-Every run ends with a six-part report:
+Every run ends with a three-part body plus a data appendix:
 
-1. **Plan snapshot** — the models relevant to you, with source and fetch date.
-2. **What changed** — new or removed models, changed limits, prices, or estimated
-   request counts, active promos.
-3. **Current** — every custom agent found and its current chain (read-only).
-4. **Recommendation** — a model or chain per agent, with the cost tier, throughput,
-   and the reason, plus flags for any promo, geo, or privacy caveat.
-5. **Paste-ready** — a JSONC block you can drop into your config.
-6. **Verify** — anything that still needs a human check, plus the commands to do it.
+1. **Recommendation table** — one row per custom agent: agent name, capability
+   focus (trait), current model, recommended model, and the why (a cost,
+   throughput, or capability reason), with ⚠ markers for limited-time, geo, or
+   training caveats.
+2. **Paste-ready config** — a complete copy-pasteable JSONC block per detected
+   source: `oh-my-opencode-slim.json` for the slim preset, `opencode.jsonc` for a
+   native `agent` block (both when both are detected), with fallback chains
+   preserved where the source supports them.
+3. **Highlights** — one paragraph explaining why the changes: mode + rationale,
+   price ceiling, full caveat text, and plan changes vs the last snapshot.
+4. **Data appendix** — sources with fetch dates (seed labeling), the snapshot
+   diff, the relevant-models price table, the first-run decision-factors table,
+   the manual-verification list, and the verify commands.
 
 The skill then **stops and asks** before applying anything.
 

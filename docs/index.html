@@ -251,26 +251,20 @@
   <p data-lang="en">Choosing which OpenCode Go model each of your agents should use is fiddly. Prices, monthly caps, and the list of available models change constantly, and the &ldquo;best&rdquo; pick depends on whether you care more about cost or capability. This skill does that homework for you: it reads your OpenCode agent config, checks the <strong>current</strong> Go plan, and suggests a model for each of your custom agents &mdash; plus a fallback chain when your setup supports one. It is <strong>read-only</strong>, so nothing changes until you say yes.</p>
 
   <h2><span data-lang="zh">产出</span><span data-lang="en">Outputs</span></h2>
-  <p data-lang="zh">每次运行后，它会给你一份六段式报告：</p>
-  <p data-lang="en">Each run ends with a six-part report:</p>
+  <p data-lang="zh">每次运行后，它会给你一份「三段正文 + 数据附录」的报告：</p>
+  <p data-lang="en">Each run ends with a three-part body plus a data appendix:</p>
   <ul>
-    <li data-lang="zh"><strong>套餐快照</strong>：与你相关的模型，附来源和抓取日期。</li>
-    <li data-lang="en"><strong>Plan snapshot</strong>: the models relevant to you, with source and fetch date.</li>
+    <li data-lang="zh"><strong>推荐表</strong>：每个自定义智能体一行——名称、能力侧重（trait）、当前模型、推荐模型，以及为什么（成本 / 吞吐 / 能力理由），限时、地理或训练相关的注意事项用 ⚠ 标出。</li>
+    <li data-lang="en"><strong>Recommendation table</strong>: one row per custom agent &mdash; name, capability focus (trait), current model, recommended model, and the why (a cost, throughput, or capability reason), with ⚠ markers for limited-time, geo, or training caveats.</li>
 
-    <li data-lang="zh"><strong>变化提示</strong>：新增或下架的模型、额度、价格或预估请求数的变化，以及进行中的促销。</li>
-    <li data-lang="en"><strong>What changed</strong>: new or removed models, changed limits, prices, or estimated request counts, and active promos.</li>
+    <li data-lang="zh"><strong>可粘贴配置</strong>：针对每个检测到的来源给出一段完整、可直接复制粘贴的 JSONC（slim 预设对应 <code>oh-my-opencode-slim.json</code>，原生 <code>agent</code> 块对应 <code>opencode.jsonc</code>），来源支持回退链的会保留链路。</li>
+    <li data-lang="en"><strong>Paste-ready config</strong>: a complete copy-pasteable JSONC block per detected source (<code>oh-my-opencode-slim.json</code> for the slim preset, <code>opencode.jsonc</code> for a native <code>agent</code> block), with fallback chains preserved where the source supports them.</li>
 
-    <li data-lang="zh"><strong>当前配置</strong>：找到的每个自定义智能体及其现有链路（只读）。</li>
-    <li data-lang="en"><strong>Current</strong>: every custom agent found and its current chain (read-only).</li>
+    <li data-lang="zh"><strong>要点说明</strong>：一段话讲清为什么这么改——模式与理由、价格上限、完整的注意事项原文，以及与上次快照相比的套餐变化。</li>
+    <li data-lang="en"><strong>Highlights</strong>: one paragraph explaining why the changes &mdash; mode + rationale, price ceiling, full caveat text, and plan changes vs the last snapshot.</li>
 
-    <li data-lang="zh"><strong>推荐</strong>：每个智能体一个模型或一条链，附成本档位、吞吐量、理由，以及促销、地理或隐私方面的注意事项。</li>
-    <li data-lang="en"><strong>Recommendation</strong>: a model or chain per agent, with the cost tier, throughput, the reason, and flags for promo, geo, or privacy caveats.</li>
-
-    <li data-lang="zh"><strong>可粘贴配置</strong>：一段可直接放进 <code>opencode.jsonc</code> 或 <code>oh-my-opencode-slim.json</code> 的 JSONC。</li>
-    <li data-lang="en"><strong>Paste-ready</strong>: a JSONC block you can drop into <code>opencode.jsonc</code> or <code>oh-my-opencode-slim.json</code>.</li>
-
-    <li data-lang="zh"><strong>需人工核实</strong>：仍需要你确认的项，以及验证命令。</li>
-    <li data-lang="en"><strong>Verify</strong>: anything that still needs a human check, plus the commands to do it.</li>
+    <li data-lang="zh"><strong>数据附录</strong>：来源与抓取日期（种子标注）、快照差异、相关模型价格表、首次使用的决策因素表、待人工核实清单，以及验证命令。</li>
+    <li data-lang="en"><strong>Data appendix</strong>: sources with fetch dates (seed labeling), the snapshot diff, the relevant-models price table, the first-run decision-factors table, the manual-verification list, and the verify commands.</li>
   </ul>
   <p data-lang="zh">报告之后它会<strong>停下来问你</strong>，确认后才应用改动。</p>
   <p data-lang="en">It then <strong>stops and asks</strong> before applying anything.</p>
