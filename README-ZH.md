@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="assets/badges/license.svg" alt="许可证：GPL-3.0-or-later"></a>
-  <img src="assets/badges/version.svg" alt="版本 1.0.0">
+  <img src="assets/badges/version.svg" alt="版本 1.1.0">
   <img src="assets/badges/node.svg" alt="Node.js 18 或更新">
   <img src="assets/badges/agent-skill.svg" alt="OpenCode Agent Skill">
   <img src="assets/badges/prs-welcome.svg" alt="欢迎提交 PR">

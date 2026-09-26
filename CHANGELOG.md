@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-26
+
 ### Changed
 
 - Reworked the output format from a six-part report into a three-part body plus
@@ -169,4 +171,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a misleading `matched` number.
 
 [Unreleased]: https://github.com/sogeisetsu/opencode-go-model-picker/commits/main
+[1.1.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.1.0
 [1.0.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.0.0
