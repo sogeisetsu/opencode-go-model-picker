@@ -158,7 +158,9 @@ Minimum set:
    recommendation mode** (see "Choosing a mode on first run" below; default
    `balanced`), using the known-role overrides for backward compatibility.
 5. **Build fallback chains** where the source supports them (policy below).
-6. **Output** exactly per `references/output-format.md`, then 🛑 **STOP — stop
+6. **Output** exactly per `references/output-format.md` — a three-part body
+   (`Recommendation table`, `Paste-ready config`, `Highlights`) plus a
+   `Data appendix` — then 🛑 **STOP — stop
    and ask** before applying anything.
 
 ## Recommendation Modes

@@ -51,7 +51,7 @@ a Markdown file" instead.
 | `references/data-sources.md` | Where to fetch live plan data and how to parse it. |
 | `references/agent-sources.md` | Agent discovery: source adapters, the uniform inventory record, the role-trait mapping, and fallback when a source is missing. |
 | `references/model-snapshot.md` | Persistent snapshot cache: schema, location, refresh policy, ranking sources, and name matching. |
-| `references/output-format.md` | The exact six-part report the skill must produce. |
+| `references/output-format.md` | The exact output structure the skill must produce: a three-part body (recommendation table, paste-ready config, highlights) plus a data appendix. |
 | `references/model-scores.json` | Committed LMArena score seed, reused while its board dates are still current. |
 | `references/model-prices.json` | Committed price seed from models.dev: per-model `inputPer1M` / `outputPer1M` / `cacheReadPer1M` / `context` / `outputLimit`; `null` means unverified and is never guessed. |
 | `scripts/fetch-go-models.mjs` | Helper that prints the live model catalog as JSON. |
@@ -94,7 +94,8 @@ update, run `node scripts/refresh-prices.mjs` and commit
 `references/model-prices.json`.
 
 If you changed the workflow or output structure, walk through the run mentally
-against `references/output-format.md` and confirm all six sections are still
+against `references/output-format.md` and confirm the three-part body (recommendation
+table, paste-ready config, highlights) plus the data appendix are all still
 produced. If you changed model guidance, re-check the affected claims against the
 sources listed in `references/data-sources.md` and update the verified-date notes.
 If you edited any SVG under `assets/` by hand, prefer editing

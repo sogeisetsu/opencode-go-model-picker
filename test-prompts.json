@@ -3,7 +3,7 @@
     "id": 1,
     "scenario": "典型场景：全量诊断",
     "prompt": "帮我检查我的 OpenCode 自定义 agent 模型配置符不符合最新 Go 套餐，给点建议",
-    "expected": "只读盘点所有自定义 agent 来源（跳过 OpenCode 内置 agent）→ 拉取最新 Go 套餐数据（附抓取日期）→ 最多 2 题的模式诊断（budget/balanced/quality）→ 按 trait 分配模型 + 2-4 条回退链 + 成本/吞吐解释 → 按 output-format 输出 → 停下等确认，不改任何配置"
+    "expected": "只读盘点所有自定义 agent 来源（跳过 OpenCode 内置 agent）→ 拉取最新 Go 套餐数据（附抓取日期）→ 最多 2 题的模式诊断（budget/balanced/quality）→ 按 trait 分配模型 + 2-4 条回退链 + 成本/吞吐解释 → 按 output-format 输出（三段正文：推荐表 + 可粘贴 JSONC + 要点说明，外加数据附录）→ 停下等确认，不改任何配置"
   },
   {
     "id": 2,
