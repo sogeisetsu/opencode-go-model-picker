@@ -30,8 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed volatile facts from always-loaded text: hardcoded vision model ids,
   the dated vision verification, the price claim attached to it, the
   balanced-baseline model name, the `oh-my-opencode-slim 2.2.x` pin in
-  frontmatter, and the fallback-manager version assertion. Dated evidence stays
-  in the references, where it belongs.
+  frontmatter, and the fallback-manager version assertion. The READMEs no longer
+  pin a version either. Dated evidence stays in the references, where it belongs.
 - Restored the per-source schema field list (native `agent.<name>` fields, the
   slim `model` / `fallback` keys, `tools` deprecated) as
   `references/agent-sources.md` §"Per-source schema fields" — the section

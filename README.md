@@ -240,8 +240,9 @@ A few details worth knowing:
   prompts and completions are called out — the last one is opt-in and never
   recommended silently.
 - **Fallback chains depend on your tool.** An array like `model: ["a", "b", "c"]`
-  is an ordered failover chain in `oh-my-opencode-slim` 2.2.x (verified against
-  `ForegroundFallbackManager`). If every entry fails, the session aborts, so the
+  is an ordered failover chain in `oh-my-opencode-slim` (key names and behavior can
+  differ between builds — your installed `oh-my-opencode-slim.schema.json` is the
+  authority). If every entry fails, the session aborts, so the
   chain should end on a model you can rely on. Agents defined directly in OpenCode
   take a single `model` (no chain), so there the skill recommends one model and
   says so. Any other tool that supports chains works just as well — using
