@@ -5,6 +5,14 @@ the user's language**; the labels below are the reference English wording. The
 body has three parts — `Recommendation table`, `Paste-ready config`,
 `Highlights` — followed by one `Data appendix`, in exactly this order.
 
+Sections:
+
+- 1. Recommendation table
+- 2. Paste-ready config
+- 3. Highlights
+- 4. Data appendix
+- Apply gate
+
 ## 1. Recommendation table
 
 One row per discovered **custom** agent (the same set as always — never list
@@ -47,8 +55,7 @@ one block per source):
   - `"preset": "<name>"`
   - `"presets": { "<name>": { ...agents... } }`
 
-  Label the paste target `~/.config/opencode/oh-my-opencode-slim.json`. This
-  preserves fallback chains (2–4 entries).
+  Label the paste target `~/.config/opencode/oh-my-opencode-slim.json`.
 - **native detected** → a JSONC `agent` block for `opencode.jsonc`:
 
   `"agent": { "<name>": { "model": "opencode-go/<id>" } }`
@@ -95,6 +102,19 @@ Auditability section (Iron Rule 1 lives here):
   `| factor | answer | weight | effect |`
 
   with rows for **main goal** (0.7) and **main task** (0.3).
+
+  The diagnostic's Q1 is **main goal** (weight 0.7); Q2 is **main task** (weight
+  0.3). Resolve the two answers with this table; an answer of 'you decide'
+  counts as skipped:
+
+  | Q1 goal (0.7) | Q2 task (0.3) | Mode |
+  |---|---|---|
+  | save money | any | `budget` |
+  | best value | simple / high-volume | `balanced` |
+  | best value | coding / hard reasoning / vision / mixed | `balanced` (the balanced price ceiling may be exceeded for a capability-critical, rarely used lane — say why) |
+  | strongest capability | any | `quality` |
+  | skipped | simple / high-volume | `budget` |
+  | skipped | any other / skipped | `balanced` |
 - **Manual-verification list**: for each promo-dependent pick restate the promo,
   its base limit, and its limited-time nature; for geo or training picks
   restate the caveat and that it needs the user's decision.

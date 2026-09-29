@@ -4,6 +4,17 @@ Fetch fresh on every run, except ranking scores, which are cached with a short T
 (1 day — see `references/model-snapshot.md`). Every number is reported with source
 + fetch date. Never guess a price, limit, or model id.
 
+Sections:
+
+- Offline fallback (committed price seed)
+- Estimated request counts (throughput)
+- Snapshot file and snapshot shape
+- Failure handling
+- Rules and parse notes
+- Capability verification (esp. vision)
+- Limited-time usage multipliers; geo restrictions and privacy-for-discount models
+- Ranking / ability scores (for the snapshot)
+
 | Priority | Source | URL | Gives | Method | Notes |
 |---|---|---|---|---|---|
 | 1 | Go landing page | https://opencode.ai/go | latest promos + featured usage table with estimated requests per 5h | webfetch (markdown) | **Most timely**; surfaces limited-time multipliers (e.g. "DeepSeek V4.1 Flash 4× usage") and estimated request counts |
@@ -16,22 +27,14 @@ Fetch fresh on every run, except ranking scores, which are cached with a short T
 
 ## Offline fallback (committed price seed)
 
-`references/model-prices.json` is a committed per-model price seed, keyed by Go
-model id. Each entry holds `inputPer1M`, `outputPer1M`, `cacheReadPer1M`,
-`context`, `outputLimit`, `monthlyLimitUsd`, `estReq5h`, `estReqWeek`,
-`estReqMonth`, `promo`, `status`, `priceSource`, `planSource`,
-`upstreamUpdatedAt`, `priceVerifiedAt`, and `planVerifiedAt`.
+`references/model-prices.json` is the committed per-model price seed, keyed by
+Go model id — the last-resort fallback when the plan pages or models.dev cannot
+be fetched. Read it directly as a dated fallback — labelled a seed with its own
+date, never presented as current. A live read always wins: live → snapshot
+cache → seed → "data unavailable".
 
-- `null` always means "not verified" — never a guessed number.
-- Freshness is upstream identity: the seed may be reused only while it covers
-  the whole catalog **and** every entry's `upstreamUpdatedAt` still equals that
-  model's live models.dev `last_updated`; otherwise fetch live.
-- Plan-page fields (`monthlyLimitUsd`, `estReq5h` / `Week` / `Month`,
-  `promo`, `status`) are maintained by hand; `refresh-prices.mjs` only
-  preserves them and never invents them.
-- When the plan pages or models.dev cannot be fetched, the seed may be read
-  directly as a dated fallback — labelled a seed with its date, never presented
-  as current. A live read always wins.
+Seed schema, key list and staleness identity: `references/model-snapshot.md`
+§Bundled price seed / §Bundled score seed.
 
 ## Estimated request counts (throughput)
 
@@ -57,6 +60,26 @@ and refresh it cheaply each run — see `references/model-snapshot.md`.
 ## Snapshot shape
 
 `model id (opencode-go/<id>) | input $/1M | output $/1M | monthly $ limit | est. req/5h | est. req/week | est. req/month | context | reasoning | vision | status | source+date`
+
+## Failure handling
+
+- **Go catalog endpoints unreachable** (`https://opencode.ai/go`,
+  `https://opencode.ai/docs/go/`, `https://opencode.ai/zen/go/v1/models`) → use
+  the snapshot cache, labelled with `sources.catalog.fetchedAt`; with no
+  snapshot either, fall back to the committed price seed
+  (`references/model-prices.json`), labelled with its own date; only when that
+  is impossible too, report "data unavailable" and give no numeric
+  recommendations.
+- **A non-Go fallback id** (`opencode/*` or another provider) that cannot be
+  confirmed in the Go catalog → verify it against the local registry
+  `~/.cache/opencode/models.json` using its `status` field before recommending
+  it. An explicit `status` of deprecated/removed → never put it in a chain. An
+  absent `status` field is the registry's default-active convention and does not
+  disqualify (say you checked). An id missing from the registry entirely → do
+  not lead a chain with it; use a verified alternative or mark that slot for
+  manual verification.
+- **Network fully down** → stop and report that no data source is reachable;
+  never improvise numbers.
 
 ## Rules
 
@@ -135,10 +158,9 @@ score so runs do not re-derive it.
   `costPerSuccessfulTaskUsd` stays `null`. When a system proxy is set the script
   re-executes itself with `NODE_USE_ENV_PROXY=1`, so the normal command works
   behind a proxy.
-- The committed seed `references/model-scores.json` is reused when its
-  `source.publishDates` still match the live boards (and it covers the current
-  catalog); otherwise the script fetches fresh. See "Bundled score seed" in
-  `references/model-snapshot.md`.
+- Seed schema, key list and staleness identity for
+  `references/model-scores.json`: `references/model-snapshot.md`
+  §Bundled score seed.
 
 Only use a score that clearly maps to the model; otherwise leave it null and mark
 it for manual verification.

@@ -6,6 +6,17 @@ It is a **cache, not a source of truth**: every value keeps its source URL and
 fetch date, and anything stale or missing is re-fetched or marked for manual
 verification.
 
+Sections:
+
+- Location
+- Schema (v2)
+- Refresh policy
+- Failure handling
+- Bundled price seed
+- Bundled score seed
+- Ranking source
+- Name matching
+
 ## Location
 
 `~/.cache/opencode/opencode-go-model-picker/snapshot.json`
@@ -165,6 +176,28 @@ Then:
 This is what saves tokens: one compact diff instead of re-reading every page,
 scores that usually come straight from the committed seed, and deep verification
 limited to the models that actually changed.
+
+## Failure handling
+
+- **Two refresh scripts wrote the snapshot concurrently and clobbered it**
+  (read-back shows a `sources.<key>` missing) → run the refresh scripts
+  **serially** in this order: `refresh-snapshot.mjs` → `refresh-scores.mjs` →
+  `refresh-prices.mjs`; re-run the last script and read back `snapshot.json` to
+  confirm `sources.<key>` exists. If it still fails, re-run
+  `refresh-snapshot.mjs` to rebuild the base, re-run the failed script once,
+  then fall back to the seeds.
+- **`refresh-scores.mjs` / `refresh-prices.mjs` cannot reach HF / models.dev** →
+  use the committed seeds (`references/model-scores.json`,
+  `references/model-prices.json`) and label every number with the seed's own
+  date. If the seed is stale (board `publishDates` / `upstreamUpdatedAt` no
+  longer match live) → report the value as `null` and mark it
+  manual-verification-required; never guess.
+- **Node.js missing or a script exiting non-zero** → state that the script path
+  degraded and include the script's error text; fall back to direct fetch plus
+  the seeds.
+- **Discovery finding zero custom agents** → report the inventory with its
+  adapter warnings and stop before allocating; if the user insists sources
+  exist, re-run the adapters and ask which source file to read.
 
 ## Bundled price seed
 

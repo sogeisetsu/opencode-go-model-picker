@@ -4,6 +4,17 @@ How this skill discovers agents across sources and normalizes them into one
 inventory. The skill is **not tied to a single plugin**: any **custom** agent
 OpenCode can address by name is in scope.
 
+Sections:
+
+- Why this exists
+- Sources
+- Built-in agents are out of scope
+- Adapter interface, inventory record, and per-source schema fields
+- Role-trait mapping and known-role overrides
+- Precedence and duplicates
+- Missing or unreadable source — fallback
+- Provenance
+
 ## Why this exists
 
 OpenCode merges **all** agent definitions — built-in, native (JSON and Markdown),
@@ -25,14 +36,11 @@ Agent mechanics below are verified against the official OpenCode docs
 | `slim` | `~/.config/opencode/oh-my-opencode-slim.json` (and `.jsonc`) → `presets.<preset>.<agent>` | One preset is active via the top-level `preset` key. Validate against the installed `oh-my-opencode-slim.schema.json`. |
 | `plugin:<name>` | Any other plugin that injects `config.agent` | Not auto-enumerated. The user declares it, or the skill reports that such a source may exist but was not read. |
 
-**A note on fallback chains (a suggestion, not a requirement).** A source that
-supports an ordered chain — for example `oh-my-opencode-slim`'s
-`model: [a, b, c]`, or any other tool/plugin that does the same — lets the skill
-output a fallback chain. Native OpenCode's `agent.<name>.model` takes a single
-model, so there the skill outputs one model. If the user already uses a
-chain-capable tool, nothing needs to change; recommending
-`oh-my-opencode-slim` is only a suggestion for users who want chains and have no
-equally good option.
+`slim` (and any other chain-capable plugin source) supports an ordered chain
+(`model: [a, b, c]`); native `agent.<name>.model` takes one model — the chain
+policy itself is in `SKILL.md` §Fallback Chain Policy. A custom agent configured
+only with a single model, not registered in any chain-capable tool, is still in
+scope.
 
 ## Built-in agents are out of scope
 
@@ -47,11 +55,6 @@ The exact set changes between OpenCode versions, so treat this as "OpenCode's ow
 agents are skipped", not a fixed list — re-check the official Agents docs when in
 doubt (verified 2026-09-11). Everything else is in scope: custom native agents
 (any name you define) and plugin agents (such as `oh-my-opencode-slim`'s).
-
-Chain support is **not** a requirement for scope. A custom agent configured only
-directly in OpenCode — with a single `model`, not registered in
-`oh-my-opencode-slim` or any other chain-capable tool — is still in scope; the
-skill just recommends one model for it instead of a chain.
 
 ## Adapter interface
 
@@ -93,40 +96,45 @@ primary agent chooses which subagent to delegate to based on it. There is no
 performance or capability-rating field. If an agent has no `description`, record
 `null` — never invent one — and flag it for manual verification.
 
+## Per-source schema fields
+
+- **native**: `agent.<name>` accepts `description` (required), `mode`
+  (`primary`/`subagent`/`all`, default `all`), `model` (`provider/model-id`),
+  `prompt`, `temperature`, `steps`, `top_p`, `permission` (including `task`),
+  `hidden` (subagent only). Markdown agents mirror these in YAML frontmatter.
+  `tools` is deprecated — prefer `permission`.
+- **oh-my-opencode-slim** 2.2.x: `presets.<preset>.<agent>.model` accepts
+  `string | (string | {id, variant})[]`; `fallback.enabled` (default true) +
+  `fallback.maxRetries` (default 3). Other/newer builds may add
+  `fallback.chains.<agent>`. Always read the installed schema and mirror it.
+- Always read the relevant source before writing, and mirror its actual shape.
+
 ## Role-trait mapping
 
 Derive traits from `description` + `name` + `mode`. This replaces the old
 hardcoded list of slim role names, so even an unknown agent can be placed.
 
-| Trait | Signals (description / name / mode) | Model preference |
-|---|---|---|
-| `orchestration` | "orchestrat", "plan", "delegate"; or `mode: primary` | strong but affordable, large monthly limit |
-| `reasoning` | "reason", "debug", "review", "audit", "architect" | strongest reasoning model |
-| `cheap-high-volume` | "search", "explore", "research", "docs", "librarian" | cheapest with a large limit |
-| `coding` | "fix", "implement", "refactor", "code" | mid coding model |
-| `frontend` | "ui", "design", "frontend", "css" | model strong at frontend |
-| `vision` | description mentions image/vision, or a known vision model | only models with **verified** image input |
-| `diversity` | "council", "adversar", "panel", multiple reviewers | distinct strong models across providers |
-
-Preference details (cost tiers, monthly limits, `variant`) live in the
-"Allocation Policy" section of `SKILL.md`, and are applied under the selected
-recommendation mode (`budget` / `balanced` / `quality`).
-
-## Known-role overrides (backward compatibility)
-
-A fixed table preserves the original behavior for the agents this skill started
-with. An override wins over inferred traits.
-
-| Agent name | Traits |
+| Trait | Signals (description / name / mode) |
 |---|---|
-| `orchestrator` | `orchestration` |
-| `oracle` | `reasoning` |
-| `explorer` | `cheap-high-volume` |
-| `librarian` | `cheap-high-volume` |
-| `fixer` | `coding` |
-| `designer` | `frontend` |
-| `observer` | `vision` |
-| `council`, `councillor`, `councillor-*` | `diversity` |
+| `orchestration` | "orchestrat", "plan", "delegate"; or `mode: primary` |
+| `reasoning` | "reason", "debug", "review", "audit", "architect" |
+| `cheap-high-volume` | "search", "explore", "research", "docs", "librarian" |
+| `coding` | "fix", "implement", "refactor", "code" |
+| `frontend` | "ui", "design", "frontend", "css" |
+| `vision` | description mentions image/vision, or a known vision model |
+| `diversity` | "council", "adversar", "panel", multiple reviewers |
+
+Per-trait model preferences live in `SKILL.md` §Allocation Policy — this file
+only derives traits.
+
+## Known-role overrides
+
+Explicit known-role overrides (`orchestrator`→orchestration, `oracle`→reasoning,
+`explorer`/`librarian`→cheap-high-volume, `fixer`→coding, `designer`→frontend,
+`observer`→vision, `council`/`councillor`/`councillor-*`→diversity) win over
+inferred traits; the authoritative map is `SKILL.md` §Allocation Policy. An agent
+with no `description` still falls back to the override here before the
+conservative balanced chain.
 
 ## Precedence and duplicates
 
@@ -140,8 +148,9 @@ Never silently drop a record.
 
 - Source file absent → skip the adapter, add a warning `source <id> not found`.
   Do not treat it as an error.
-- Agent without `description` → try the known-role override. If still unknown,
-  assign a conservative balanced chain and flag it for manual verification.
+- Agent without `description` → resolve it with the override map in `SKILL.md`
+  §Allocation Policy (e.g. `oracle`→reasoning); if still unknown, assign a
+  conservative balanced chain and flag it for manual verification.
 - Schema or config unreadable → use only documented fields, never invent, and add
   the item to the verify list.
 - No source yields any agent → report that clearly and stop. Do not fabricate a
