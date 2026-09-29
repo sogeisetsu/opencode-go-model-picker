@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-29
+
+### Changed
+
+- Restructured `SKILL.md` around progressive disclosure: the body is now a
+  decision surface (~158 lines, down from 325) instead of a digest of
+  `references/`. Everything that duplicated a reference moved to its single
+  owner — snapshot refresh mechanics and seed ownership to
+  `references/model-snapshot.md`, the endpoint table and snapshot shape to
+  `references/data-sources.md`, trait-derivation signals to
+  `references/agent-sources.md`, and the first-run mode-resolution table to
+  `references/output-format.md`.
+- Every long reference gained a section list, and `SKILL.md` gained a
+  `## References — read when` table mapping each file to the workflow step that
+  needs it. The per-symptom failure branches moved out of the body into
+  `## Failure handling` sections in `references/model-snapshot.md` and
+  `references/data-sources.md`; the body keeps only the rule (never improvise
+  numbers, use the dated fallbacks, report what is not covered).
+- Removed volatile facts from always-loaded text: hardcoded vision model ids,
+  the dated vision verification, the price claim attached to it, the
+  balanced-baseline model name, the `oh-my-opencode-slim 2.2.x` pin in
+  frontmatter, and the fallback-manager version assertion. Dated evidence stays
+  in the references, where it belongs.
+- Restored the per-source schema field list (native `agent.<name>` fields, the
+  slim `model` / `fallback` keys, `tools` deprecated) as
+  `references/agent-sources.md` §"Per-source schema fields" — the section
+  `SKILL.md` already pointed at, which the rewrite had left without content.
+- Unchanged by design: the six Iron Rules, the 🛑 apply gate and its four steps,
+  the trait table, the known-role overrides, the three modes with their
+  capability floors, the balanced price ceiling, and the fallback-chain rules.
+  `zh/skill-zh.md` re-synced to match.
+
 ## [1.1.0] - 2026-09-26
 
 ### Changed
@@ -171,5 +203,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a misleading `matched` number.
 
 [Unreleased]: https://github.com/sogeisetsu/opencode-go-model-picker/commits/main
+[1.2.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.2.0
 [1.1.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.1.0
 [1.0.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.0.0

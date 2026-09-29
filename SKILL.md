@@ -1,241 +1,104 @@
 ---
 name: opencode-go-model-picker
-description: "Choose or rebalance which OpenCode Go model each **custom** OpenCode agent/subagent uses, against the LATEST Go plan (models, usage limits, limited-time promos), optimizing cost-effectiveness and resilience. Supports multiple agent sources - native agents (the `agent` key in opencode.json/opencode.jsonc and Markdown files under ~/.config/opencode/agents/ or .opencode/agents/), oh-my-opencode-slim presets, and other plugins that inject agents. OpenCode's own built-in agents (including but not limited to build, plan, and the built-in subagents) are left alone. Use when the user asks to pick/tune/optimize agent models for OpenCode Go, asks whether the current agent model config still fits the current Go plan, or wants a paste-ready preset or agent model block. Read-only by default: it fetches the plan, produces recommendations with fallback chains, and never edits config without a preview and explicit confirmation."
+description: "Choose or rebalance which OpenCode Go model each **custom** OpenCode agent/subagent uses, against the LATEST Go plan (models, limits, promos), optimizing cost and resilience. Use when the user asks to pick/tune/optimize agent models for OpenCode Go, asks whether the current agent model config still fits the Go plan, or wants a paste-ready preset or agent model block. Custom agents only — native, oh-my-opencode-slim, or plugin-injected; OpenCode's built-ins are skipped. Read-only by default: never edits config without preview and explicit confirmation."
 license: GPL-3.0-or-later
 compatibility: opencode
 metadata:
-  version: "1.1.0"
-  requires: "OpenCode with agent config support; oh-my-opencode-slim 2.2.x supported but optional (one source among several); Node.js 18+ for the optional catalog fetcher"
+  version: "1.2.0"
+  requires: "OpenCode with agent config support; oh-my-opencode-slim supported but optional (one source among several); Node.js 18+ for the optional catalog fetcher"
   homepage: "https://github.com/sogeisetsu/opencode-go-model-picker"
   source: "https://github.com/sogeisetsu/opencode-go-model-picker"
 ---
 
 # OpenCode Go Model Picker
 
-> **Source:** [github.com/sogeisetsu/opencode-go-model-picker](https://github.com/sogeisetsu/opencode-go-model-picker)
-> — the canonical repository for this skill. When copying, migrating, or
-> reinstalling this skill on another machine, take it from there (see the
-> install section of that repository's README) so you get the latest version
-> and can verify where it came from. A local copy is only as current as its
-> last sync with this repository.
-
-Assign the most cost-effective **OpenCode Go** model to each **custom** agent in
-your OpenCode setup — native agents, oh-my-opencode-slim presets, or other plugins
-that inject agents — with sensible fallback chains, based on the **current** Go
-plan. OpenCode's own built-in agents (including but not limited to `build`,
-`plan`, and the built-in subagents) are not tuned; which agents ship with OpenCode
-can change between versions, so the rule is "anything OpenCode ships is skipped",
-not a fixed list. The Go plan changes often
-(per-model monthly limits, limited-time usage multipliers, new/retired models), so
-always fetch fresh data before recommending.
+Assign the most cost-effective **OpenCode Go** model to each **custom** agent — native, oh-my-opencode-slim, or plugin-injected — with fallback chains, based
+on the **current** Go plan (which changes often: fetch fresh every run). OpenCode's own built-ins are skipped and that set changes between
+versions, so the rule is "anything OpenCode ships is skipped", not a fixed list.
 
 ## Iron Rules
 
-1. **Never invent prices, limits, or model IDs.** Every number must come from a
-   fetched source (see `references/data-sources.md`) and be reported with its
-   **fetch date**. Anything unverifiable is marked for manual verification. A cached value
-   (see `references/model-snapshot.md`) counts only while it carries its source
-   and fetch date, and is re-fetched when stale. If the plan pages cannot be
-   fetched at all, the committed price seed (`references/model-prices.json`) may
-   be used as a dated fallback — it must be labelled a seed rather than a live
-   fetch, and its numbers must never be presented as current.
-2. **Read-only by default.** Do NOT edit any agent config — `opencode.jsonc`,
-   `opencode.json`, `oh-my-opencode-slim.json`, or files under
-   `~/.config/opencode/agents/` / `.opencode/agents/`. Produce a preview; apply
-   only after the user confirms (use the `question` tool), then show the exact
-   change.
-3. **Schema-accurate per source.** Match the schema of the source you are reading
-   (see `references/agent-sources.md`), not a random online doc. For
-   oh-my-opencode-slim use the *installed* `oh-my-opencode-slim.schema.json`; for
-   custom native agents use the official OpenCode config/agent docs.
-4. **Explain cost vs. capability per agent**, not just model names — and compare
-   **throughput**, not price alone. Two models with the same monthly $ limit can
-   serve very different numbers of requests, so report the estimated requests per
-   5h (see `references/data-sources.md`) and prefer the higher one when price and
-   capability tie.
-5. **Verify capabilities from the lab, not the name.** Especially **vision/image
-   input** (needed by `observer`, or any `vision`-trait agent): confirm
-   modalities in the model's own official docs (e.g. DeepSeek
-   `https://api-docs.deepseek.com/quick_start/pricing/`) and models.dev. The Go
-   docs' image note names only some vision models. Never infer vision — or
-   reasoning/long-context — from a model id. Re-check capability each run: new
-   models add modalities.
-6. **Surface caveats, never bury them.** Flag, per pick: (a) any **limited-time
-   multiplier** it depends on, with the base limit it falls back to; (b)
-   **geo-restricted** models, and whether the user's region is covered; (c)
-   **privacy-for-discount / Contributor** tiers that train on the user's prompts
-   and completions — opt-in only, never recommended silently.
+1. **Never invent prices, limits, or model IDs.** Every number: a fetched source (`references/data-sources.md`) + its **fetch date**; unverifiable → mark
+   for manual verification. A cached value (`references/model-snapshot.md`) counts only with source + fetch date; re-fetch when stale. If plan pages or
+   rankings cannot be fetched, the committed seeds (`references/model-prices.json`, `references/model-scores.json`)
+   are the dated offline fallback — label them a seed, never present them as current.
+2. **Read-only by default.** Do NOT edit any agent config — `opencode.jsonc`, `opencode.json`, `oh-my-opencode-slim.json`, or files under
+   `~/.config/opencode/agents/` / `.opencode/agents/`. Preview; apply only after the user confirms via the `question` tool, then show the exact change.
+3. **Schema-accurate per source.** Match the schema of the source you are reading: slim → the *installed* `oh-my-opencode-slim.schema.json`; native agents →
+   the official OpenCode config/agent docs.
+4. **Explain cost vs. capability per agent** — and compare **throughput**, not price alone: equal monthly $ limits serve very different
+   request counts, so report estimated requests per 5h (`references/data-sources.md` §Estimated request counts (throughput)); prefer the higher one on a tie.
+5. **Verify capabilities from the lab, not the name.** Especially **vision/image input** (`observer`, `vision` traits): confirm modalities in the model's own
+   official docs — the Go image note is partial. Never infer vision/reasoning/long context from a model id; re-check every run (new models add modalities).
+   Procedure: `references/data-sources.md` §Capability verification (esp. vision).
+6. **Surface caveats, never bury them.** Per pick flag: (a) a **limited-time multiplier** and its fallback base limit; (b) **geo-restricted** models and
+   whether the user's region is covered; (c) **privacy-for-discount / Contributor** tiers that train on prompts/completions — opt-in only, never
+   recommended silently.
 
-## Failure Modes (if → then → still failing)
+## Scope & Sources
 
-Every known failure path gets an explicit branch. If a run hits a symptom not
-listed here, report it to the user before improvising.
+Only **custom** agents are in scope — skip OpenCode's built-ins; that set changes between versions. Sources to try:
 
-| If | Then (first line) | If still failing |
-|---|---|---|
-| Two refresh scripts write the snapshot concurrently and clobber it (read-back shows `sources.<key>` missing) | Run refresh scripts **serially** in this order: `refresh-snapshot.mjs` → `refresh-scores.mjs` → `refresh-prices.mjs`; re-run the last script and read back `snapshot.json` to confirm `sources.<key>` exists | Re-run `refresh-snapshot.mjs` to rebuild the base, then re-run the failed script once; if it still fails, fall back to the rows below |
-| `refresh-scores.mjs` / `refresh-prices.mjs` cannot reach HF / models.dev | Use the committed seeds (`references/model-scores.json`, `references/model-prices.json`) and label every number with the seed's own date | If the seed is stale (board `publishDates` / `upstreamUpdatedAt` no longer match live), report the value as `null` → **manual verification required**; never guess |
-| Go catalog endpoints (`opencode.ai/go`, `/docs/go/`, `/zen/go/v1/models`) unreachable | Use the snapshot cache, labelled with `sources.catalog.fetchedAt` | With no snapshot either: fall back to the price seed (`references/model-prices.json`), labelled with its own date (Iron Rule 1); only when that is impossible too, report "data unavailable" and give no numeric recommendations |
-| Node.js missing or a script exits non-zero | Fall back to direct fetch of the plan pages + the committed seeds; state that the script path degraded and include the script's error text | Network also down → stop and report that no data source is reachable; do not improvise numbers |
-| A non-Go fallback id (`opencode/*`, other providers) cannot be confirmed in the Go catalog | Verify it against the local registry `~/.cache/opencode/models.json` (`status` field) before recommending it | Explicit `status` deprecated/removed → **never put it in a chain**; an absent `status` field is the registry's default-active convention and does not disqualify (say you checked); the id missing from the registry entirely → do not lead a chain with it — use a verified alternative or mark that slot for manual verification |
-| Discovery finds zero custom agents | Report the inventory with its adapter warnings and stop before allocation — there is nothing to reallocate | If the user insists sources exist, re-run the adapters and use the question tool to ask which source file to read |
+- **native** — `opencode.json` / `opencode.jsonc` `agent.<name>`; `~/.config/opencode/agents/*.md`; `.opencode/agents/*.md` (plural `agents/`).
+- **slim** — `~/.config/opencode/oh-my-opencode-slim.json` (and `.jsonc`), `presets.<preset>.<agent>`, validated against the installed schema.
+- **plugin** — any other plugin that injects `config.agent`; only when declared or discovered, never assumed.
 
-## Agent Sources (discover read-only every run)
+Adapters, inventory record, trait derivation, missing-source fallback, per-source schema notes: `references/agent-sources.md`.
 
-The skill is source-agnostic. Read `references/agent-sources.md` for the adapter
-interface, the uniform inventory record, the role-trait mapping, and fallback
-when a source is missing. Only **custom** agents are in scope: skip OpenCode's
-built-in agents (including but not limited to `build`, `plan`, `general`,
-`explore`, `scout`, and the hidden `compaction`/`title`/`summary`; the exact set
-can change between OpenCode versions). Minimum set of sources to try:
+All `scripts/…` and `references/…` paths in this skill are relative to **this skill's own directory** (e.g.
+`~/.config/opencode/skills/opencode-go-model-picker/`), not the user's project cwd.
 
-- **native** — `opencode.json` / `opencode.jsonc` `agent.<name>`;
-  `~/.config/opencode/agents/*.md`; `.opencode/agents/*.md` (note: plural
-  `agents/`).
-- **slim** — `~/.config/opencode/oh-my-opencode-slim.json` (and `.jsonc`),
-  `presets.<preset>.<agent>`, validated against the installed schema.
-- **plugin** — any other plugin that injects `config.agent`; only when declared
-  or discovered, never assumed.
+## Run Workflow
 
-## Snapshot Cache (token saving)
-
-A persistent, normalized snapshot of the Go catalog and model scores lives at
-`~/.cache/opencode/opencode-go-model-picker/snapshot.json` (see
-`references/model-snapshot.md`). Refresh strategy:
-
-- Run `node scripts/refresh-snapshot.mjs` — it fetches the live catalog, diffs the
-  ids (`added` / `removed`), and prints a compact JSON diff.
-- Refresh **LMArena** scores only when `sources.rankings.fetchedAt` is missing or
-  older than 1 day, using `node scripts/refresh-scores.mjs --snapshot <path>` (no
-  key, no browser). It reuses the committed `references/model-scores.json` seed
-  when its `source.publishDates` still match the live boards, and otherwise
-  fetches them. `costPerSuccessfulTaskUsd` is always `null` (LMArena has no cost
-  column). The script auto-enables the system proxy when one is configured.
-- Refresh prices with `node scripts/refresh-prices.mjs --snapshot <path>`; the
-  committed `references/model-prices.json` is the offline fallback, read
-  directly when the plan pages or models.dev are unreachable. Live prices and
-  limits always win over cached or seed values.
-- The TTL only throttles re-checking models whose score is already cached: a
-  newly added or changed model always gets a fresh score lookup, and a major plan
-  change (many added/removed models) or an explicit user request forces a full
-  refresh. Catalog and prices refresh every run, so plan changes are caught
-  immediately.
-- Prices and limits are read each run, but only the added or changed models get a
-  deeper capability check — that is what keeps runs cheap. Every cached value
-  keeps its source and fetch date; stale values are re-fetched rather than
-  trusted.
-
-## Data Sources (fetch fresh every run)
-
-Full list, endpoints and parsing notes: `references/data-sources.md`.
-
-Minimum set:
-- `https://opencode.ai/go` — most timely (promos, "4× usage", featured usage table **with estimated requests per 5h**).
-- `https://opencode.ai/docs/go/` (anchor `#usage-limits`) — full model + price + monthly-limit table, plus the "Estimated requests" assumptions and per-model req/5h / week / month.
-- `https://opencode.ai/zen/go/v1/models` — live catalog (unauthenticated); run `node scripts/fetch-go-models.mjs`.
-- Ranking scores: LMArena via the HF datasets-server — no key, no browser (refresh command and seed: see Snapshot Cache above).
-- Machine-readable prices: models.dev provider `opencode-go` (refresh command and seed: see Snapshot Cache above).
-- Cross-check: `https://models.opencode.ai/providers/opencode-go/`, `https://julien.cloud/opencode-go-models/`.
-
-## Workflow
-
-1. **Discover agents (read-only).** Run the source adapters from
-   `references/agent-sources.md` and build the inventory:
-   `name | source | mode | description | model | hidden | traits | provenance`.
-   Report warnings (missing source, missing description, duplicate names) rather
-   than dropping records.
-2. **Read the snapshot cache and refresh it cheaply.** Apply the refresh
-   strategy in "Snapshot Cache" above, then read
-   `~/.cache/opencode/opencode-go-model-picker/snapshot.json` and its compact
-   diff (see `references/model-snapshot.md`) for the `added` / `removed`
-   catalog ids. Deep-verify capabilities (especially vision) only for the added
-   or changed models. Build this run's snapshot:
-   `model id | input $/1M | output $/1M | monthly $ limit | est. req/5h | est. req/week | est. req/month | context | reasoning | vision | status | source+date`.
-3. **Detect plan changes** vs. the last snapshot (if any): new/removed models,
-   changed limits/prices/estimated request counts, limited-time promos. Call these
-   out first.
-4. **Allocate models per agent** by **trait** (policy below) **under the selected
-   recommendation mode** (see "Choosing a mode on first run" below; default
-   `balanced`), using the known-role overrides for backward compatibility.
+1. **Discover agents (read-only).** Run the adapters in `references/agent-sources.md`, build the inventory, report warnings (missing source/description,
+   duplicate names) instead of dropping records.
+2. **Refresh the snapshot.** At run start run `node scripts/refresh-snapshot.mjs`; refresh scores only when `sources.rankings.fetchedAt` is missing or older
+   than 1 day (`node scripts/refresh-scores.mjs --snapshot <path>`); refresh prices every run (`node scripts/refresh-prices.mjs --snapshot <path>`). Flags,
+   TTL rationale, key-ownership and offline fallbacks: `references/model-snapshot.md`. Fetch fresh from `https://opencode.ai/go` (most timely: promos + est.
+   requests/5h) and `https://opencode.ai/docs/go/` (authoritative model/price/limit table); full endpoint list, priorities and parsing notes:
+   `references/data-sources.md`. Build this run's snapshot per `references/data-sources.md` §Snapshot shape.
+3. **Detect plan changes** vs. the last snapshot: new/removed models, changed limits/prices/req counts, promos — call these out first;
+   deep-verify only added/changed models.
+4. **Allocate models per agent** by **trait** (policy below) **under the selected recommendation mode** (default `balanced`), applying the known-role overrides.
 5. **Build fallback chains** where the source supports them (policy below).
-6. **Output** exactly per `references/output-format.md` — a three-part body
-   (`Recommendation table`, `Paste-ready config`, `Highlights`) plus a
-   `Data appendix` — then 🛑 **STOP — stop
-   and ask** before applying anything.
+6. **Output** exactly per `references/output-format.md`: `Recommendation table`, `Paste-ready config`, `Highlights`, then a `Data appendix`.
+7. **STOP** — 🛑 no configuration writes before the user confirms (see "Applying Changes" below).
 
 ## Recommendation Modes
 
-Pick exactly one mode from the user's request; default `balanced`. The modes trade
-off **performance vs. price only** — no other dimensions.
+Pick exactly one mode; default `balanced`. Modes trade off **performance vs. price only**.
 
 | Mode | Tradeoff | Per-trait selection rule | Fallback shape |
 |---|---|---|---|
-| `budget` | cheapest acceptable | the lowest-cost model that still clears the trait's capability floor, favoring a large monthly limit | cheapest Go → next-cheapest Go → free/different provider |
-| `balanced` (default) | best cost-effectiveness | match the model's monthly $ limit to the agent's expected volume; balance price vs. capability; apply the **balanced price ceiling** below | best fit → cheaper Go → different provider |
-| `quality` | maximum capability | the strongest reasoning/capability model on Go for the trait; cost is secondary (limits still apply) | strongest → next-strongest → different provider |
+| `budget` | cheapest acceptable | lowest-cost model clearing the trait's capability floor, favoring a large monthly limit | cheapest Go → next-cheapest Go → free/different provider |
+| `balanced` (default) | best cost-effectiveness | match monthly $ limit to expected volume; balance price vs. capability; apply the **balanced price ceiling** below | best fit → cheaper Go → different provider |
+| `quality` | maximum capability | strongest reasoning/capability model on Go for the trait; cost is secondary | strongest → next-strongest → different provider |
 
-Capability floors apply in **every** mode:
-
-- `vision` always requires image input **verified in the lab's docs** — a cheap
-  text-only model is never acceptable here.
-- `reasoning` / `orchestration` under `budget` must still be reasoning-capable;
-  the absolute cheapest text model is not acceptable.
-- Chains keep the 2–4 entry rule from the Fallback Chain Policy below.
+Capability floors in **every** mode: `vision` needs image input **verified in the lab's docs**, never a cheap text-only model;
+`reasoning`/`orchestration` under `budget` must still be reasoning-capable; chains keep the 2–4 entry rule.
 
 ### Balanced price ceiling
 
-In `balanced`, use the current cheap-but-capable Go model — **DeepSeek V4.1 Flash**
-at the time of writing; re-check each run, the id may change — as the baseline:
-
-- For a normal, high-volume agent, the **most expensive model you recommend should
-  be only slightly pricier than that baseline and clearly more capable**. "Clearly"
-  means a real capability gain, not a marginal one.
-- If no model is "slightly pricier and clearly more capable", recommend the
-  baseline itself.
-- Capability-critical but **rarely used** agents (for example a hard debug/review
-  lane) may go above the ceiling, but you must say so and justify the extra price.
-  Price still matters in `balanced` — that is the mode's whole point.
-- This ceiling is `balanced`-only: `budget` goes cheaper, and `quality`
-  deliberately ignores it.
+Baseline = the current cheap-but-capable Go model — **re-check it each run; never hardcode an id**. The priciest pick for a normal, high-volume agent should
+sit only slightly above that baseline and be clearly more capable; if none qualifies, recommend the baseline itself. Capability-critical but **rarely used**
+agents may exceed it — say so and justify the extra price. `balanced`-only: `budget` goes cheaper, `quality` ignores it.
 
 ### Choosing a mode on first run
 
-Resolve the mode in this order; do not ask when an earlier step answers it:
+Resolution order — stop at the first answer:
 
-1. **Request names a mode** → use it.
-2. **Remembered** → if `snapshot.preferences.mode` is set, reuse it silently.
-3. **First run, no mode** → 🔴 **CHECKPOINT —** run a short diagnostic of
-   **two** questions with the `question` tool, each offering a "you decide /
-   just use balanced" escape.
-   - **Q1 — Main goal** (the primary signal, weight 0.7): save money → `budget`;
-     best value → `balanced`; strongest capability → `quality`.
-   - **Q2 — Main task** (weight 0.3, only refines Q1): simple / mechanical or
-     high-volume → lean cheaper; coding, hard reasoning & review, vision, or a
-     mixed load → lean toward capability.
-   Resolve the two answers with this table; an answer of "you decide" counts as
-   skipped:
+1. Request names a mode → use it.
+2. `snapshot.preferences.mode` is set → reuse it silently.
+3. Otherwise ask **two** questions with the `question` tool — main goal (weighted **0.7**) and main task (**0.3**, only refines the goal) — each offering a
+   "you decide / just use balanced" escape; resolve with the table in `references/output-format.md`.
+4. Diagnostic skipped or refused → default `balanced`.
 
-   | Q1 goal (0.7) | Q2 task (0.3) | Mode |
-   |---|---|---|
-   | save money | any | `budget` |
-   | best value | simple / high-volume | `balanced` |
-   | best value | coding / hard reasoning / vision / mixed | `balanced` (the balanced price ceiling may be exceeded for a capability-critical, rarely used lane — say why) |
-   | strongest capability | any | `quality` |
-   | skipped | simple / high-volume | `budget` |
-   | skipped | any other / skipped | `balanced` |
-
-   Persist the result to `snapshot.preferences` (`mode`, `answers`, `chosenAt`).
-4. **Diagnostic skipped or refused** → `balanced`.
-
-Never ask again once a mode is remembered; a mode named in a later request always
-overrides it, and the user can ask to reset the remembered choice.
-
-State the chosen mode in the report (see `references/output-format.md`), and when
-it was not the default, say why.
+Persist to `snapshot.preferences` (`mode`, `answers`, `chosenAt`); never re-ask once remembered — a later named mode overrides it, and the user can reset.
+State the chosen mode in the report and, when not the default, why.
 
 ## Allocation Policy (trait → model traits)
 
-Traits are derived per `references/agent-sources.md`; known-role overrides win.
+Traits are derived per `references/agent-sources.md`; the overrides below are explicit and win over inferred traits.
 
 | Trait | Needs | Prefer |
 |---|---|---|
@@ -244,82 +107,52 @@ Traits are derived per `references/agent-sources.md`; known-role overrides win.
 | cheap-high-volume | cheap + fast, high volume | cheapest with large limit |
 | coding | reliable scoped coding | mid coding model |
 | frontend | UI/UX + visual polish | model strong at frontend |
-| vision | **vision-capable** | only models whose **image input is verified in the lab's docs**. Verified 2026-09-10: **`mimo-v2.5` (preferred — cheapest output, real $60 limit, native image/video/audio)**, `deepseek-flash`, `deepseek-v4-flash-vision-exp` |
+| vision | **vision-capable** | only models whose **image input is verified in the lab's docs this run** (Iron Rule 5) |
 | diversity | diverse judgments | distinct strong models across providers |
 
-Known-role overrides: `orchestrator`→orchestration, `oracle`→reasoning,
-`explorer`/`librarian`→cheap-high-volume, `fixer`→coding, `designer`→frontend,
-`observer`→vision, `council`/`councillor`/`councillor-*`→diversity. Unknown
-agents fall back to inferred traits, then to a conservative balanced chain.
+Explicit overrides (win over inferred traits): `orchestrator`→orchestration, `oracle`→reasoning, `explorer`/`librarian`→cheap-high-volume, `fixer`→coding,
+`designer`→frontend, `observer`→vision, `council`/`councillor`/`councillor-*`→diversity. Unknown agents → inferred traits → conservative balanced chain.
 
-Cost tiers (recompute from fetched prices): *cheap* = low $/1M + large monthly
-limit; *premium* = high reasoning, small monthly limit. Prefer models whose
-**monthly $ limit** matches the agent's expected volume. Tie-break on
-**throughput**: for the same $ limit, prefer the model with the higher estimated
-requests per 5h, since equal dollar limits do not mean equal request counts.
+Cost tiers (recompute from fetched prices): *cheap* = low $/1M + large monthly limit; *premium* = high reasoning, smaller monthly limit. Match **monthly $
+limit** to expected volume; tie-break on **throughput**: equal dollar limits → the higher estimated requests per 5h wins.
 
 ## Fallback Chain Policy
 
-Where the source supports an ordered array — oh-my-opencode-slim 2.2.x
-`model: [a, b, c]`, verified against `ForegroundFallbackManager` — the array is a
-**failover chain**. Rules:
+Where the source supports an ordered array — `model: [a, b, c]` — it is a **failover chain**:
+
 - `[0]` = best fit for the role.
-- `[1]` = a **cheaper/faster** Go model (cost buffer). Go limits are per-model, so
-  a different Go model is still usable when the primary is capped.
-- `[2]` = a **different provider** fallback (e.g. a free `opencode/*` model) for
-  quota resilience.
+- `[1]` = a **cheaper/faster** Go model (cost buffer; Go limits are per-model, so another Go model still works when the primary is capped).
+- `[2]` = a **different provider** fallback (e.g. free `opencode/*`) for quota resilience.
 - 2–4 entries; never exceed 4. Do not duplicate a model id.
-- If **all** entries fail the session is aborted — so always end on a model the
-  user can actually rely on.
+- If **all** entries fail the session aborts — always end on a model the user can rely on.
 
-Sources whose `model` is a single value (native OpenCode `agent.<name>.model`)
-cannot express a chain: recommend one model and say so explicitly instead of
-inventing an array. If the user's tool supports ordered chains —
-`oh-my-opencode-slim` or any other chain-capable tool/plugin — emit a chain.
-Suggesting `oh-my-opencode-slim` is only a suggestion, not a requirement.
+Sources whose `model` is a single value (native `agent.<name>.model`) get one model plus an explicit note instead of an invented array. Emit a chain whenever
+the tool supports one; suggesting `oh-my-opencode-slim` is only a suggestion, not a requirement.
 
-## Schema Notes (per source)
+## Failure Handling
 
-- **native**: `agent.<name>` accepts `description` (required), `mode`
-  (`primary`/`subagent`/`all`, default `all`), `model` (`provider/model-id`),
-  `prompt`, `temperature`, `steps`, `top_p`, `permission` (including `task`),
-  `hidden` (subagent only). Markdown agents mirror these in YAML frontmatter.
-  `tools` is deprecated — prefer `permission`.
-- **oh-my-opencode-slim** 2.2.x: `presets.<preset>.<agent>.model` accepts
-  `string | (string | {id, variant})[]`; `fallback.enabled` (default true) +
-  `fallback.maxRetries` (default 3). Other/newer builds may add
-  `fallback.chains.<agent>`. Always read the installed schema and mirror it.
-- Always read the relevant source before writing, and mirror its actual shape.
+On any failure: never improvise numbers (Iron Rule 1); use the dated seed/cache fallbacks with their own dates; if a symptom is not covered in the references'
+§Failure handling, report it to the user before improvising. Per-symptom branches live in `references/model-snapshot.md` §Failure handling and
+`references/data-sources.md` §Failure handling — read the relevant one when a fetch or refresh fails.
 
 ## Applying Changes (only after confirmation)
 
 🛑 **STOP — no configuration writes before the user confirms.**
 
-1. Show the exact block (a slim preset entry, or a native `agent.<name>` entry)
-   and which keys change.
+1. Show the exact block (a slim preset entry, or a native `agent.<name>` entry) and which keys change.
 2. Preserve every other agent, preset, and top-level key; keep JSON/JSONC valid.
-3. Confirm with the `question` tool **and** let the user pick the target — a slim
-   preset file or a native `opencode.jsonc` / agent Markdown file — then write
+3. Confirm with the `question` tool **and** let the user pick the target — a slim preset file or a native `opencode.jsonc` / agent Markdown file — then write
    only the intended block.
-4. Tell the user: applies on the next OpenCode run/restart; verify with
-   `opencode models --refresh`, `/models`, and `opencode debug config`.
+4. Tell the user: applies on the next OpenCode run/restart; verify with `opencode models --refresh`, `/models`, and `opencode debug config`.
 
-## Provenance
+## References — read when
 
-Built after surveying existing options (2026-09): no official or well-known skill
-does plan-aware OpenCode Go agent model selection. Closest analogs: the dashboard
-generator `itsmylife44/cliproxyapi-dashboard`
-(`oh-my-opencode-slim-config-generator.tsx`, MIT) and the cost-profile request in
-`code-yeongyu/oh-my-openagent#1768`. Official Go data sources plus
-oh-my-opencode-slim's static per-agent role guidance are reused here. Agent
-discovery was later generalized beyond oh-my-opencode-slim (native OpenCode
-agents and other plugins) — see `references/agent-sources.md`.
-
-## License
-
-Copyright (C) 2026 sogeisetsu. Licensed under the **GNU General Public
-License v3.0 or later** (`GPL-3.0-or-later`). This skill is free software: you may
-redistribute it and/or modify it under the terms of the GPL, either version 3 or
-(at your option) any later version, with NO WARRANTY. See [`LICENSE`](LICENSE) for
-the authoritative text, or [`zh/LICENSE-ZH.md`](zh/LICENSE-ZH.md) for an unofficial
-Chinese reference translation.
+| File | Open it when | What you get |
+|---|---|---|
+| `references/agent-sources.md` | discovering agents / deriving traits | adapters, inventory, trait derivation, overrides, missing-source fallback, schema notes |
+| `references/data-sources.md` | fetching/verifying plan data | endpoints + parsing notes, §Snapshot shape, §Estimated request counts (throughput), §Capability verification (esp. vision), §Failure handling |
+| `references/model-snapshot.md` | refreshing/reading the cache | schema/location, refresh flags + TTL rationale, seed ownership, offline fallbacks, §Failure handling |
+| `references/output-format.md` | writing the report / resolving first-run mode | report body + `Data appendix`, the apply gate, the mode-resolution table |
+| `references/model-prices.json` | live price fetch fails | dated offline price seed — label it a seed, never current |
+| `references/model-scores.json` | ranking fetch fails (seed reused while dates match) | dated LMArena score seed |
+| `scripts/` | refreshing run data, or maintaining the repo | run-time: `fetch-go-models.mjs`, `refresh-snapshot/scores/prices.mjs` · maintainer-only: `generate-assets.mjs`, `check-docs.mjs` |

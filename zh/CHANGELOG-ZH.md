@@ -8,6 +8,16 @@
 
 ## [未发布]
 
+## [1.2.0] - 2026-09-29
+
+### 已变更
+
+- 按渐进式披露重构 `SKILL.md`：正文变成**决策面**（约 158 行，原为 325 行），而不再是 `references/` 的摘要。所有与参考文档重复的内容都归到唯一归属处——快照刷新机制与种子归属归 `references/model-snapshot.md`，端点表与快照形状归 `references/data-sources.md`，特征推导信号归 `references/agent-sources.md`，首次运行的模式裁决表归 `references/output-format.md`。
+- 每个较长的参考文档都加了章节清单；`SKILL.md` 新增 `## References — read when` 表格，把每个文件对应到需要它的工作流步骤。逐症状的失败分支移出正文，改为 `references/model-snapshot.md` 与 `references/data-sources.md` 中的 `## Failure handling` 章节；正文只保留规则（绝不即兴编数字、使用带日期的回退、未覆盖的先报告）。
+- 从常驻加载的文本中移除易变事实：写死的视觉模型 id、配套的核实日期与价格声明、balanced 基线模型名、frontmatter 里的 `oh-my-opencode-slim 2.2.x` 版本钉死，以及关于回退管理器的版本断言。带日期的证据留在参考文档里。
+- 恢复按来源的 schema 字段清单（原生 `agent.<name>` 字段、slim 的 `model` / `fallback` 键、`tools` 已弃用），落在 `references/agent-sources.md` 的「Per-source schema fields」章节——这正是 `SKILL.md` 早已指向、却在重构中被清空的章节。
+- 有意保持不变：六条铁律、🛑 应用闸门及其四步、特征表、已知角色覆盖、三种模式及其能力下限、balanced 价格上限，以及回退链规则。`zh/skill-zh.md` 已同步。
+
 ## [1.1.0] - 2026-09-26
 
 ### 已变更
@@ -63,5 +73,6 @@
 - `scripts/refresh-prices.mjs` 的输出现在区分种子覆盖情况（`seedUsed`）、已定价数量（`priced 40/42`）与上游为 `null` 的 id，不再给出误导性的 `matched` 数字。
 
 [未发布]: https://github.com/sogeisetsu/opencode-go-model-picker/commits/main
+[1.2.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.2.0
 [1.1.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.1.0
 [1.0.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.0.0
