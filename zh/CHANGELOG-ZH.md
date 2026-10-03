@@ -8,6 +8,23 @@
 
 ## [未发布]
 
+## [1.3.0] - 2026-10-04
+
+### 新增
+
+- 新增 `scripts/discover-agents.mjs`：只读、零依赖的 CLI，发现自定义智能体（slim 预设 + 原生智能体）并校验回退链——重复 id、链长 2–4、本地 registry 中无法确认的非 Go id，以及 `vision` 特征智能体的快照 `vision` 字段未置位（这是字段检查，不是能力核实——铁律 5 仍要求查实验室自己的文档）。输出紧凑的 `{ agents, warnings }` JSON，不必再逐个手读配置文件。
+- 新增 `scripts/snapshot-summary.mjs`：只读的紧凑摘要，替代约 1,580 行的 `snapshot.json` 整读（行数减少约 97%）。支持 `--ids`（只看指定模型 id）、`--trait`（按特征重排并标出相关列，但不丢弃任何模型）、`--json`（同一摘要的紧凑 JSON）；缺失值输出 `-` / `null`，绝不猜测，任何文件错误都是一行 `{"error": ...}` 加非零退出码。
+- 推荐表新增**职责介绍**列：一行白话说明每个智能体是干什么的，取自其 `description`，没有时用 `references/agent-sources.md` 中的已知角色基线，并按用户的语言渲染。
+
+### 已变更
+
+- 工作流第 4 步以**支配性检查**收尾：在同一次运行的快照内，某个链路槽位上的模型若在价格 + 吞吐 + 与特征匹配的能力（对应智能体特征的 ELO 榜；缺失值视为「不可比」）三个维度都不更差、且至少一个维度严格更好，就替换掉被支配的模型；保留被支配模型时必须在 `why` 列说明理由（例如跨 provider 配额回退）。
+- 补充了 Windows 下刷新失败的处理路径：任何 `scripts/refresh-*.mjs` 之前先设置 `$env:NODE_USE_ENV_PROXY=1`；成败以脚本 stdout 的 JSON 判断，而非退出码或 stderr 噪音；stdout 出现 `catalog.error: "fetch failed"` 才是真正失败。
+
+### 已修复
+
+- 更新 `references/data-sources.md` 的视觉核实记录（2026-10-03）：`mimo-v2.6-flash`、`mimo-v2.6-pro` 与 `deepseek-v4.1-flash` 支持图像输入，并为 DeepSeek 写清 Go 目录 id / 实验室版本名 / API 请求模型 id 三者的区分，另附 JS 渲染实验室页面的回退解析说明。
+
 ## [1.2.0] - 2026-09-29
 
 ### 已变更
@@ -73,6 +90,7 @@
 - `scripts/refresh-prices.mjs` 的输出现在区分种子覆盖情况（`seedUsed`）、已定价数量（`priced 40/42`）与上游为 `null` 的 id，不再给出误导性的 `matched` 数字。
 
 [未发布]: https://github.com/sogeisetsu/opencode-go-model-picker/commits/main
+[1.3.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.3.0
 [1.2.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.2.0
 [1.1.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.1.0
 [1.0.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.0.0
