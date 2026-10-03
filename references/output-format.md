@@ -19,8 +19,13 @@ One row per discovered **custom** agent (the same set as always — never list
 OpenCode's built-in agents: build, plan, general, explore, scout, compaction,
 title, summary, or anything else OpenCode ships). Columns exactly:
 
-`| agent | capability focus | current model | recommended model | why |`
+`| agent | role overview | capability focus | current model | recommended model | why |`
 
+- **role overview** — one plain-language sentence for a user deciding whether to
+  accept the recommendation. Prefer compressing the inventory `description` to
+  one sentence; if it is missing or unusable, use the known-role baseline in
+  `references/agent-sources.md` §Known-role overrides. Always fill it, never
+  blank. Render the header and the value in the user's language.
 - **capability focus** — the agent's trait: orchestration / reasoning /
   cheap-high-volume / coding / frontend / vision / diversity.
 - **current model** — the discovered current model or chain from the inventory;

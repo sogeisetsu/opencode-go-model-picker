@@ -9,6 +9,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-04
+
+### Added
+
+- Added `scripts/discover-agents.mjs`, a read-only, zero-dependency CLI that
+  discovers the custom agents (slim preset + native agents) and validates their
+  fallback chains — duplicate ids, chain length 2–4, non-Go ids not confirmed in
+  the local registry, and vision-trait agents whose snapshot `vision` field is
+  not set (a field check, not capability verification — Iron Rule 5 still
+  requires the lab's own docs). Prints compact `{ agents, warnings }` JSON
+  instead of hand-reading every config file.
+- Added `scripts/snapshot-summary.mjs`, a read-only compact digest of the
+  ~1,580-line `snapshot.json` (~97% fewer lines), so runs never have to read
+  the raw snapshot whole. Supports `--ids` (restrict to given model ids),
+  `--trait` (re-sort and mark the trait-relevant columns without dropping any
+  model), and `--json` (the same digest as compact JSON); missing values print
+  as `-` / `null`, never guessed, and any file error is a one-line
+  `{"error": ...}` with a non-zero exit.
+- The recommendation table gained a **role overview** column: a one-line
+  plain-language description of each agent, taken from its `description` or the
+  known-role baseline in `references/agent-sources.md`, rendered in the user's
+  language.
+
+### Changed
+
+- Workflow step 4 now closes with a **dominance check**: within one run's
+  snapshot, a chain slot whose model is no worse on price + throughput +
+  trait-matched capability (the ELO board matching the agent's trait; a missing
+  value means "not comparable") and strictly better on at least one axis
+  replaces the dominated model; a kept dominated model must justify itself in
+  the `why` column (e.g. cross-provider quota fallback).
+- Documented the Windows refresh failure path: set
+  `$env:NODE_USE_ENV_PROXY=1` before any `scripts/refresh-*.mjs`, judge success
+  by the script's stdout JSON rather than the exit code or stderr noise, and
+  treat stdout `catalog.error: "fetch failed"` as the real failure.
+
+### Fixed
+
+- Updated the vision verification record in `references/data-sources.md`
+  (2026-10-03): `mimo-v2.6-flash`, `mimo-v2.6-pro`, and `deepseek-v4.1-flash`
+  accept image input, with the Go catalog id / lab version name / API request
+  model id distinction spelled out for DeepSeek, plus a fallback parse note for
+  JS-rendered lab pages.
+
 ## [1.2.0] - 2026-09-29
 
 ### Changed
@@ -203,6 +247,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a misleading `matched` number.
 
 [Unreleased]: https://github.com/sogeisetsu/opencode-go-model-picker/commits/main
+[1.3.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.3.0
 [1.2.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.2.0
 [1.1.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.1.0
 [1.0.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.0.0

@@ -185,10 +185,11 @@ baseline itself is the pick.
 
 Every run ends with a three-part body plus a data appendix:
 
-1. **Recommendation table** — one row per custom agent: agent name, capability
-   focus (trait), current model, recommended model, and the why (a cost,
-   throughput, or capability reason), with ⚠ markers for limited-time, geo, or
-   training caveats.
+1. **Recommendation table** — one row per custom agent: agent name, a one-line
+   role overview (the agent's `description`, or the known-role baseline when it
+   has none, rendered in your language), capability focus (trait), current
+   model, recommended model, and the why (a cost, throughput, or capability
+   reason), with ⚠ markers for limited-time, geo, or training caveats.
 2. **Paste-ready config** — a complete copy-pasteable JSONC block per detected
    source: `oh-my-opencode-slim.json` for the slim preset, `opencode.jsonc` for a
    native `agent` block (both when both are detected), with fallback chains

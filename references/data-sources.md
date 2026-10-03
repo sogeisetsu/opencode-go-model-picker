@@ -96,6 +96,9 @@ and refresh it cheaply each run — see `references/model-snapshot.md`.
   table on `/go` is a **featured subset** — take the full list from `/docs/go/`.
 - `/zen/go/v1/models` returns `{ "object": "list", "data": [{ "id": "...", ... }] }`.
 - Prices live on models.dev (input/output/cached). Merge by model id.
+- If a lab's official page is JS-rendered and `webfetch` returns empty content
+  (zero word count or a high boilerplate ratio), retry with a web search scoped
+  to the official domain instead of treating the empty page as "no evidence".
 
 ## Capability verification (esp. vision)
 
@@ -114,6 +117,33 @@ own docs. DeepSeek V4.1 Flash is
 currently on a **limited-time 4× usage promo** ($15 → $60 monthly, 6,500 → 26,000
 req/5h per https://opencode.ai/go) — re-check on every run; when it ends the limit
 falls back to $15.
+
+Verified 2026-10-03 (incremental — the 2026-09-10 entry above still stands):
+
+- `mimo-v2.6-flash`, `mimo-v2.6-pro` (Xiaomi MiMo) support image input. Source:
+  https://mimo.mi.com/docs/en-US/quick-start/usage-guide/multimodal-understanding/image-understanding
+  (lists "mimo-v2.6-flash, mimo-v2.6-pro, mimo-v2.6-pro-ultraspeed and mimo-v2.5
+  models are supported") and the Hugging Face model card's multimodal tag.
+- `deepseek-v4.1-flash` supports image input. Source:
+  https://api-docs.deepseek.com/guides/vision ("The deepseek-flash model accepts
+  images alongside text") and DeepSeek's official announcement of native
+  multimodal support; confirming source:
+  https://api-docs.deepseek.com/quick_start/pricing (marks `deepseek-flash`
+  Vision ✓, `deepseek-v4-pro` Vision: Not supported). Three distinct names —
+  record the mapping explicitly:
+  - Go catalog id: `deepseek-v4.1-flash`
+  - lab model version name: `DeepSeek-V4.1-Flash`
+  - API request model id: `deepseek-flash` — the docs say "Use `deepseek-flash`
+    as the model name"; `deepseek-v4.1-flash` is a version name, NOT a
+    documented API id (its acceptance is unverified).
+- Plan-level note (re-check every run; NOT a capability fact): DeepSeek now marks
+  `deepseek-v4-flash` and `deepseek-v4-flash-vision-exp` as retired; requests are
+  temporarily routed to V4.1-Flash, while the Go plan still lists and bills them
+  separately ($30 / $15 vs the $60 monthly allowance).
+- Plan-level note (re-check every run; NOT a capability fact): `deepseek-v4-pro`
+  is not vision-capable itself, and DeepSeek's announcement says that from
+  2026-09-14 all `deepseek-v4-pro` requests route to V4.1-Flash at V4.1-Flash
+  rates. Source: https://api-docs.deepseek.com/news/news260910/.
 
 ## Limited-time usage multipliers
 

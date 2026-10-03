@@ -4,7 +4,7 @@ description: "Choose or rebalance which OpenCode Go model each **custom** OpenCo
 license: GPL-3.0-or-later
 compatibility: opencode
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
   requires: "OpenCode with agent config support; oh-my-opencode-slim supported but optional (one source among several); Node.js 18+ for the optional catalog fetcher"
   homepage: "https://github.com/sogeisetsu/opencode-go-model-picker"
   source: "https://github.com/sogeisetsu/opencode-go-model-picker"
@@ -51,15 +51,24 @@ All `scripts/…` and `references/…` paths in this skill are relative to **thi
 ## Run Workflow
 
 1. **Discover agents (read-only).** Run the adapters in `references/agent-sources.md`, build the inventory, report warnings (missing source/description,
-   duplicate names) instead of dropping records.
+   duplicate names) instead of dropping records. `node scripts/discover-agents.mjs` prints that inventory and its chain-validation warnings as compact JSON — run it instead of hand-reading the config files.
 2. **Refresh the snapshot.** At run start run `node scripts/refresh-snapshot.mjs`; refresh scores only when `sources.rankings.fetchedAt` is missing or older
    than 1 day (`node scripts/refresh-scores.mjs --snapshot <path>`); refresh prices every run (`node scripts/refresh-prices.mjs --snapshot <path>`). Flags,
    TTL rationale, key-ownership and offline fallbacks: `references/model-snapshot.md`. Fetch fresh from `https://opencode.ai/go` (most timely: promos + est.
    requests/5h) and `https://opencode.ai/docs/go/` (authoritative model/price/limit table); full endpoint list, priorities and parsing notes:
-   `references/data-sources.md`. Build this run's snapshot per `references/data-sources.md` §Snapshot shape.
+   `references/data-sources.md`. Build this run's snapshot per `references/data-sources.md` §Snapshot shape. To consume the snapshot, run
+   `node scripts/snapshot-summary.mjs` (compact digest; `--ids`, `--trait`, `--json`) instead of reading `snapshot.json` whole.
 3. **Detect plan changes** vs. the last snapshot: new/removed models, changed limits/prices/req counts, promos — call these out first;
    deep-verify only added/changed models.
 4. **Allocate models per agent** by **trait** (policy below) **under the selected recommendation mode** (default `balanced`), applying the known-role overrides.
+   - **Dominance check (closing action of this step).** For every slot of every proposed chain, using this run's snapshot on one consistent metric set:
+     - price — the same source's monthly $ limit and $/1M; a promo-only advantage is promo-dependent and must not be compared against a base price;
+     - throughput — est req/5h;
+     - capability — the ELO board matching the agent's trait (coding → coding, vision → vision, otherwise overall); a missing value means "not
+       comparable", so dominance cannot be claimed.
+     Model A dominates model B when A is no worse than B on every axis and strictly better on at least one. If a dominated model is kept in a
+     recommended chain, the `why` column must state the reason (e.g. cross-provider quota fallback); otherwise replace it with the dominator. This
+     does not change the Iron Rules.
 5. **Build fallback chains** where the source supports them (policy below).
 6. **Output** exactly per `references/output-format.md`: `Recommendation table`, `Paste-ready config`, `Highlights`, then a `Data appendix`.
 7. **STOP** — 🛑 no configuration writes before the user confirms (see "Applying Changes" below).
@@ -155,4 +164,4 @@ On any failure: never improvise numbers (Iron Rule 1); use the dated seed/cache 
 | `references/output-format.md` | writing the report / resolving first-run mode | report body + `Data appendix`, the apply gate, the mode-resolution table |
 | `references/model-prices.json` | live price fetch fails | dated offline price seed — label it a seed, never current |
 | `references/model-scores.json` | ranking fetch fails (seed reused while dates match) | dated LMArena score seed |
-| `scripts/` | refreshing run data, or maintaining the repo | run-time: `fetch-go-models.mjs`, `refresh-snapshot/scores/prices.mjs` · maintainer-only: `generate-assets.mjs`, `check-docs.mjs` |
+| `scripts/` | refreshing run data, or maintaining the repo | run-time: `fetch-go-models.mjs`, `refresh-snapshot/scores/prices.mjs`, `discover-agents.mjs`, `snapshot-summary.mjs` · maintainer-only: `generate-assets.mjs`, `check-docs.mjs` |

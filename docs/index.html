@@ -254,8 +254,8 @@
   <p data-lang="zh">每次运行后，它会给你一份「三段正文 + 数据附录」的报告：</p>
   <p data-lang="en">Each run ends with a three-part body plus a data appendix:</p>
   <ul>
-    <li data-lang="zh"><strong>推荐表</strong>：每个自定义智能体一行——名称、能力侧重（trait）、当前模型、推荐模型，以及为什么（成本 / 吞吐 / 能力理由），限时、地理或训练相关的注意事项用 ⚠ 标出。</li>
-    <li data-lang="en"><strong>Recommendation table</strong>: one row per custom agent &mdash; name, capability focus (trait), current model, recommended model, and the why (a cost, throughput, or capability reason), with ⚠ markers for limited-time, geo, or training caveats.</li>
+    <li data-lang="zh"><strong>推荐表</strong>：每个自定义智能体一行——名称、职责介绍（一行白话说明该智能体的职责，取自其 <code>description</code>，没有时用已知角色基线，并按你的语言渲染）、能力侧重（trait）、当前模型、推荐模型，以及为什么（成本 / 吞吐 / 能力理由），限时、地理或训练相关的注意事项用 ⚠ 标出。</li>
+    <li data-lang="en"><strong>Recommendation table</strong>: one row per custom agent &mdash; name, a one-line role overview (what the agent does, from its <code>description</code> or the known-role baseline when it has none, rendered in your language), capability focus (trait), current model, recommended model, and the why (a cost, throughput, or capability reason), with ⚠ markers for limited-time, geo, or training caveats.</li>
 
     <li data-lang="zh"><strong>可粘贴配置</strong>：针对每个检测到的来源给出一段完整、可直接复制粘贴的 JSONC（slim 预设对应 <code>oh-my-opencode-slim.json</code>，原生 <code>agent</code> 块对应 <code>opencode.jsonc</code>），来源支持回退链的会保留链路。</li>
     <li data-lang="en"><strong>Paste-ready config</strong>: a complete copy-pasteable JSONC block per detected source (<code>oh-my-opencode-slim.json</code> for the slim preset, <code>opencode.jsonc</code> for a native <code>agent</code> block), with fallback chains preserved where the source supports them.</li>

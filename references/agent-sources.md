@@ -73,6 +73,9 @@ Rules:
 - `discover` is **read-only**. It never edits the source.
 - Adapters are independent: one failing source must not abort the others.
 
+A reference implementation of these adapters is `scripts/discover-agents.mjs`;
+the adapter spec in this file stays authoritative.
+
 ## Inventory record
 
 ```text
@@ -135,6 +138,20 @@ Explicit known-role overrides (`orchestrator`→orchestration, `oracle`→reason
 inferred traits; the authoritative map is `SKILL.md` §Allocation Policy. An agent
 with no `description` still falls back to the override here before the
 conservative balanced chain.
+
+One-line role-overview baseline (single source of truth for the output table's
+"role overview" column fallback):
+
+| Role | One-line overview (baseline; render in the user's language) |
+|---|---|
+| orchestrator | Top-level coordinator; runs every turn, understands the task and delegates work to subagents. |
+| oracle | Deep-reasoning lane for hard problems, plan review and complex debugging. |
+| explorer | Fast codebase recon: finds files, symbols and structure; high volume, high frequency. |
+| librarian | Documentation and external research (context7, gh_grep); looks up APIs and open-source usage. |
+| designer | UI/UX and visual polish: front-end styling, interaction and screenshot walkthroughs. |
+| fixer | Bounded code edits: applies precise, small-scope fixes and implementations. |
+| observer | Vision lane: reads screenshots and images; must use a vision-capable model. |
+| council* | Multiple distinct strong models for diverse judgments (council / councillor / councillor-*). |
 
 ## Precedence and duplicates
 

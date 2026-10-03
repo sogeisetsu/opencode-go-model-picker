@@ -25,6 +25,8 @@ On Windows: `%USERPROFILE%\.cache\opencode\opencode-go-model-picker\snapshot.jso
 
 Override the path with `--snapshot <path>` when running the refresh script.
 
+To read it without loading the whole file, run `node scripts/snapshot-summary.mjs` — a compact digest with `--ids <id,...>`, `--trait <trait>`, and `--json`.
+
 ## Schema (v2)
 
 ```json
@@ -179,6 +181,15 @@ limited to the models that actually changed.
 
 ## Failure handling
 
+- **Windows + system proxy.** Before running any `scripts/refresh-*.mjs`, set
+  `$env:NODE_USE_ENV_PROXY=1` (PowerShell syntax). The auto re-exec inside
+  `refresh-scores.mjs` covers only that script, not the first run of
+  `refresh-snapshot.mjs` / `refresh-prices.mjs`. Decide success from the
+  script's stdout JSON (`catalog.error: null` or a valid summary) — stderr
+  warnings and a PowerShell exit code of 1 are NOT failures; that exit code
+  comes from the outer shell/tool treating stderr output as failure, not from
+  PowerShell itself. A genuine failure is stdout `catalog.error: "fetch failed"`;
+  then follow the existing cache → seed → data-unavailable fallback.
 - **Two refresh scripts wrote the snapshot concurrently and clobbered it**
   (read-back shows a `sources.<key>` missing) → run the refresh scripts
   **serially** in this order: `refresh-snapshot.mjs` → `refresh-scores.mjs` →
