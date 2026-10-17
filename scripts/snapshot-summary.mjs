@@ -44,6 +44,7 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { stripBom } from "./lib/json-io.mjs";
 
 const COLUMNS = [
   ["id", "id"],
@@ -165,7 +166,7 @@ try {
 let snapshot;
 try {
   // Tolerate a UTF-8 BOM (Windows editors / PowerShell Set-Content add one).
-  snapshot = JSON.parse(raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw);
+  snapshot = JSON.parse(stripBom(raw));
 } catch (err) {
   fail(`malformed snapshot ${snapshotPath}: ${err && err.message ? err.message : err}`);
 }

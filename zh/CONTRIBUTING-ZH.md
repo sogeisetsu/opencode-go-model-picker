@@ -37,8 +37,10 @@
 | `scripts/refresh-snapshot.mjs` | 刷新快照缓存，并输出紧凑的新增 / 下架差异。 |
 | `scripts/refresh-scores.mjs` | 经 HF datasets-server 抓取 LMArena 评分（免 key、无浏览器），写入种子或快照。 |
 | `scripts/refresh-prices.mjs` | 从 models.dev 的 `opencode-go` provider 刷新提交进仓库的价格种子。 |
-| `scripts/generate-assets.mjs` | 重新生成 SVG 图标、横幅与本地徽章。 |
-| `scripts/check-docs.mjs` | 一站式文档校验：相对链接、中英文档对、frontmatter、英文文档不含中文。 |
+| `scripts/generate-assets.mjs` | 重新生成 SVG 图标、横幅与本地徽章；版本徽章从 `SKILL.md` 读取。 |
+| `scripts/check-docs.mjs` | 一站式文档校验：相对链接、中英文档对、frontmatter、英文文档不含中文，以及版本号/徽章/CHANGELOG 是否一致。 |
+| `scripts/lib/json-io.mjs` | 共享工具（容忍 BOM 的 JSON 读取、原子写入），被其他脚本 import，不直接运行。 |
+| `scripts/lib/proxy.mjs` | 共享的代理 re-exec（`NODE_USE_ENV_PROXY`），被四个联网脚本 import，不直接运行。 |
 | `README.md` / `README-ZH.md` | 英文与中文文档。 |
 | `zh/` | 中文文档（本文件、`CHANGELOG-ZH.md`，以及被 git 忽略的本地对读版 `skill-zh.md`）。 |
 | `assets/` | README 头部使用的 SVG 图标、横幅与本地徽章。 |
@@ -62,7 +64,7 @@ node scripts/fetch-go-models.mjs           # 确认端点仍然可用
 node scripts/check-docs.mjs                # 一站式文档校验（见下）
 ```
 
-`check-docs.mjs` 会校验相对链接、中英文档对、frontmatter 合法性，以及英文文档中不含中文字符——任何文档或 `SKILL.md` 改动后都要运行它。上游发布新榜单后要重生成 LMArena 评分种子，运行 `node scripts/refresh-scores.mjs` 并提交 `references/model-scores.json`。models.dev 更新后要重生成价格种子，运行 `node scripts/refresh-prices.mjs` 并提交 `references/model-prices.json`。
+`check-docs.mjs` 会校验相对链接、中英文档对、frontmatter 合法性、英文文档中不含中文字符，以及版本徽章与两份 CHANGELOG 是否与 `SKILL.md` 的 `metadata.version` 一致——任何文档或 `SKILL.md` 改动后都要运行它。所有脚本都保持零依赖：复用 `scripts/lib/json-io.mjs`（读取、原子写入）与 `scripts/lib/proxy.mjs`（代理 re-exec），不要再引入包，也不要再抄第五份同样的实现。上游发布新榜单后要重生成 LMArena 评分种子，运行 `node scripts/refresh-scores.mjs` 并提交 `references/model-scores.json`。models.dev 更新后要重生成价格种子，运行 `node scripts/refresh-prices.mjs` 并提交 `references/model-prices.json`。
 
 如果你改动了工作流或输出结构，请对照 `references/output-format.md` 在心里走一遍流程，确认三段正文（推荐表、可粘贴配置、要点说明）与数据附录仍然都能产出。如果你改动了模型指引，请对照 `references/data-sources.md` 中列出的来源重新核实相关论断，并更新“已核实日期”的标注。如果你手工编辑了 `assets/` 下的任何 SVG，建议改为编辑 `scripts/generate-assets.mjs` 并重新运行 `node scripts/generate-assets.mjs`，让资源保持可复现。
 

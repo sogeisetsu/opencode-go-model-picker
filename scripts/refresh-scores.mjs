@@ -30,9 +30,15 @@
 // `costPerSuccessfulTaskUsd` stays null. Overall/coding/vision are read from the
 // three boards; no other category is derived.
 //
-// Proxy: if HTTP(S)_PROXY is set, Node's fetch does not use it by default. This
-// script re-executes itself with NODE_USE_ENV_PROXY=1 so the documented command
-// works unchanged behind a proxy. Pass --no-env-proxy to opt out.
+// Proxy: if HTTP(S)_PROXY is set, Node's fetch does not use it by default. Every
+// network script re-executes itself with NODE_USE_ENV_PROXY=1 (see
+// lib/proxy.mjs) so the documented command works unchanged behind a proxy. Pass
+// --no-env-proxy to opt out.
+//
+// The snapshot is rewritten atomically and an unreadable snapshot is a hard
+// error: it carries user state (`preferences`) next to the cache, so it is never
+// silently rebuilt. An unreadable committed seed is only a warning — the script
+// fetches live instead.
 //
 // Usage:
 //   node scripts/refresh-scores.mjs                     # write references/model-scores.json
@@ -45,29 +51,12 @@
 //
 // Exit code: 1 on error, else 0.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { readJsonFile, writeJsonFileAtomic } from "./lib/json-io.mjs";
+import { maybeReexec } from "./lib/proxy.mjs";
 
-// --- proxy: make `node scripts/refresh-scores.mjs` work behind a proxy --------
-function maybeReexec() {
-  if (process.argv.includes("--no-env-proxy")) return;
-  const proxy =
-    process.env.HTTPS_PROXY ||
-    process.env.HTTP_PROXY ||
-    process.env.https_proxy ||
-    process.env.http_proxy;
-  if (!proxy) return;
-  if (process.env.NODE_USE_ENV_PROXY === "1") return;
-  if (process.env.OGMP_PROXY_REEXEC === "1") return; // sentinel: never loop
-  const res = spawnSync(process.execPath, process.argv.slice(1), {
-    stdio: "inherit",
-    env: { ...process.env, NODE_USE_ENV_PROXY: "1", OGMP_PROXY_REEXEC: "1" },
-  });
-  process.exit(res.status ?? 1);
-}
 maybeReexec();
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -291,9 +280,22 @@ async function main() {
 
   if (snapshotArg) {
     const snapshotPath = snapshotArg === "true" ? defaultSnapshot : snapshotArg;
-    const snapshot = existsSync(snapshotPath)
-      ? JSON.parse(readFileSync(snapshotPath, "utf8"))
-      : { schemaVersion: 2, sources: {}, models: {} };
+    const loaded = readJsonFile(snapshotPath);
+    if (loaded.error) {
+      console.error(
+        `Error: cannot read ${snapshotPath}: ${loaded.error}\n` +
+          "The snapshot also stores user state (preferences.mode), so it is not overwritten " +
+          "automatically. Fix the JSON, or run refresh-snapshot.mjs --rebuild to start over.",
+      );
+      process.exit(1);
+    }
+    const snapshot = loaded.missing
+      ? { schemaVersion: 2, sources: {}, models: {} }
+      : loaded.value;
+    if (typeof snapshot !== "object" || snapshot === null || Array.isArray(snapshot)) {
+      console.error(`Error: ${snapshotPath} root value is not a JSON object.`);
+      process.exit(1);
+    }
     snapshot.models ??= {};
     snapshot.sources ??= {};
 
@@ -302,8 +304,12 @@ async function main() {
     let seedUsed = false;
 
     // Try the committed seed first, but only if it is still current.
-    if (existsSync(seedPath)) {
-      const seed = JSON.parse(readFileSync(seedPath, "utf8"));
+    const seedLoaded = readJsonFile(seedPath);
+    if (seedLoaded.error) {
+      console.error(`Warning: ignoring the committed seed ${seedPath}: ${seedLoaded.error}`);
+    }
+    if (seedLoaded.value && typeof seedLoaded.value === "object") {
+      const seed = seedLoaded.value;
       const seedCoversAll = goIds.every((id) => id in (seed.models ?? {}));
       if (seedCoversAll && seed.source?.publishDates) {
         const liveDates = await fetchPublishDates();
@@ -340,8 +346,7 @@ async function main() {
       matched: Object.values(scores).filter((s) => s.fetchedAt).length,
       seedUsed,
     };
-    mkdirSync(dirname(snapshotPath), { recursive: true });
-    writeFileSync(snapshotPath, JSON.stringify(snapshot, null, 2) + "\n");
+    writeJsonFileAtomic(snapshotPath, snapshot);
     process.stdout.write(
       JSON.stringify(
         {
@@ -381,8 +386,7 @@ async function main() {
     models,
   };
   const outPath = outArg ?? seedPath;
-  mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, JSON.stringify(seed, null, 2) + "\n");
+  writeJsonFileAtomic(outPath, seed);
   process.stdout.write(
     JSON.stringify(
       { publishDates: live.publishDates, out: outPath, matched: matched.length, total: goIds.length, ids: matched },

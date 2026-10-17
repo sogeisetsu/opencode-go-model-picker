@@ -27,12 +27,25 @@
 // references/model-snapshot.md). This script preserves any existing per-model
 // fields, including `score`.
 //
+// The snapshot holds user state (`preferences`) next to the cache, so an
+// unreadable snapshot is a hard error (exit 1) — the file is left untouched
+// rather than silently rebuilt. Pass --rebuild to discard it on purpose.
+// Writes are atomic (write sibling temp file, rename over the target), so a
+// concurrent refresh can lose the race but never leave truncated JSON.
+//
+// Proxy: like every network script, this one re-executes itself with
+// NODE_USE_ENV_PROXY=1 when a system proxy is set.
+//
 // Usage:
-//   node scripts/refresh-snapshot.mjs [--snapshot <path>] [--prune]
+//   node scripts/refresh-snapshot.mjs [--snapshot <path>] [--prune] [--rebuild]
+//                                        [--no-env-proxy]
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
+import { readJsonFile, writeJsonFileAtomic } from "./lib/json-io.mjs";
+import { maybeReexec } from "./lib/proxy.mjs";
+
+maybeReexec();
 
 const CATALOG_URL = "https://opencode.ai/zen/go/v1/models";
 
@@ -45,32 +58,45 @@ const snapshotPath =
   argValue("--snapshot") ??
   join(homedir(), ".cache", "opencode", "opencode-go-model-picker", "snapshot.json");
 const prune = process.argv.includes("--prune");
+const rebuild = process.argv.includes("--rebuild");
 
 // Keep in sync with the "Schema (v2)" section of references/model-snapshot.md.
 const SCHEMA_VERSION = 2;
 
 function loadSnapshot(path) {
   const fresh = () => ({ schemaVersion: SCHEMA_VERSION, sources: {}, models: {} });
-  if (!existsSync(path)) return fresh();
-  try {
-    const parsed = JSON.parse(readFileSync(path, "utf8"));
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      throw new Error("root value is not a JSON object");
+  const loaded = readJsonFile(path);
+  if (loaded.missing) return fresh();
+  if (loaded.error) {
+    if (rebuild) {
+      console.error(`Warning: --rebuild discards the unreadable ${path} (${loaded.error}).`);
+      return fresh();
     }
-    // Spread the parsed file first so every other top-level key (`preferences`
-    // and anything else the skill stores) is preserved on write-back; only
-    // schemaVersion / sources / models are owned and refreshed by this script.
-    // Key order stays as in the file (2-space indent unchanged).
-    return {
-      ...parsed,
-      schemaVersion: SCHEMA_VERSION,
-      sources: parsed.sources ?? {},
-      models: parsed.models ?? {},
-    };
-  } catch (err) {
-    console.error(`Warning: could not parse ${path} (${err.message}); starting fresh.`);
-    return fresh();
+    console.error(
+      `Error: cannot read ${path}: ${loaded.error}\n` +
+        "The snapshot also stores user state (preferences.mode and cached scores/prices), " +
+        "so it is not overwritten automatically. Fix the JSON, or pass --rebuild to discard it.",
+    );
+    process.exit(1);
   }
+  const parsed = loaded.value;
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    if (rebuild) return fresh();
+    console.error(
+      `Error: ${path} root value is not a JSON object. Fix the file, or pass --rebuild to discard it.`,
+    );
+    process.exit(1);
+  }
+  // Spread the parsed file first so every other top-level key (`preferences`
+  // and anything else the skill stores) is preserved on write-back; only
+  // schemaVersion / sources / models are owned and refreshed by this script.
+  // Key order stays as in the file (2-space indent unchanged).
+  return {
+    ...parsed,
+    schemaVersion: SCHEMA_VERSION,
+    sources: parsed.sources ?? {},
+    models: parsed.models ?? {},
+  };
 }
 
 const now = new Date().toISOString();
@@ -112,6 +138,5 @@ if (catalogIds) {
   }
 }
 
-mkdirSync(dirname(snapshotPath), { recursive: true });
-writeFileSync(snapshotPath, JSON.stringify(snapshot, null, 2) + "\n");
+writeJsonFileAtomic(snapshotPath, snapshot);
 process.stdout.write(JSON.stringify(diff, null, 2) + "\n");

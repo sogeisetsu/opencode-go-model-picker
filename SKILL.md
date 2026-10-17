@@ -53,7 +53,9 @@ All `scripts/…` and `references/…` paths in this skill are relative to **thi
 1. **Discover agents (read-only).** Run the adapters in `references/agent-sources.md`, build the inventory, report warnings (missing source/description,
    duplicate names) instead of dropping records. `node scripts/discover-agents.mjs` prints that inventory and its chain-validation warnings as compact JSON — run it instead of hand-reading the config files.
 2. **Refresh the snapshot.** At run start run `node scripts/refresh-snapshot.mjs`; refresh scores only when `sources.rankings.fetchedAt` is missing or older
-   than 1 day (`node scripts/refresh-scores.mjs --snapshot <path>`); refresh prices every run (`node scripts/refresh-prices.mjs --snapshot <path>`). Flags,
+   than 1 day (`node scripts/refresh-scores.mjs --snapshot <path>`); refresh prices every run (`node scripts/refresh-prices.mjs --snapshot <path>`). Run these
+   **one at a time, never as parallel tool calls** — all three write the same `snapshot.json` and a concurrent write loses one of them (a script exits 1 with a
+   clear message rather than rebuilding a snapshot it could not read, so a damaged file is never silently discarded; `--rebuild` discards it on purpose). Flags,
    TTL rationale, key-ownership and offline fallbacks: `references/model-snapshot.md`. Fetch fresh from `https://opencode.ai/go` (most timely: promos + est.
    requests/5h) and `https://opencode.ai/docs/go/` (authoritative model/price/limit table); full endpoint list, priorities and parsing notes:
    `references/data-sources.md`. Build this run's snapshot per `references/data-sources.md` §Snapshot shape. To consume the snapshot, run
@@ -164,4 +166,4 @@ On any failure: never improvise numbers (Iron Rule 1); use the dated seed/cache 
 | `references/output-format.md` | writing the report / resolving first-run mode | report body + `Data appendix`, the apply gate, the mode-resolution table |
 | `references/model-prices.json` | live price fetch fails | dated offline price seed — label it a seed, never current |
 | `references/model-scores.json` | ranking fetch fails (seed reused while dates match) | dated LMArena score seed |
-| `scripts/` | refreshing run data, or maintaining the repo | run-time: `fetch-go-models.mjs`, `refresh-snapshot/scores/prices.mjs`, `discover-agents.mjs`, `snapshot-summary.mjs` · maintainer-only: `generate-assets.mjs`, `check-docs.mjs` |
+| `scripts/` | refreshing run data, or maintaining the repo | run-time: `fetch-go-models.mjs`, `refresh-snapshot/scores/prices.mjs`, `discover-agents.mjs`, `snapshot-summary.mjs` · shared helpers (imported, not run): `lib/json-io.mjs`, `lib/proxy.mjs` · maintainer-only: `generate-assets.mjs`, `check-docs.mjs` |

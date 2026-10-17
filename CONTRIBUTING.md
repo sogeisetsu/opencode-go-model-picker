@@ -58,8 +58,10 @@ a Markdown file" instead.
 | `scripts/refresh-snapshot.mjs` | Refreshes the snapshot cache and prints a compact added / removed diff. |
 | `scripts/refresh-scores.mjs` | Fetches LMArena scores via the HF datasets-server (no key, no browser) into the seed or a snapshot. |
 | `scripts/refresh-prices.mjs` | Refreshes the committed price seed from the models.dev `opencode-go` provider. |
-| `scripts/generate-assets.mjs` | Regenerates the SVG icon, banners and local badges. |
-| `scripts/check-docs.mjs` | One-stop doc check: relative links, EN/ZH doc pairs, frontmatter, and no CJK in English docs. |
+| `scripts/generate-assets.mjs` | Regenerates the SVG icon, banners and local badges; the version badge is read from `SKILL.md`. |
+| `scripts/check-docs.mjs` | One-stop doc check: relative links, EN/ZH doc pairs, frontmatter, no CJK in English docs, and version/badge/changelog agreement. |
+| `scripts/lib/json-io.mjs` | Shared helpers (BOM-tolerant JSON reads, atomic writes) imported by the other scripts — not run directly. |
+| `scripts/lib/proxy.mjs` | Shared proxy re-exec (`NODE_USE_ENV_PROXY`) imported by the four network scripts — not run directly. |
 | `README.md` / `README-ZH.md` | English and Chinese documentation. |
 | `zh/` | Chinese docs (`CONTRIBUTING-ZH.md`, `CHANGELOG-ZH.md`, and a git-ignored local `skill-zh.md` reading copy). |
 | `assets/` | SVG icon, banners and local badges used in the README headers. |
@@ -86,8 +88,12 @@ node scripts/check-docs.mjs                # one-stop doc check (see below)
 ```
 
 `check-docs.mjs` validates relative links, English/Chinese doc pairs, frontmatter
-validity, and that English docs contain no CJK characters — run it after any
-documentation or `SKILL.md` edit. To regenerate the LMArena score seed after an
+validity, that English docs contain no CJK characters, and that the version badge
+plus both changelogs agree with `SKILL.md`'s `metadata.version` — run it after any
+documentation or `SKILL.md` edit. Every script stays dependency-free: reuse
+`scripts/lib/json-io.mjs` (reads, atomic writes) and `scripts/lib/proxy.mjs`
+(proxy re-exec) instead of adding a package or a fifth copy of either helper. To
+regenerate the LMArena score seed after an
 upstream release, run `node scripts/refresh-scores.mjs` and commit
 `references/model-scores.json`. To regenerate the price seed after a models.dev
 update, run `node scripts/refresh-prices.mjs` and commit
