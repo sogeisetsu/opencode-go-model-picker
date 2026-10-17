@@ -8,6 +8,8 @@
 
 ## [未发布]
 
+## [1.4.0] - 2026-10-17
+
 ### 新增
 
 - 新增 `scripts/lib/json-io.mjs` 与 `scripts/lib/proxy.mjs`：给各脚本共用的零依赖工具——容忍 BOM 的 JSON 读取、原子写入（写同目录临时文件再 rename 覆盖），以及此前只存在于 `refresh-scores.mjs` 里的 `NODE_USE_ENV_PROXY` re-exec。现在四个联网脚本都支持系统代理；运行时若不支持该变量，会在 stderr 明确提示，而不是表现得像网络故障。
@@ -110,6 +112,7 @@
 - `scripts/refresh-prices.mjs` 的输出现在区分种子覆盖情况（`seedUsed`）、已定价数量（`priced 40/42`）与上游为 `null` 的 id，不再给出误导性的 `matched` 数字。
 
 [未发布]: https://github.com/sogeisetsu/opencode-go-model-picker/commits/main
+[1.4.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.4.0
 [1.3.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.3.0
 [1.2.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.2.0
 [1.1.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.1.0

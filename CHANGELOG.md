@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-17
+
 ### Added
 
 - `scripts/lib/json-io.mjs` and `scripts/lib/proxy.mjs`: shared, dependency-free
@@ -295,6 +297,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a misleading `matched` number.
 
 [Unreleased]: https://github.com/sogeisetsu/opencode-go-model-picker/commits/main
+[1.4.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.4.0
 [1.3.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.3.0
 [1.2.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.2.0
 [1.1.0]: https://github.com/sogeisetsu/opencode-go-model-picker/releases/tag/v1.1.0

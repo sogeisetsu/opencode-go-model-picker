@@ -4,7 +4,7 @@ description: "Choose or rebalance which OpenCode Go model each **custom** OpenCo
 license: GPL-3.0-or-later
 compatibility: opencode
 metadata:
-  version: "1.3.0"
+  version: "1.4.0"
   requires: "OpenCode with agent config support; oh-my-opencode-slim supported but optional (one source among several); Node.js 18+ for the optional catalog fetcher"
   homepage: "https://github.com/sogeisetsu/opencode-go-model-picker"
   source: "https://github.com/sogeisetsu/opencode-go-model-picker"
