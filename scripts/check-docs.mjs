@@ -30,6 +30,8 @@
 //    breaks YAML).
 // 5. English docs contain no CJK characters (Chinese docs live under zh/ or
 //    carry a -ZH filename; the local AGENTS.md is exempt).
+// 6. The version badge and the changelogs agree with SKILL.md's
+//    `metadata.version` (committed drift, not just uncommitted edits).
 //
 // External URLs (http/https/mailto/...) and pure anchors are skipped.
 // Exit code: 1 if any error, else 0. Warnings do not fail the run.
@@ -187,6 +189,55 @@ for (const file of files) {
   if (hit >= 0) {
     errors++;
     console.log(`ERROR CJK in English doc (line ${hit + 1}): ${rel(file)}`);
+  }
+}
+
+// --- 6. version consistency -------------------------------------------------
+// The badge is generated from SKILL.md's `metadata.version`, and the changelog
+// must have a matching released heading. This catches committed drift, which the
+// git-status check above cannot see (both sides changed in different commits, or
+// neither side changed while the values diverged).
+function skillVersion() {
+  const text = readFileSync(join(root, "SKILL.md"), "utf8").replace(/^\uFEFF/, "");
+  const lines = text.split(/\r?\n/);
+  const close = lines.indexOf("---", 1);
+  for (let i = 0; close > 0 && i < close; i++) {
+    const m = lines[i].match(/^\s+version:\s*"?([^"\s]+)"?\s*$/);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+const version = skillVersion();
+if (!version) {
+  errors++;
+  console.log("ERROR no metadata.version in SKILL.md frontmatter");
+} else {
+  const badgePath = join(root, "assets", "badges", "version.svg");
+  const badge = existsSync(badgePath) ? readFileSync(badgePath, "utf8") : null;
+  if (badge === null) {
+    errors++;
+    console.log(`MISSING ${rel(badgePath)} — regenerate with node scripts/generate-assets.mjs`);
+  } else if (!badge.includes(`>${version}<`)) {
+    errors++;
+    console.log(
+      `ERROR stale version badge: SKILL.md says ${version}, ${rel(badgePath)} says something else ` +
+        "-> regenerate with node scripts/generate-assets.mjs",
+    );
+  }
+  for (const changelog of ["CHANGELOG.md", "zh/CHANGELOG-ZH.md"]) {
+    const path = join(root, changelog);
+    if (!existsSync(path)) continue; // pair existence is checked above
+    const released = readFileSync(path, "utf8").match(/^## \[(\d+\.\d+\.\d+)\]/m);
+    if (!released) {
+      warnings++;
+      console.log(`WARN  no released heading found in ${changelog}`);
+    } else if (released[1] !== version) {
+      warnings++;
+      console.log(
+        `WARN  ${changelog} latest release is ${released[1]}, SKILL.md is ${version} -> add the release entry or bump one side`,
+      );
+    }
   }
 }
 

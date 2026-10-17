@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="assets/badges/license.svg" alt="License: GPL-3.0-or-later"></a>
-  <img src="assets/badges/version.svg" alt="Version 1.2.0">
+  <img src="assets/badges/version.svg" alt="Version">
   <img src="assets/badges/node.svg" alt="Node.js 18 or later">
   <img src="assets/badges/agent-skill.svg" alt="OpenCode Agent Skill">
   <img src="assets/badges/prs-welcome.svg" alt="PRs welcome">
@@ -77,7 +77,10 @@ still works — it just recommends a single model for those agents.
   - `oh-my-opencode-slim` is **optional**. It is only one of the supported
     sources; if you happen to use it, the skill treats its installed schema as the
     source of truth.
-- **Node.js 18+**, only for the helper scripts (tested on Node 22).
+- **Node.js 18+**, only for the helper scripts (tested on Node 22). Behind a
+  proxy the refresh scripts need Node 24+ or a 22.x build that backported
+  `NODE_USE_ENV_PROXY` (verified on 22.23.1) — otherwise fetch bypasses the proxy
+  and a script says so on stderr.
 
 ## Installation
 
