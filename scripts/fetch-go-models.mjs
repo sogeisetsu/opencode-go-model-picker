@@ -19,8 +19,14 @@
 // this program. If not, see <https://www.gnu.org/licenses/>.
 //
 // Fetch the live OpenCode Go model catalog (unauthenticated metadata endpoint).
-// Usage: node scripts/fetch-go-models.mjs
+// Proxy: re-executes itself with NODE_USE_ENV_PROXY=1 when a system proxy is set
+// (see lib/proxy.mjs); --no-env-proxy opts out.
+// Usage: node scripts/fetch-go-models.mjs [--no-env-proxy]
 // Output: JSON { fetchedAt, source, count, ids } on stdout.
+
+import { maybeReexec } from "./lib/proxy.mjs";
+
+maybeReexec();
 
 const URL = "https://opencode.ai/zen/go/v1/models";
 

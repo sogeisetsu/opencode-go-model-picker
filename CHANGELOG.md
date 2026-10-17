@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/lib/json-io.mjs` and `scripts/lib/proxy.mjs`: shared, dependency-free
+  helpers for the bundled scripts — BOM-tolerant JSON reads, atomic writes (temp
+  file + rename over the target), and the `NODE_USE_ENV_PROXY` re-exec that
+  previously existed only inside `refresh-scores.mjs`. All four network scripts
+  now honor a system proxy, and a runtime that cannot says so on stderr instead of
+  failing as if the network were down.
+- `scripts/discover-agents.mjs` now emits the inventory record
+  `references/agent-sources.md` promises: `mode`, `hidden`, `traits` (derived from
+  description + name + mode, known-role overrides included) and
+  `provenance.fetchedAt`. Built-in names it skips are listed under
+  `skippedBuiltins` instead of vanishing.
+- New flags: `--include-builtin-names`, `--builtin`, `--extra-builtin`
+  (`discover-agents.mjs`) and `--rebuild` (`refresh-snapshot.mjs`).
+
+### Changed
+
+- `scripts/refresh-*.mjs` write the snapshot atomically and refuse to rebuild an
+  unreadable one: a snapshot that cannot be parsed exits 1 with a clear message
+  and leaves the file — including the `preferences.mode` and cached scores it
+  carries — untouched, instead of silently starting from an empty cache.
+  `refresh-snapshot.mjs --rebuild` discards it on purpose.
+- The version badge is generated from `SKILL.md`'s `metadata.version`, and
+  `check-docs.mjs` now checks the badge and both changelogs against it, so
+  committed drift like the badge saying 1.2.0 while the skill was at 1.3.0 cannot
+  come back unnoticed.
+- `SKILL.md` workflow step 2 states that the three refresh commands must run
+  serially, never as parallel tool calls — they write the same snapshot.
+- `references/agent-sources.md` documents the built-in name denylist (and why a
+  skipped name is reported rather than dropped) and the trait-precedence rule.
+
 ## [1.3.0] - 2026-10-04
 
 ### Added

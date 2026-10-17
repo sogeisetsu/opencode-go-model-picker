@@ -181,22 +181,28 @@ limited to the models that actually changed.
 
 ## Failure handling
 
-- **Windows + system proxy.** Before running any `scripts/refresh-*.mjs`, set
-  `$env:NODE_USE_ENV_PROXY=1` (PowerShell syntax). The auto re-exec inside
-  `refresh-scores.mjs` covers only that script, not the first run of
-  `refresh-snapshot.mjs` / `refresh-prices.mjs`. Decide success from the
-  script's stdout JSON (`catalog.error: null` or a valid summary) — stderr
-  warnings and a PowerShell exit code of 1 are NOT failures; that exit code
-  comes from the outer shell/tool treating stderr output as failure, not from
-  PowerShell itself. A genuine failure is stdout `catalog.error: "fetch failed"`;
-  then follow the existing cache → seed → data-unavailable fallback.
-- **Two refresh scripts wrote the snapshot concurrently and clobbered it**
-  (read-back shows a `sources.<key>` missing) → run the refresh scripts
-  **serially** in this order: `refresh-snapshot.mjs` → `refresh-scores.mjs` →
-  `refresh-prices.mjs`; re-run the last script and read back `snapshot.json` to
-  confirm `sources.<key>` exists. If it still fails, re-run
-  `refresh-snapshot.mjs` to rebuild the base, re-run the failed script once,
-  then fall back to the seeds.
+- **Windows + system proxy.** Every network script re-executes itself with
+  `NODE_USE_ENV_PROXY=1` when a system proxy is set, so the documented commands
+  work unchanged behind a proxy (`--no-env-proxy` opts out). `NODE_USE_ENV_PROXY`
+  needs Node 24+ or a 22.x build that backported it (verified on 22.23.1); on an
+  older runtime the variable does nothing and a script warns on stderr — the fetch
+  then looks like a plain network failure, so check the warning before falling
+  back. Setting `$env:NODE_USE_ENV_PROXY=1` (PowerShell syntax) yourself is still
+  harmless and skips one process spawn. Decide success from the script's stdout
+  JSON (`catalog.error: null` or a valid summary) — stderr warnings and a
+  PowerShell exit code of 1 are NOT failures; that exit code comes from the outer
+  shell/tool treating stderr output as failure, not from PowerShell itself. A
+  genuine failure is stdout `catalog.error: "fetch failed"`; then follow the
+  existing cache → seed → data-unavailable fallback.
+- **The snapshot cannot be read (broken JSON, half-written file).** The refresh
+  scripts exit 1 with `cannot read …` and leave the file untouched: it also holds
+  user state (`preferences.mode`), so it is never rebuilt silently. Run the three
+  refreshes **serially** — `refresh-snapshot.mjs` → `refresh-scores.mjs` →
+  `refresh-prices.mjs` — and never as parallel tool calls; writes are atomic
+  (temp file + rename), so two concurrent refreshes lose a race instead of
+  clobbering each other, and the loser's result is simply re-run. If the file is
+  genuinely beyond repair, `node scripts/refresh-snapshot.mjs --rebuild` discards
+  it (the seeded scores/prices are re-fetched, and the mode is re-asked once).
 - **`refresh-scores.mjs` / `refresh-prices.mjs` cannot reach HF / models.dev** →
   use the committed seeds (`references/model-scores.json`,
   `references/model-prices.json`) and label every number with the seed's own

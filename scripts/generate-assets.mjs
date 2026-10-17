@@ -24,6 +24,10 @@
 // Everything is emitted as plain SVG (no external fonts or images), so the
 // assets render identically offline and on GitHub.
 //
+// The version badge is generated from SKILL.md's `metadata.version` — the single
+// source of truth — so the badge can never drift from the skill version again
+// (check-docs.mjs re-checks it, because the badge is only regenerated on demand).
+//
 // Typography in the banners:
 //   - "OpenCode" is drawn with a hand-built 5x8 dot-matrix font (1 = lit cell).
 //     Every glyph shares one baseline (row 6) and every dot lands on an integer
@@ -33,13 +37,27 @@
 //   - "Go" is Xiaomi orange (#FF6900); "Model Picker" is the project green
 //     (#03B000).
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const assets = join(root, "assets");
 const badgesDir = join(assets, "badges");
+
+// SKILL.md frontmatter is the single source of truth for the version.
+function skillVersion() {
+  const text = readFileSync(join(root, "SKILL.md"), "utf8").replace(/^\uFEFF/, "");
+  const lines = text.split(/\r?\n/);
+  const close = lines.indexOf("---", 1);
+  for (let i = 0; close > 0 && i < close; i++) {
+    const m = lines[i].match(/^\s+version:\s*"?([^"\s]+)"?\s*$/);
+    if (m) return m[1];
+  }
+  throw new Error("SKILL.md: no metadata.version found in the frontmatter");
+}
+
+const VERSION = skillVersion();
 
 const C = {
   ink: "#F1ECEC",
@@ -232,7 +250,7 @@ const files = {
     aria: "OpenCode Go Model Picker banner",
   }),
   [join(badgesDir, "license.svg")]: badgeSvg("license", "GPL-3.0-or-later", C.dark, C.ink),
-  [join(badgesDir, "version.svg")]: badgeSvg("version", "1.2.0", C.green, C.greenInk),
+  [join(badgesDir, "version.svg")]: badgeSvg("version", VERSION, C.green, C.greenInk),
   [join(badgesDir, "node.svg")]: badgeSvg("node", ">=18", C.dark, C.ink),
   [join(badgesDir, "agent-skill.svg")]: badgeSvg("OpenCode", "Agent Skill", C.dark, C.ink),
   [join(badgesDir, "prs-welcome.svg")]: badgeSvg("PRs", "welcome", C.green, C.greenInk),

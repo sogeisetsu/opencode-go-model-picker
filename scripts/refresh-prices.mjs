@@ -30,9 +30,15 @@
 // and only carried through from a previously existing seed entry. `null` means
 // "not verified" and is never guessed.
 //
-// Proxy: if HTTP(S)_PROXY is set, Node's fetch does not use it by default. This
-// script re-executes itself with NODE_USE_ENV_PROXY=1 so the documented command
-// works unchanged behind a proxy. Pass --no-env-proxy to opt out.
+// Proxy: if HTTP(S)_PROXY is set, Node's fetch does not use it by default. Every
+// network script re-executes itself with NODE_USE_ENV_PROXY=1 (see
+// lib/proxy.mjs) so the documented command works unchanged behind a proxy. Pass
+// --no-env-proxy to opt out.
+//
+// The snapshot is rewritten atomically and an unreadable snapshot is a hard
+// error: it carries user state (`preferences`) next to the cache, so it is never
+// silently rebuilt. An unreadable committed seed is only a warning — the script
+// fetches live instead.
 //
 // Usage:
 //   node scripts/refresh-prices.mjs                     # write references/model-prices.json
@@ -45,29 +51,12 @@
 //
 // Exit code: 1 on error, else 0.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { readJsonFile, writeJsonFileAtomic } from "./lib/json-io.mjs";
+import { maybeReexec } from "./lib/proxy.mjs";
 
-// --- proxy: make `node scripts/refresh-prices.mjs` work behind a proxy --------
-function maybeReexec() {
-  if (process.argv.includes("--no-env-proxy")) return;
-  const proxy =
-    process.env.HTTPS_PROXY ||
-    process.env.HTTP_PROXY ||
-    process.env.https_proxy ||
-    process.env.http_proxy;
-  if (!proxy) return;
-  if (process.env.NODE_USE_ENV_PROXY === "1") return;
-  if (process.env.OGMP_PROXY_REEXEC === "1") return; // sentinel: never loop
-  const res = spawnSync(process.execPath, process.argv.slice(1), {
-    stdio: "inherit",
-    env: { ...process.env, NODE_USE_ENV_PROXY: "1", OGMP_PROXY_REEXEC: "1" },
-  });
-  process.exit(res.status ?? 1);
-}
 maybeReexec();
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -126,8 +115,13 @@ const fetchJson = async (url) => (await request(url)).json();
 const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
 function loadSeed(path) {
-  if (!existsSync(path)) return null;
-  return JSON.parse(readFileSync(path, "utf8"));
+  const loaded = readJsonFile(path);
+  if (loaded.error) {
+    console.error(`Warning: ignoring the committed seed ${path}: ${loaded.error}`);
+    return null;
+  }
+  if (loaded.missing) return null;
+  return typeof loaded.value === "object" && loaded.value !== null ? loaded.value : null;
 }
 
 async function fetchCatalog() {
@@ -220,9 +214,22 @@ async function main() {
 
   if (snapshotArg) {
     const snapshotPath = snapshotArg === "true" ? defaultSnapshot : snapshotArg;
-    const snapshot = existsSync(snapshotPath)
-      ? JSON.parse(readFileSync(snapshotPath, "utf8"))
-      : { schemaVersion: SNAPSHOT_SCHEMA_VERSION, sources: {}, models: {} };
+    const loaded = readJsonFile(snapshotPath);
+    if (loaded.error) {
+      console.error(
+        `Error: cannot read ${snapshotPath}: ${loaded.error}\n` +
+          "The snapshot also stores user state (preferences.mode), so it is not overwritten " +
+          "automatically. Fix the JSON, or run refresh-snapshot.mjs --rebuild to start over.",
+      );
+      process.exit(1);
+    }
+    const snapshot = loaded.missing
+      ? { schemaVersion: SNAPSHOT_SCHEMA_VERSION, sources: {}, models: {} }
+      : loaded.value;
+    if (typeof snapshot !== "object" || snapshot === null || Array.isArray(snapshot)) {
+      console.error(`Error: ${snapshotPath} root value is not a JSON object.`);
+      process.exit(1);
+    }
     snapshot.models ??= {};
     snapshot.sources ??= {};
 
@@ -264,8 +271,7 @@ async function main() {
       nullUpstream: nullUpstreamIds,
       seedUsed,
     };
-    mkdirSync(dirname(snapshotPath), { recursive: true });
-    writeFileSync(snapshotPath, JSON.stringify(snapshot, null, 2) + "\n");
+    writeJsonFileAtomic(snapshotPath, snapshot);
     const summary =
       `seedUsed=${seedUsed}` +
       `; priced ${priced}/${total}` +
@@ -307,8 +313,7 @@ async function main() {
     models: entries,
   };
   const outPath = outArg ?? seedPath;
-  mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, JSON.stringify(seed, null, 2) + "\n");
+  writeJsonFileAtomic(outPath, seed);
   const idsWith = goIds.filter((id) => hasPrice(entries[id]));
   const idsWithout = goIds.filter((id) => !hasPrice(entries[id]));
   process.stdout.write(

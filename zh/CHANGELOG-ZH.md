@@ -8,6 +8,19 @@
 
 ## [未发布]
 
+### 新增
+
+- 新增 `scripts/lib/json-io.mjs` 与 `scripts/lib/proxy.mjs`：给各脚本共用的零依赖工具——容忍 BOM 的 JSON 读取、原子写入（写同目录临时文件再 rename 覆盖），以及此前只存在于 `refresh-scores.mjs` 里的 `NODE_USE_ENV_PROXY` re-exec。现在四个联网脚本都支持系统代理；运行时若不支持该变量，会在 stderr 明确提示，而不是表现得像网络故障。
+- `scripts/discover-agents.mjs` 现在会输出 `references/agent-sources.md` 承诺的完整 inventory 记录：`mode`、`hidden`、`traits`（由 description + name + mode 推导，含已知角色覆盖）、以及 `provenance.fetchedAt`；被跳过的内置名字会列在 `skippedBuiltins` 里，不再无声消失。
+- 新增标志：`--include-builtin-names`、`--builtin`、`--extra-builtin`（`discover-agents.mjs`）与 `--rebuild`（`refresh-snapshot.mjs`）。
+
+### 已变更
+
+- `scripts/refresh-*.mjs` 改为原子写入快照，并拒绝重建读不出来的快照：无法解析的快照会以清晰报错退出 1，原文件（连同其中的 `preferences.mode` 与缓存的评分/价格）保持不变，而不是静默地从空缓存开始。需要故意丢弃时用 `refresh-snapshot.mjs --rebuild`。
+- 版本徽章改为从 `SKILL.md` 的 `metadata.version` 生成，`check-docs.mjs` 也会校验徽章与两份 CHANGELOG 是否与之一致；像「技能已是 1.3.0、徽章还停在 1.2.0」这种已提交的漂移不会再悄悄发生。
+- `SKILL.md` 工作流第 2 步写明：三条刷新命令必须串行执行，绝不要作为并行的工具调用——它们写的是同一个快照。
+- `references/agent-sources.md` 说明了内置名字拒绝清单（以及为什么被跳过的名字要报告而不是丢弃）与特征推导的优先级。
+
 ## [1.3.0] - 2026-10-04
 
 ### 新增

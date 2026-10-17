@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="assets/badges/license.svg" alt="许可证：GPL-3.0-or-later"></a>
-  <img src="assets/badges/version.svg" alt="版本 1.2.0">
+  <img src="assets/badges/version.svg" alt="版本">
   <img src="assets/badges/node.svg" alt="Node.js 18 或更新">
   <img src="assets/badges/agent-skill.svg" alt="OpenCode Agent Skill">
   <img src="assets/badges/prs-welcome.svg" alt="欢迎提交 PR">
@@ -49,7 +49,8 @@
 - **OpenCode**，且支持 Agent Skills。技能会被放进 `~/.config/opencode/skills/`。
 - **至少有一个自定义智能体**需要调优——你自己在 `opencode.jsonc` 或 Markdown 里定义的、一个 [`oh-my-opencode-slim`](https://github.com/alvinunreal/oh-my-opencode-slim) 预设里的，或其他插件提供的智能体。（OpenCode 自带的智能体不需要调优。）
   - `oh-my-opencode-slim` 是**可选**的。它只是本技能支持的来源之一；如果你正好在用，本技能会以它已安装的结构规范为准。
-- **Node.js 18+**，仅辅助脚本需要（已在 Node 22 上测试）。
+- **Node.js 18+**，仅辅助脚本需要（已在 Node 22 上测试）。在代理后面运行时，刷新脚本需要
+  Node 24+，或回移了 `NODE_USE_ENV_PROXY` 的 22.x（已在 22.23.1 上验证）；否则 fetch 会绕过代理，脚本会在 stderr 上提示。
 
 ## 安装
 

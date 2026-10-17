@@ -185,9 +185,10 @@ score so runs do not re-derive it.
   dataset `lmarena-ai/leaderboard-dataset` is served by the Hugging Face
   datasets-server (`/filter`, paginate with `offset` / `length=100`), and
   `scripts/refresh-scores.mjs` reads it. The dataset has **no cost column**, so
-  `costPerSuccessfulTaskUsd` stays `null`. When a system proxy is set the script
-  re-executes itself with `NODE_USE_ENV_PROXY=1`, so the normal command works
-  behind a proxy.
+  `costPerSuccessfulTaskUsd` stays `null`. When a system proxy is set every
+  network script re-executes itself with `NODE_USE_ENV_PROXY=1`, so the normal
+  command works behind a proxy (`--no-env-proxy` opts out; the variable needs
+  Node 24+ or a 22.x build that backported it).
 - Seed schema, key list and staleness identity for
   `references/model-scores.json`: `references/model-snapshot.md`
   §Bundled score seed.
