@@ -62,6 +62,7 @@ a Markdown file" instead.
 | `scripts/check-docs.mjs` | One-stop doc check: relative links, EN/ZH doc pairs, frontmatter, no CJK in English docs, and version/badge/changelog agreement. |
 | `scripts/lib/json-io.mjs` | Shared helpers (BOM-tolerant JSON reads, atomic writes) imported by the other scripts — not run directly. |
 | `scripts/lib/proxy.mjs` | Shared proxy re-exec (`NODE_USE_ENV_PROXY`) imported by the four network scripts — not run directly. |
+| `scripts/lib/skill-md.mjs` | Reads `SKILL.md`'s `metadata.version`; used by both the badge generator and the doc checker so they cannot disagree. |
 | `README.md` / `README-ZH.md` | English and Chinese documentation. |
 | `zh/` | Chinese docs (`CONTRIBUTING-ZH.md`, `CHANGELOG-ZH.md`, and a git-ignored local `skill-zh.md` reading copy). |
 | `assets/` | SVG icon, banners and local badges used in the README headers. |

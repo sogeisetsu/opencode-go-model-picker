@@ -434,9 +434,12 @@ const TRAIT_SIGNALS = [
 
 // A known role resolves to its override alone — "overrides win over inferred
 // traits" (SKILL.md §Allocation Policy), so `observer` is a vision lane and not
-// also a reasoning one because its description says "review".
+// also a reasoning one because its description says "review". Names are matched
+// case-insensitively: the name is a JSON key or a filename, so `Observer.md` is
+// the same role as `observer.md`.
 function deriveTraits({ name, description, mode }) {
-  const overrides = KNOWN_ROLE_TRAITS.filter(([pattern]) => pattern.test(name)).map(
+  const knownName = name.toLowerCase();
+  const overrides = KNOWN_ROLE_TRAITS.filter(([pattern]) => pattern.test(knownName)).map(
     ([, trait]) => trait,
   );
   if (overrides.length) return [...new Set(overrides)];
