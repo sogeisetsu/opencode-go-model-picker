@@ -37,27 +37,16 @@
 //   - "Go" is Xiaomi orange (#FF6900); "Model Picker" is the project green
 //     (#03B000).
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { skillVersion } from "./lib/skill-md.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const assets = join(root, "assets");
 const badgesDir = join(assets, "badges");
 
-// SKILL.md frontmatter is the single source of truth for the version.
-function skillVersion() {
-  const text = readFileSync(join(root, "SKILL.md"), "utf8").replace(/^\uFEFF/, "");
-  const lines = text.split(/\r?\n/);
-  const close = lines.indexOf("---", 1);
-  for (let i = 0; close > 0 && i < close; i++) {
-    const m = lines[i].match(/^\s+version:\s*"?([^"\s]+)"?\s*$/);
-    if (m) return m[1];
-  }
-  throw new Error("SKILL.md: no metadata.version found in the frontmatter");
-}
-
-const VERSION = skillVersion();
+const VERSION = skillVersion(root);
 
 const C = {
   ink: "#F1ECEC",

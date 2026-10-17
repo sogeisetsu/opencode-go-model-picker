@@ -40,6 +40,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { skillVersion } from "./lib/skill-md.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SKIP_DIRS = new Set(["node_modules", ".git", ".openchamber", ".opencode"]);
@@ -197,18 +198,13 @@ for (const file of files) {
 // must have a matching released heading. This catches committed drift, which the
 // git-status check above cannot see (both sides changed in different commits, or
 // neither side changed while the values diverged).
-function skillVersion() {
-  const text = readFileSync(join(root, "SKILL.md"), "utf8").replace(/^\uFEFF/, "");
-  const lines = text.split(/\r?\n/);
-  const close = lines.indexOf("---", 1);
-  for (let i = 0; close > 0 && i < close; i++) {
-    const m = lines[i].match(/^\s+version:\s*"?([^"\s]+)"?\s*$/);
-    if (m) return m[1];
-  }
-  return null;
+let version = null;
+try {
+  version = skillVersion(root); // same parser generate-assets.mjs uses
+} catch {
+  version = null;
 }
 
-const version = skillVersion();
 if (!version) {
   errors++;
   console.log("ERROR no metadata.version in SKILL.md frontmatter");

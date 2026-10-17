@@ -60,7 +60,8 @@ A script cannot read "what OpenCode ships" out of the config files, so the
 reference implementation carries a **name denylist** of the built-ins listed above
 and reports every agent it skipped under `skippedBuiltins` (with the file it came
 from) instead of dropping it silently — a custom agent that merely reuses a
-built-in name stays visible that way. The denylist is adjustable
+built-in name stays visible that way. Read that list before allocating and ask the
+user about any entry that could be theirs; the denylist is adjustable
 (`--builtin` / `--extra-builtin`) and can be turned off (`--include-builtin-names`)
 when the user really did customize a built-in; the rule in this section stays
 authoritative either way.

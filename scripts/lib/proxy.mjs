@@ -24,18 +24,31 @@
 // out, and OGMP_PROXY_REEXEC makes the loop impossible.
 //
 // NODE_USE_ENV_PROXY is a Node 24 feature, backported to later 22.x builds
-// (verified on 22.23.1: undici engages an EnvHttpProxyAgent). On a runtime
-// without the backport the variable is silently ineffective, which looks exactly
-// like a network failure — so warn on the majors that certainly lack it instead
-// of letting the caller misdiagnose it (references/data-sources.md §Failure
-// handling). Runtimes in between cannot be classified from the version number,
-// so no warning is printed there rather than a false alarm.
+// (verified on 22.23.1: undici engages an EnvHttpProxyAgent). Below the verified
+// version the variable may or may not be honored — and when it is not, the fetch
+// silently bypasses the proxy and looks exactly like a network failure — so say
+// so instead of letting the caller misdiagnose it
+// (references/data-sources.md §Failure handling).
 
 import { spawnSync } from "node:child_process";
 
 export const PROXY_ENV_VARS = ["HTTPS_PROXY", "HTTP_PROXY", "https_proxy", "http_proxy"];
 
-const PROXY_SUPPORT_MAJOR = 22;
+// Lowest runtime this repo has actually exercised the proxy path on; below it we
+// warn instead of guessing. Bump when a lower version is verified.
+const PROXY_VERIFIED_AT = [22, 23, 1];
+
+function belowVerified([major, minor, patch]) {
+  const mine = String(process.versions.node)
+    .split(".")
+    .map((n) => Number.parseInt(n, 10));
+  for (let i = 0; i < 3; i++) {
+    const a = mine[i] ?? 0;
+    const b = [major, minor, patch][i];
+    if (a !== b) return a < b;
+  }
+  return false;
+}
 
 export function proxyFromEnv(env = process.env) {
   for (const name of PROXY_ENV_VARS) {
@@ -51,12 +64,12 @@ export function maybeReexec() {
   if (process.env.NODE_USE_ENV_PROXY === "1") return;
   if (process.env.OGMP_PROXY_REEXEC === "1") return; // sentinel: never loop
 
-  const major = Number(String(process.versions.node).split(".")[0]);
-  if (Number.isFinite(major) && major < PROXY_SUPPORT_MAJOR) {
+  if (belowVerified(PROXY_VERIFIED_AT)) {
     console.error(
-      `Warning: a system proxy is set (${proxy}) but Node ${process.versions.node} ` +
-        "does not support NODE_USE_ENV_PROXY, so fetch will bypass it. Use Node 22.23+ " +
-        "or 24+ for proxied runs, or unset the proxy and re-run.",
+      `Warning: a system proxy is set (${proxy}) and Node ${process.versions.node} is below the ` +
+        `version this repo verifies NODE_USE_ENV_PROXY on (${PROXY_VERIFIED_AT.join(".")}) — fetch may ` +
+        "silently bypass the proxy. Use Node 24+ (or that version or newer) for proxied runs, " +
+        "or unset the proxy and re-run.",
     );
   }
 

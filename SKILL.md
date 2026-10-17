@@ -52,6 +52,8 @@ All `scripts/…` and `references/…` paths in this skill are relative to **thi
 
 1. **Discover agents (read-only).** Run the adapters in `references/agent-sources.md`, build the inventory, report warnings (missing source/description,
    duplicate names) instead of dropping records. `node scripts/discover-agents.mjs` prints that inventory and its chain-validation warnings as compact JSON — run it instead of hand-reading the config files.
+   Read its `skippedBuiltins` list as well: a skipped name may be the user's own agent that happens to match a built-in name, so ask before leaving it out (or
+   re-run with `--include-builtin-names`) — never let a silently skipped name drop an agent the user expects to see in the table.
 2. **Refresh the snapshot.** At run start run `node scripts/refresh-snapshot.mjs`; refresh scores only when `sources.rankings.fetchedAt` is missing or older
    than 1 day (`node scripts/refresh-scores.mjs --snapshot <path>`); refresh prices every run (`node scripts/refresh-prices.mjs --snapshot <path>`). Run these
    **one at a time, never as parallel tool calls** — all three write the same `snapshot.json` and a concurrent write loses one of them (a script exits 1 with a

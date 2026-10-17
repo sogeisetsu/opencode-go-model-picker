@@ -41,6 +41,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `references/agent-sources.md` documents the built-in name denylist (and why a
   skipped name is reported rather than dropped) and the trait-precedence rule.
 
+### Fixed
+
+- Known-role trait overrides match case-insensitively, so `Observer.md` resolves
+  to the vision lane like `observer.md` does instead of falling back to the
+  inferred signals.
+- `readJsonFile` (and therefore every refresh script) treats only `ENOENT` as
+  "no file": a permission or sharing failure is an error, so a snapshot that
+  exists but cannot be read is never replaced by a fresh one. A failed atomic
+  replace (a file held open on Windows) now names the path and says the previous
+  file is intact, instead of a bare system error.
+- `SKILL.md` step 1 tells the run to read `discover-agents.mjs`'s
+  `skippedBuiltins` list and ask about entries that could be the user's own
+  agents, so that visibility is actually used.
+- The proxy warning now fires for every runtime below the verified version
+  (22.23.1), not only for majors below 22.
+
 ## [1.3.0] - 2026-10-04
 
 ### Added

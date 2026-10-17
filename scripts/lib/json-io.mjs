@@ -24,14 +24,16 @@
 //                               PowerShell Set-Content add one) — a BOM must never
 //                               make a readable file look corrupt.
 //   readJsonFile(path)          { value } | { missing: true } | { error }.
-//                               Never throws, so callers decide whether a bad file
-//                               is fatal (snapshot state) or a warning (a source).
+//                               Never throws. `missing` means ENOENT only: a
+//                               permission or sharing failure is an `error`, so a
+//                               caller that "starts fresh" on a missing file can
+//                               never overwrite one it simply could not read.
 //   writeJsonFileAtomic(path, v)  mkdir -p, write a sibling temp file, rename over
 //                               the target. A half-written snapshot is impossible,
 //                               and a concurrent writer can only lose the race, not
 //                               leave truncated JSON behind.
 
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 export function stripBom(text) {
@@ -39,11 +41,15 @@ export function stripBom(text) {
 }
 
 export function readJsonFile(path) {
-  if (!existsSync(path)) return { missing: true };
   let text;
   try {
     text = readFileSync(path, "utf8");
   } catch (err) {
+    // Only ENOENT means "no file". Any other read failure (EACCES, EPERM, EISDIR,
+    // a Windows sharing violation) must not be reported as missing: callers treat
+    // missing as "start fresh" and would then overwrite a file that is still
+    // there. Reading first also closes the exists-then-read window.
+    if (err && err.code === "ENOENT") return { missing: true };
     return { error: err && err.message ? err.message : String(err) };
   }
   try {
@@ -53,18 +59,35 @@ export function readJsonFile(path) {
   }
 }
 
+const removeQuietly = (path) => {
+  try {
+    rmSync(path, { force: true });
+  } catch {
+    // best effort: the temp file is a sibling of the target, never the target
+  }
+};
+
 export function writeJsonFileAtomic(path, value, { indent = 2 } = {}) {
   mkdirSync(dirname(path), { recursive: true });
   const tmp = `${path}.${process.pid}.tmp`;
   try {
     writeFileSync(tmp, JSON.stringify(value, null, indent) + "\n");
+  } catch (err) {
+    removeQuietly(tmp);
+    throw err;
+  }
+  try {
     renameSync(tmp, path);
   } catch (err) {
-    try {
-      rmSync(tmp, { force: true });
-    } catch {
-      // best effort: the temp file is a sibling of the target, never the target
-    }
-    throw err;
+    // Windows replaces an existing target fine (MoveFileExW with
+    // MOVEFILE_REPLACE_EXISTING), but a program holding the file open without
+    // FILE_SHARE_DELETE (antivirus, editor, indexer) makes this fail with
+    // EPERM/EACCES. The previous file is intact and the temp file is gone, so say
+    // what happened instead of surfacing a bare system error.
+    removeQuietly(tmp);
+    throw new Error(
+      `cannot replace ${path}: ${err.message} — is the file open in another program? ` +
+        "The previous file was left unchanged.",
+    );
   }
 }

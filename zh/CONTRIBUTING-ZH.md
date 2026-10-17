@@ -41,6 +41,7 @@
 | `scripts/check-docs.mjs` | 一站式文档校验：相对链接、中英文档对、frontmatter、英文文档不含中文，以及版本号/徽章/CHANGELOG 是否一致。 |
 | `scripts/lib/json-io.mjs` | 共享工具（容忍 BOM 的 JSON 读取、原子写入），被其他脚本 import，不直接运行。 |
 | `scripts/lib/proxy.mjs` | 共享的代理 re-exec（`NODE_USE_ENV_PROXY`），被四个联网脚本 import，不直接运行。 |
+| `scripts/lib/skill-md.mjs` | 读取 `SKILL.md` 的 `metadata.version`；徽章生成器与文档校验器共用，保证两者不会给出不一致的结果。 |
 | `README.md` / `README-ZH.md` | 英文与中文文档。 |
 | `zh/` | 中文文档（本文件、`CHANGELOG-ZH.md`，以及被 git 忽略的本地对读版 `skill-zh.md`）。 |
 | `assets/` | README 头部使用的 SVG 图标、横幅与本地徽章。 |
