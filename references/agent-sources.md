@@ -56,6 +56,15 @@ agents are skipped", not a fixed list — re-check the official Agents docs when
 doubt (verified 2026-09-11). Everything else is in scope: custom native agents
 (any name you define) and plugin agents (such as `oh-my-opencode-slim`'s).
 
+A script cannot read "what OpenCode ships" out of the config files, so the
+reference implementation carries a **name denylist** of the built-ins listed above
+and reports every agent it skipped under `skippedBuiltins` (with the file it came
+from) instead of dropping it silently — a custom agent that merely reuses a
+built-in name stays visible that way. The denylist is adjustable
+(`--builtin` / `--extra-builtin`) and can be turned off (`--include-builtin-names`)
+when the user really did customize a built-in; the rule in this section stays
+authoritative either way.
+
 ## Adapter interface
 
 ```text
@@ -99,6 +108,12 @@ primary agent chooses which subagent to delegate to based on it. There is no
 performance or capability-rating field. If an agent has no `description`, record
 `null` — never invent one — and flag it for manual verification.
 
+`mode` is the source's own field (native default `all`; Markdown mirrors it in the
+frontmatter). `hidden` is `false` unless the source says otherwise. `traits` are
+derived by the rule below, and `provenance.fetchedAt` is one timestamp per run, so
+the report can say when each agent was last seen. The reference implementation
+`scripts/discover-agents.mjs` emits exactly these fields.
+
 ## Per-source schema fields
 
 - **native**: `agent.<name>` accepts `description` (required), `mode`
@@ -128,7 +143,13 @@ hardcoded list of slim role names, so even an unknown agent can be placed.
 | `diversity` | "council", "adversar", "panel", multiple reviewers |
 
 Per-trait model preferences live in `SKILL.md` §Allocation Policy — this file
-only derives traits.
+only derives traits. Precedence: a **known role** (§Known-role overrides below)
+resolves to its override trait alone — that is what "overrides win over inferred
+traits" means, so `observer` is a vision lane even though its description says
+"review". Unknown agents get every signal that matches their description and name,
+plus `orchestration` when `mode` is `primary`. Signals short enough to appear
+inside unrelated words are word-bounded (`ui`, `code`), and a missing description
+leaves the trait list empty rather than guessed.
 
 ## Known-role overrides
 

@@ -20,7 +20,9 @@
 //
 // Discover CUSTOM agents (OpenCode built-ins are skipped) and print an inventory.
 // Usage: node scripts/discover-agents.mjs [--config <dir>] [--snapshot <path>]
-//                                          [--registry <path>] [--help]
+//                                          [--registry <path>] [--builtin <a,b,c>]
+//                                          [--extra-builtin <a,b,c>]
+//                                          [--include-builtin-names] [--help]
 //
 // Sources (see references/agent-sources.md; a missing or unparseable source is a
 // warning, never a throw — one failing source does not abort the others):
@@ -31,12 +33,17 @@
 // 2. native: <config>/opencode.json (or .jsonc) under agent.<name>, plus Markdown
 //    agents at <config>/agents/*.md and — default mode only — <cwd>/.opencode/agents/*.md
 //    (directory is plural; the filename is the agent name). YAML frontmatter is
-//    parsed minimally by hand for `description` and `model`; no YAML library.
+//    parsed minimally by hand for `description`, `model`, `mode` and `hidden`; no
+//    YAML library.
 //
-// Output: compact JSON on stdout, shape { agents, warnings }. Each agent record:
-// { name, source, description, model, provenance: { file, pointer } } where model
-// is string | Array<{ id, variant }> | null. Warning entry: { kind, agent, message }
-// with kind one of:
+// Output: compact JSON on stdout, shape { agents, warnings, skippedBuiltins }. Each
+// agent record matches references/agent-sources.md §Inventory record:
+// { name, source, mode, description, model, hidden, traits,
+//   provenance: { file, pointer, fetchedAt } } — model is
+// string | Array<{ id, variant }> | null, traits are derived from description +
+// name + mode (references/agent-sources.md §Role-trait mapping), and mode is
+// "primary" | "subagent" | "all" (null when a source states an unrecognized
+// value). Warning entry: { kind, agent, message } with kind one of:
 //   source        missing/unparseable source file or directory;
 //   duplicate     the same model id repeated inside one fallback chain;
 //   chain-length  an array chain shorter than 2 or longer than 4 entries;
@@ -50,7 +57,11 @@
 //                 models.<id>.vision === true in the snapshot cache. This is a FIELD
 //                 CHECK, NOT a capability verification: the snapshot field may
 //                 simply be unverified — confirm image input from the model's own
-//                 lab docs (references/data-sources.md §Capability verification).
+//                 lab docs (references/data-sources.md §Capability verification);
+//   mode          a source states a `mode` outside primary/subagent/all — recorded
+//                 as null instead of guessed;
+//   builtin-name  only with --include-builtin-names: a kept agent whose name is on
+//                 the built-in denylist (verify it is really custom).
 //
 // Flags (all optional; without them the real config is READ, never written):
 //   --config <dir>     fixture root holding opencode.json(c), agents/, and optionally
@@ -58,9 +69,23 @@
 //                      the project .opencode path, so no real config is touched.
 //   --snapshot <path>  snapshot JSON used by the vision field check
 //                      (default: ~/.cache/opencode/opencode-go-model-picker/snapshot.json).
-//   --registry <path>  local model registry used by the non-Go status check
+//   --registry <path>  local model registry used for the non-Go status check
 //                      (default: ~/.cache/opencode/models.json).
+//   --builtin <a,b,c>  replace the built-in name denylist (see below).
+//   --extra-builtin <a,b,c>
+//                      add names to the built-in name denylist.
+//   --include-builtin-names
+//                      keep agents whose name is on the denylist instead of skipping
+//                      them; use only when the user really customized a built-in.
 //   --help             print this usage block and exit 0.
+//
+// Built-ins: the rule is "anything OpenCode ships is skipped" (references/
+// agent-sources.md §Built-in agents are out of scope) — a set no script can
+// enumerate from config files. KNOWN_BUILTIN_AGENTS is therefore a NAME DENYLIST
+// for the built-ins documented at that page, not the definition of the rule: a
+// skipped agent is still reported under `skippedBuiltins` (with its file) so a
+// collision with a genuinely custom agent is visible instead of silently dropped,
+// and the flags above let the caller adjust or disable the filter.
 //
 // Read-only: this script never writes a file. Exit code: 0 on success (warnings do
 // not fail the run), 2 on bad usage.
@@ -68,27 +93,43 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
+import { stripBom } from "./lib/json-io.mjs";
 
 // --- CLI -------------------------------------------------------------------
 
 const USAGE = [
-  "Usage: node scripts/discover-agents.mjs [--config <dir>] [--snapshot <path>] [--registry <path>] [--help]",
+  "Usage: node scripts/discover-agents.mjs [--config <dir>] [--snapshot <path>] [--registry <path>]",
+  "                                          [--builtin <a,b,c>] [--extra-builtin <a,b,c>] [--include-builtin-names] [--help]",
   "  --config <dir>     read fixture config (opencode.json(c), agents/, slim json(c)) from <dir>",
   "  --snapshot <path>  snapshot JSON for the vision field check",
   "  --registry <path>  local model registry for the non-Go status check",
-  "Read-only; compact JSON { agents, warnings } on stdout. Exit 0 (2 on bad usage).",
+  "  --builtin <a,b,c>  replace the built-in name denylist (skipped agents are reported)",
+  "  --extra-builtin <a,b,c>",
+  "                     add names to the built-in name denylist",
+  "  --include-builtin-names",
+  "                     keep agents whose name is on the denylist instead of skipping them",
+  "Read-only; compact JSON { agents, warnings, skippedBuiltins } on stdout. Exit 0 (2 on bad usage).",
 ].join("\n");
 
 const args = process.argv.slice(2);
 let configDir = null;
 let snapshotPath = null;
 let registryPath = null;
+let builtinOverride = null;
+let builtinExtra = [];
+let includeBuiltinNames = false;
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   if (a === "--help" || a === "-h") {
     console.log(USAGE);
     process.exit(0);
-  } else if (a === "--config" || a === "--snapshot" || a === "--registry") {
+  } else if (
+    a === "--config" ||
+    a === "--snapshot" ||
+    a === "--registry" ||
+    a === "--builtin" ||
+    a === "--extra-builtin"
+  ) {
     const value = args[++i];
     if (!value) {
       console.error(`Missing value for ${a}\n${USAGE}`);
@@ -96,7 +137,17 @@ for (let i = 0; i < args.length; i++) {
     }
     if (a === "--config") configDir = resolve(value);
     else if (a === "--snapshot") snapshotPath = resolve(value);
-    else registryPath = resolve(value);
+    else if (a === "--registry") registryPath = resolve(value);
+    else {
+      const names = value
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (a === "--builtin") builtinOverride = names;
+      else builtinExtra = builtinExtra.concat(names);
+    }
+  } else if (a === "--include-builtin-names") {
+    includeBuiltinNames = true;
   } else {
     console.error(`Unknown argument: ${a}\n${USAGE}`);
     process.exit(2);
@@ -114,17 +165,40 @@ snapshotPath = snapshotPath ?? defaultSnapshot;
 registryPath = registryPath ?? defaultRegistry;
 
 // OpenCode built-ins are out of scope (references/agent-sources.md §Built-in agents
-// are out of scope): the exact set changes between versions, so this documented
-// subset is skipped and nothing else is guessed.
-const BUILTIN_AGENTS = new Set([
+// are out of scope). The rule there is "anything OpenCode ships is skipped", and
+// the exact set changes between versions — a script cannot enumerate it from config
+// files, so this is a NAME DENYLIST for the built-ins that page documents, not the
+// definition of the rule. Adjust it with --builtin / --extra-builtin, or keep the
+// names with --include-builtin-names; every skip is reported under `skippedBuiltins`.
+const DEFAULT_BUILTIN_AGENTS = [
   "build", "plan", // primary agents
   "general", "explore", "scout", // built-in subagents
   "compaction", "title", "summary", // hidden system agents
-]);
+];
+const KNOWN_BUILTIN_AGENTS = new Set(
+  (builtinOverride ?? DEFAULT_BUILTIN_AGENTS).concat(builtinExtra),
+);
 
 const warnings = [];
 const agents = [];
+const skippedBuiltins = [];
 const warn = (kind, agent, message) => warnings.push({ kind, agent, message });
+
+// True when the caller should skip this name, recording what was dropped so a
+// custom agent that merely shares a built-in name stays visible.
+function skipBuiltin(name, source, file) {
+  if (!KNOWN_BUILTIN_AGENTS.has(name)) return false;
+  if (!includeBuiltinNames) {
+    skippedBuiltins.push({ name, source, file });
+    return true;
+  }
+  warn(
+    "builtin-name",
+    name,
+    `name is on the OpenCode built-in denylist but was kept because --include-builtin-names was passed — verify it is really a custom agent`,
+  );
+  return false;
+}
 
 // --- JSONC (hand-rolled, string-aware, no dependency) -----------------------
 
@@ -211,7 +285,7 @@ function loadJson(path) {
   } catch (e) {
     return { error: `unreadable: ${e.message}` };
   }
-  return parseJsonc(text.replace(/^\uFEFF/, ""));
+  return parseJsonc(stripBom(text));
 }
 
 // --- minimal YAML frontmatter (description / model only, no YAML lib) -------
@@ -259,7 +333,7 @@ function parseFlowValue(raw) {
 }
 
 function parseFrontmatter(text) {
-  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
+  const lines = stripBom(text).split(/\r?\n/);
   if (lines[0]?.trim() !== "---") return null;
   const end = lines.findIndex((l, idx) => idx > 0 && l.trim() === "---");
   if (end < 0) return null;
@@ -313,6 +387,71 @@ function normalizeModel(raw) {
 const chainOf = (model) =>
   Array.isArray(model) ? model : model ? [{ id: model, variant: null }] : [];
 
+// --- inventory fields: mode / hidden / traits (agent-sources.md) --------------
+
+const MODES = new Set(["primary", "subagent", "all"]);
+
+// Unknown or absent mode normalizes to "all" — the OpenCode default — unless the
+// source states something unrecognized, which stays null rather than being guessed.
+function normalizeMode(raw, name, file) {
+  if (raw == null || raw === "") return "all";
+  const value = String(raw).trim().toLowerCase();
+  if (MODES.has(value)) return value;
+  warn("mode", name, `unrecognized mode "${raw}" in ${file} — recorded as null`);
+  return null;
+}
+
+function normalizeHidden(raw) {
+  if (raw === true) return true;
+  if (typeof raw === "string") return raw.trim().toLowerCase() === "true";
+  return false;
+}
+
+// Known-role overrides win over inferred traits; the authoritative map is
+// SKILL.md §Allocation Policy (mirrored here verbatim).
+const KNOWN_ROLE_TRAITS = [
+  [/^orchestrator$/, "orchestration"],
+  [/^oracle$/, "reasoning"],
+  [/^(explorer|librarian)$/, "cheap-high-volume"],
+  [/^fixer$/, "coding"],
+  [/^designer$/, "frontend"],
+  [/^observer$/, "vision"],
+  [/^council/, "diversity"], // council / councillor / councillor-*
+];
+
+// Signals per references/agent-sources.md §Role-trait mapping. Order is the output
+// order; short tokens are word-bounded so "build" is not read as "ui" and
+// "codebase" is not read as a coding lane.
+const TRAIT_SIGNALS = [
+  [/\borchestrat|\bplan|delegat/, "orchestration"],
+  [/\breason|\bdebug|\breview|\baudit|architect/, "reasoning"],
+  [/\bsearch|\bexplore|\bresearch|\bdocs?\b|\blibrarian/, "cheap-high-volume"],
+  [/\bfix|\bimplement|\brefactor|\bcode\b|\bcoding|\bcoder/, "coding"],
+  [/\bui\b|\bcss\b|\bdesign|\bfrontend/, "frontend"],
+  [/vision|image|screenshot|\bocr\b|photo|multimodal/, "vision"],
+  [/\bcouncil|adversar|\bpanel\b|multiple reviewers/, "diversity"],
+];
+
+// A known role resolves to its override alone — "overrides win over inferred
+// traits" (SKILL.md §Allocation Policy), so `observer` is a vision lane and not
+// also a reasoning one because its description says "review".
+function deriveTraits({ name, description, mode }) {
+  const overrides = KNOWN_ROLE_TRAITS.filter(([pattern]) => pattern.test(name)).map(
+    ([, trait]) => trait,
+  );
+  if (overrides.length) return [...new Set(overrides)];
+  const text = `${description ?? ""} ${name}`.toLowerCase();
+  const traits = TRAIT_SIGNALS.filter(([pattern]) => pattern.test(text)).map(
+    ([, trait]) => trait,
+  );
+  if (mode === "primary") traits.push("orchestration");
+  return [...new Set(traits)];
+}
+
+// One timestamp per run: provenance.fetchedAt answers "when did this run see the
+// agent", the same source+date rule the skill applies to Go plan data.
+const fetchedAt = new Date().toISOString();
+
 // --- source adapters (read-only; never throw) --------------------------------
 
 function discoverSlim() {
@@ -336,14 +475,19 @@ function discoverSlim() {
     return;
   }
   for (const [name, def] of Object.entries(presetAgents)) {
-    if (BUILTIN_AGENTS.has(name)) continue;
     if (!def || typeof def !== "object") continue;
+    if (skipBuiltin(name, "slim", file)) continue;
+    const mode = normalizeMode(def.mode, name, file);
+    const description = typeof def.description === "string" ? def.description : null;
     agents.push({
       name,
       source: "slim",
-      description: typeof def.description === "string" ? def.description : null,
+      mode,
+      description,
       model: normalizeModel(def.model),
-      provenance: { file, pointer: `presets.${preset}.${name}` },
+      hidden: normalizeHidden(def.hidden),
+      traits: deriveTraits({ name, description, mode }),
+      provenance: { file, pointer: `presets.${preset}.${name}`, fetchedAt },
     });
   }
 }
@@ -364,14 +508,19 @@ function discoverNativeJson() {
   const agentMap = parsed.value && parsed.value.agent;
   if (!agentMap || typeof agentMap !== "object") return; // no agent key: nothing to do
   for (const [name, def] of Object.entries(agentMap)) {
-    if (BUILTIN_AGENTS.has(name)) continue;
     if (!def || typeof def !== "object") continue;
+    if (skipBuiltin(name, "native", file)) continue;
+    const mode = normalizeMode(def.mode, name, file);
+    const description = typeof def.description === "string" ? def.description : null;
     agents.push({
       name,
       source: "native",
-      description: typeof def.description === "string" ? def.description : null,
+      mode,
+      description,
       model: normalizeModel(def.model),
-      provenance: { file, pointer: `agent.${name}` },
+      hidden: normalizeHidden(def.hidden),
+      traits: deriveTraits({ name, description, mode }),
+      provenance: { file, pointer: `agent.${name}`, fetchedAt },
     });
   }
 }
@@ -391,8 +540,8 @@ function discoverMarkdown(dir) {
   for (const file of names) {
     if (!/\.md$/i.test(file)) continue;
     const name = basename(file).replace(/\.md$/i, "");
-    if (BUILTIN_AGENTS.has(name)) continue;
     const path = join(dir, file);
+    if (skipBuiltin(name, "native", path)) continue;
     let text;
     try {
       text = readFileSync(path, "utf8");
@@ -404,12 +553,17 @@ function discoverMarkdown(dir) {
     if (fm === null) {
       warn("source", null, `markdown agent has no YAML frontmatter: ${path}`);
     }
+    const description = fm && typeof fm.description === "string" ? unquote(fm.description) : null;
+    const mode = normalizeMode(fm?.mode == null ? null : unquote(String(fm.mode)), name, path);
     agents.push({
       name,
       source: "native",
-      description: fm && typeof fm.description === "string" ? unquote(fm.description) : null,
+      mode,
+      description,
       model: fm ? normalizeModel(fm.model != null ? parseFlowValue(String(fm.model)) : null) : null,
-      provenance: { file: path, pointer: "#frontmatter" },
+      hidden: normalizeHidden(fm?.hidden == null ? null : unquote(String(fm.hidden))),
+      traits: deriveTraits({ name, description, mode }),
+      provenance: { file: path, pointer: "#frontmatter", fetchedAt },
     });
   }
 }
@@ -479,12 +633,10 @@ function snapshotVision(id) {
   return entry.vision === true || (entry.price && entry.price.vision === true);
 }
 
-const KNOWN_ROLE_VISION = new Set(["observer"]);
-function hasVisionTrait(record) {
-  if (KNOWN_ROLE_VISION.has(record.name)) return true;
-  const d = (record.description ?? "").toLowerCase();
-  return /vision|image|screenshot|ocr|photo|multimodal/.test(d);
-}
+// Vision is a derived trait (KNOWN_ROLE_TRAITS has `observer`; the description
+// signals cover image/screenshot/multimodal), so the field check below and the
+// inventory never disagree about which agents are vision lanes.
+const hasVisionTrait = (record) => record.traits.includes("vision");
 
 function validate(record) {
   const chain = chainOf(record.model);
@@ -530,4 +682,4 @@ if (!configDir) discoverMarkdown(join(process.cwd(), ".opencode", "agents"));
 
 for (const record of agents) validate(record);
 
-process.stdout.write(JSON.stringify({ agents, warnings }) + "\n");
+process.stdout.write(JSON.stringify({ agents, warnings, skippedBuiltins }) + "\n");
