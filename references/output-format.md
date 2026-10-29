@@ -217,3 +217,23 @@ the whole story.
 End by asking (via the `question` tool) **which target to apply to** — the slim
 preset file or a native config / agent Markdown file — and show the exact block
 first. Do not edit any config before confirmation (`SKILL.md` §Applying Changes).
+
+## 9. Self-check list (format side)
+
+Every report is inspected against these nine before it is sent; the authoritative
+wording and the pass/fail rule live in `SKILL.md` §Final self-check, and this list
+is the format-side checklist that keeps the two in step:
+
+| # | Check | Where it shows |
+|---|---|---|
+| 1 | one `Basis:` line, one denominator | top of the report |
+| 2 | model cap vs plan pool kept apart | headroom column vs the three pool columns |
+| 3 | every `est req` paired with the observed value | headroom column |
+| 4 | candidates without an ELO are counted and named | usage evidence |
+| 5 | dead chain ids listed (`none` when empty) | usage evidence |
+| 6 | main agents' share of spend reported | usage evidence |
+| 7 | month-end occupancy projected or `-` with a reason | usage evidence |
+| 8 | Console state reported; guidance only when not `authorized` | §7 / absent |
+| 9 | peak, geo and training risks flagged | recommended-chain cell + §5 |
+
+A report that fails any line is not sent; fix it instead of adding a disclaimer.

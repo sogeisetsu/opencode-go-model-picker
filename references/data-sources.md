@@ -85,7 +85,10 @@ each model burns a different number of tokens per request.
 - `https://opencode.ai/docs/go/` has an "Estimated requests" section stating the
   per-request token assumptions (input / cached / output) and listing requests per
   5h / week / month. That is the **official** estimate: the published assumption
-  structure, priced at the model's own rates.
+  structure, priced at the model's own rates. Its per-request cost follows from the
+  cap itself — `c_req_official = capUsd / estReqMonth` — so the official capacity is
+  just the published `estReqMonth` (`references/quota-math.md` §Derived quantities);
+  never derive it from a different token mix than the one the page published.
 - The **observed** count comes from the Console bill: `c_req_observed = cost$ ÷
   requests` over the same window. It reflects real traffic, which is usually heavier
   in cached input than the official assumption.
