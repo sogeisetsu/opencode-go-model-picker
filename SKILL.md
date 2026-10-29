@@ -4,7 +4,7 @@ description: "Choose or rebalance which OpenCode Go model each **custom** OpenCo
 license: GPL-3.0-or-later
 compatibility: opencode
 metadata:
-  version: "1.4.0"
+  version: "2.0.0"
   requires: "OpenCode with agent config support; oh-my-opencode-slim supported but optional (one source among several); Node.js 18+ for the optional catalog fetcher"
   homepage: "https://github.com/sogeisetsu/opencode-go-model-picker"
   source: "https://github.com/sogeisetsu/opencode-go-model-picker"
@@ -22,12 +22,15 @@ versions, so the rule is "anything OpenCode ships is skipped", not a fixed list.
    for manual verification. A cached value (`references/model-snapshot.md`) counts only with source + fetch date; re-fetch when stale. If plan pages or
    rankings cannot be fetched, the committed seeds (`references/model-prices.json`, `references/model-scores.json`)
    are the dated offline fallback — label them a seed, never present them as current.
+   Money has **one** formula: `references/quota-math.md`, implemented by `scripts/quota-math.mjs`; never price a request from a headline $/1M and never
+   use a second formula for a column that the table already owes to the first.
 2. **Read-only by default.** Do NOT edit any agent config — `opencode.jsonc`, `opencode.json`, `oh-my-opencode-slim.json`, or files under
    `~/.config/opencode/agents/` / `.opencode/agents/`. Preview; apply only after the user confirms via the `question` tool, then show the exact change.
 3. **Schema-accurate per source.** Match the schema of the source you are reading: slim → the *installed* `oh-my-opencode-slim.schema.json`; native agents →
    the official OpenCode config/agent docs.
-4. **Explain cost vs. capability per agent** — and compare **throughput**, not price alone: equal monthly $ limits serve very different
-   request counts, so report estimated requests per 5h (`references/data-sources.md` §Estimated request counts (throughput)); prefer the higher one on a tie.
+4. **Explain cost vs. capability per agent** — and compare **throughput**, not price alone: equal monthly caps serve very different
+   request counts, so report estimated requests per 5h (`references/data-sources.md` §Estimated request counts) and, when a bill exists, the observed
+   cost per request next to it; prefer the higher official count on a tie.
 5. **Verify capabilities from the lab, not the name.** Especially **vision/image input** (`observer`, `vision` traits): confirm modalities in the model's own
    official docs — the Go image note is partial. Never infer vision/reasoning/long context from a model id; re-check every run (new models add modalities).
    Procedure: `references/data-sources.md` §Capability verification (esp. vision).
@@ -51,10 +54,19 @@ All `scripts/…` and `references/…` paths in this skill are relative to **thi
 ## Run Workflow
 
 1. **Discover agents (read-only).** Run the adapters in `references/agent-sources.md`, build the inventory, report warnings (missing source/description,
-   duplicate names) instead of dropping records. `node scripts/discover-agents.mjs` prints that inventory and its chain-validation warnings as compact JSON — run it instead of hand-reading the config files.
+   duplicate names) instead of dropping records. `node scripts/discover-agents.mjs` prints that inventory, its chain-validation warnings and
+   `deadChainIds` as compact JSON — run it instead of hand-reading the config files. Keep its `deadChainIds` list for the report, and read
+   `contention` warnings: two agents sharing a chain head draw on the same per-model cap, which is worth one sentence in the report.
    Read its `skippedBuiltins` list as well: a skipped name may be the user's own agent that happens to match a built-in name, so ask before leaving it out (or
    re-run with `--include-builtin-names`) — never let a silently skipped name drop an agent the user expects to see in the table.
-2. **Refresh the snapshot.** At run start run `node scripts/refresh-snapshot.mjs`; refresh scores only when `sources.rankings.fetchedAt` is missing or older
+2. **Probe the Console state (cheapest first).** Run `node scripts/probe-console.mjs`, passing what this run's Console tools already returned
+   (`--tool-status authorized --tool-cost-usd <n>`, or the failure state). It reads the host's own `opencode mcp list`, then the config, and makes at most one
+   `initialize` request. Five states and what each may claim: `references/console-mcp.md`. Do **not** deliver the guidance block yet — the table comes first.
+3. **Read the bill, then calibrate.** With `authorized`: read `get_usage` for `30d` (and the cycle spend when shown) and run
+   `node scripts/calibrate-usage.mjs --console-cost <usd> --console-requests <n> --month-pct <pct> [--console-month-cost <usd>] --write`. Without a bill:
+   ask only for the Console's own read-outs (5h / week / month %, preferably the cycle spend) and feed those in, or fall to the level
+   `references/console-mcp.md` §Three-level fallback describes. Whatever you get decides this report's `Basis:` line — one denominator for the whole table.
+4. **Refresh the snapshot.** At run start run `node scripts/refresh-snapshot.mjs`; refresh scores only when `sources.rankings.fetchedAt` is missing or older
    than 1 day (`node scripts/refresh-scores.mjs --snapshot <path>`); refresh prices every run (`node scripts/refresh-prices.mjs --snapshot <path>`). Run these
    **one at a time, never as parallel tool calls** — all three write the same `snapshot.json` and a concurrent write loses one of them (a script exits 1 with a
    clear message rather than rebuilding a snapshot it could not read, so a damaged file is never silently discarded; `--rebuild` discards it on purpose). Flags,
@@ -62,20 +74,36 @@ All `scripts/…` and `references/…` paths in this skill are relative to **thi
    requests/5h) and `https://opencode.ai/docs/go/` (authoritative model/price/limit table); full endpoint list, priorities and parsing notes:
    `references/data-sources.md`. Build this run's snapshot per `references/data-sources.md` §Snapshot shape. To consume the snapshot, run
    `node scripts/snapshot-summary.mjs` (compact digest; `--ids`, `--trait`, `--json`) instead of reading `snapshot.json` whole.
-3. **Detect plan changes** vs. the last snapshot: new/removed models, changed limits/prices/req counts, promos — call these out first;
+5. **Detect plan changes** vs. the last snapshot: new/removed models, changed caps/prices/req counts, promos — call these out first;
    deep-verify only added/changed models.
-4. **Allocate models per agent** by **trait** (policy below) **under the selected recommendation mode** (default `balanced`), applying the known-role overrides.
+6. **Allocate models per agent** by **trait** (policy below) **under the selected recommendation mode** (default `balanced`), applying the known-role overrides.
+   Price each candidate with `scripts/quota-math.mjs` (or the same functions through `calibrate-usage.mjs`) so the table's `$/session`, cap share and window
+   shares come from one implementation.
    - **Dominance check (closing action of this step).** For every slot of every proposed chain, using this run's snapshot on one consistent metric set:
-     - price — the same source's monthly $ limit and $/1M; a promo-only advantage is promo-dependent and must not be compared against a base price;
-     - throughput — est req/5h;
+     - price — the same source's monthly cap and $/1M; a promo-only advantage is promo-dependent and must not be compared against a base price;
+     - throughput — est req/5h (official) and, when a bill exists, the observed requests per $;
      - capability — the ELO board matching the agent's trait (coding → coding, vision → vision, otherwise overall); a missing value means "not
        comparable", so dominance cannot be claimed.
      Model A dominates model B when A is no worse than B on every axis and strictly better on at least one. If a dominated model is kept in a
      recommended chain, the `why` column must state the reason (e.g. cross-provider quota fallback); otherwise replace it with the dominator. This
      does not change the Iron Rules.
-5. **Build fallback chains** where the source supports them (policy below).
-6. **Output** exactly per `references/output-format.md`: `Recommendation table`, `Paste-ready config`, `Highlights`, then a `Data appendix`.
-7. **STOP** — 🛑 no configuration writes before the user confirms (see "Applying Changes" below).
+7. **Build fallback chains** where the source supports them (policy below).
+8. **Output** exactly per `references/output-format.md`: the `Basis:` line, the `Recommendation table`, the `Usage evidence` block, `Paste-ready config`,
+   `Highlights`, a `Data appendix`, and — only when the Console state is not `authorized` — the per-state guidance block. Never blend two denominators, never
+   merge the 5h / week / month windows.
+9. **STOP** — 🛑 no configuration writes before the user confirms (see "Applying Changes" below).
+
+## Final self-check (all 9, before sending)
+
+1. A `Basis:` line exists, and every amount and percentage uses that one denominator.
+2. The per-model cap and the plan pool are separate columns/claims, never conflated.
+3. Every `est req` figure is followed by the observed one (or `-` with the reason).
+4. The count of candidates without an ELO is stated (`n/m`) with their ids.
+5. Dead chain ids from this run are listed (`none` when empty).
+6. The main agents' share of spend is reported (share only, no recommendation).
+7. A month-end occupancy projection is given, or `-` with the reason it cannot be.
+8. The Console MCP state is reported, with guidance only when the state is not `authorized`.
+9. Peak/off-peak, geo and training risks are flagged wherever the pick touches them.
 
 ## Recommendation Modes
 
@@ -140,13 +168,19 @@ Where the source supports an ordered array — `model: [a, b, c]` — it is a **
 - If **all** entries fail the session aborts — always end on a model the user can rely on.
 
 Sources whose `model` is a single value (native `agent.<name>.model`) get one model plus an explicit note instead of an invented array. Emit a chain whenever
-the tool supports one; suggesting `oh-my-opencode-slim` is only a suggestion, not a requirement.
+the tool supports one; suggesting `oh-my-opencode-slim` is only a suggestion, not a requirement. A user who wants failover on a native agent has to register it
+through a chain-capable source — `references/agent-sources.md` §Sources says how, and the report says it once without doing it.
+
+Note the shared-cap effect before finalising a chain: Go caps are per model, so several agents led by the same model draw on one allowance
+(`discover-agents.mjs` reports this as `contention`). Spreading chain heads is a legitimate reason to pick a slightly less dominant model.
 
 ## Failure Handling
 
 On any failure: never improvise numbers (Iron Rule 1); use the dated seed/cache fallbacks with their own dates; if a symptom is not covered in the references'
-§Failure handling, report it to the user before improvising. Per-symptom branches live in `references/model-snapshot.md` §Failure handling and
-`references/data-sources.md` §Failure handling — read the relevant one when a fetch or refresh fails.
+§Failure handling, report it to the user before improvising. Per-symptom branches live in `references/model-snapshot.md` §Failure handling,
+`references/data-sources.md` §Failure handling, and — for anything money-related, including a Console that will not answer —
+`references/console-mcp.md` §Three-level fallback plus §Offline. A script that exits non-zero is a degraded path, not a reason to estimate by hand: say
+which script failed, quote its error, and drop to the level the references describe.
 
 ## Applying Changes (only after confirmation)
 
@@ -163,9 +197,11 @@ On any failure: never improvise numbers (Iron Rule 1); use the dated seed/cache 
 | File | Open it when | What you get |
 |---|---|---|
 | `references/agent-sources.md` | discovering agents / deriving traits | adapters, inventory, trait derivation, overrides, missing-source fallback, schema notes |
-| `references/data-sources.md` | fetching/verifying plan data | endpoints + parsing notes, §Snapshot shape, §Estimated request counts (throughput), §Capability verification (esp. vision), §Failure handling |
-| `references/model-snapshot.md` | refreshing/reading the cache | schema/location, refresh flags + TTL rationale, seed ownership, offline fallbacks, §Failure handling |
-| `references/output-format.md` | writing the report / resolving first-run mode | report body + `Data appendix`, the apply gate, the mode-resolution table |
-| `references/model-prices.json` | live price fetch fails | dated offline price seed — label it a seed, never current |
+| `references/console-mcp.md` | deciding what the Console can prove, or writing the guidance block | five states, detection order, fixed per-state copy, three-level fallback, enabling steps per host |
+| `references/data-sources.md` | fetching/verifying plan data | endpoints + parsing notes, §Console bill, §Two quota layers, §Snapshot shape, §Estimated request counts (official vs observed), §Capability verification (esp. vision), §Capability and compliance table, §Failure handling |
+| `references/model-snapshot.md` | refreshing/reading the cache | schema v3 + v2 compatibility, refresh flags + TTL rationale, key ownership, seed ownership, offline fallbacks, §Failure handling |
+| `references/output-format.md` | writing the report / resolving first-run mode | basis line, table columns, usage-evidence block, report body + `Data appendix`, the apply gate, the mode-resolution table |
+| `references/quota-math.md` | any money question — one formula | formula v2, context tiers, peak hours, derived quantities, pool reverse-solving, windows, the 8 known gaps, calibration constants, degradation |
+| `references/model-prices.json` | live price fetch fails, or you need a cap/tier/peak constant | dated offline price seed and the single home of price, cap, context tiers and peak hours — label it a seed, never current |
 | `references/model-scores.json` | ranking fetch fails (seed reused while dates match) | dated LMArena score seed |
-| `scripts/` | refreshing run data, or maintaining the repo | run-time: `fetch-go-models.mjs`, `refresh-snapshot/scores/prices.mjs`, `discover-agents.mjs`, `snapshot-summary.mjs` · shared helpers (imported, not run): `lib/json-io.mjs`, `lib/proxy.mjs` · maintainer-only: `generate-assets.mjs`, `check-docs.mjs` |
+| `scripts/` | refreshing run data, pricing, calibration, or maintaining the repo | run-time: `fetch-go-models.mjs`, `refresh-snapshot/scores/prices.mjs`, `discover-agents.mjs`, `snapshot-summary.mjs`, `probe-console.mjs`, `quota-math.mjs`, `calibrate-usage.mjs` · shared helpers (imported, not run): `lib/json-io.mjs`, `lib/proxy.mjs` · maintainer-only: `generate-assets.mjs`, `check-docs.mjs` |

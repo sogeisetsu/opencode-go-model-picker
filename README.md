@@ -80,7 +80,13 @@ still works — it just recommends a single model for those agents.
 - **Node.js 18+**, only for the helper scripts (tested on Node 22). Behind a
   proxy the refresh scripts need Node 24+ or a 22.x build that backported
   `NODE_USE_ENV_PROXY` (verified on 22.23.1) — otherwise fetch bypasses the proxy
-  and a script says so on stderr.
+  and a script says so on stderr. `scripts/calibrate-usage.mjs` additionally needs
+  `node:sqlite` (Node 22.5+); without it that one script reports the gap and the
+  skill stays on its local-only fallback.
+- **Optional: the OpenCode Console MCP.** Not required to get recommendations, but
+  it is the only authoritative source for what you actually spent. Without it the
+  report labels its money an estimate and tells you which numbers cannot be
+  trusted (`references/console-mcp.md`).
 
 ## Installation
 
@@ -186,22 +192,35 @@ slightly more expensive than the current cheap-but-capable baseline (DeepSeek V4
 Flash at the time of writing) and clearly stronger; if nothing clears that bar, the
 baseline itself is the pick.
 
-Every run ends with a three-part body plus a data appendix:
+Every run starts with a **basis line** and ends with a data appendix:
 
-1. **Recommendation table** — one row per custom agent: agent name, a one-line
-   role overview (the agent's `description`, or the known-role baseline when it
-   has none, rendered in your language), capability focus (trait), current
-   model, recommended model, and the why (a cost, throughput, or capability
-   reason), with ⚠ markers for limited-time, geo, or training caveats.
-2. **Paste-ready config** — a complete copy-pasteable JSONC block per detected
+`Basis: Console bill (authoritative) | 2026-10-30 | pool $60/mo (provisional)` —
+or `Basis: Estimate (official unit price × median tokens, high by about N×)`, or
+`Basis: Uncalibrated`. One basis for the whole table; a report never mixes two.
+
+1. **Recommendation table** — one row per custom agent: agent name, recommended
+   chain (with ⚠ markers for limited-time, geo, or training caveats), headroom
+   (`$ cap / official requests / observed requests`), accounted `$/session`
+   (median · P90), share of that model's cap, 10 runs as a percentage of the 5h ·
+   week · month pool (three independent windows, never summed), actual monthly
+   occupancy, and why.
+2. **Usage evidence** — spend and requests for the last 30 days, the last 7 days
+   with a month-end projection, candidates without an ELO rating (`n/m` plus
+   ids), dead chain ids from `scripts/discover-agents.mjs`, and the main agents'
+   share of spend (share only; they are never re-assigned).
+3. **Paste-ready config** — a complete copy-pasteable JSONC block per detected
    source: `oh-my-opencode-slim.json` for the slim preset, `opencode.jsonc` for a
    native `agent` block (both when both are detected), with fallback chains
    preserved where the source supports them.
-3. **Highlights** — one paragraph explaining why the changes: mode + rationale,
-   price ceiling, full caveat text, and plan changes vs the last snapshot.
-4. **Data appendix** — sources with fetch dates (seed labeling), the snapshot
-   diff, the relevant-models price table, the first-run decision-factors table,
-   the manual-verification list, and the verify commands.
+4. **Highlights** — one paragraph: mode + rationale, the price ceiling, the full
+   caveat text, plan changes vs the last snapshot, and what the basis line means
+   for trust.
+5. **Data appendix** — sources with fetch dates (seed labeling), the snapshot
+   diff, the relevant-models table, the calibration line (bias, date, drift), the
+   first-run decision-factors table, the manual-verification list, and the verify
+   commands.
+6. **Console guidance** — only when the Console MCP is not authorized: the state,
+   what it costs you to run without it, and the exact steps to enable it.
 
 The skill then **stops and asks** before applying anything.
 
@@ -213,32 +232,52 @@ needed. A typical run goes like this:
 1. **Find your agents** (read-only) — native agents in `opencode.jsonc` or
    `~/.config/opencode/agents/*.md`, `oh-my-opencode-slim` presets, and any other
    plugin source you declare. The details live in
-   [`references/agent-sources.md`](references/agent-sources.md).
-2. **Refresh its model snapshot** — `scripts/refresh-snapshot.mjs` fetches the
+   [`references/agent-sources.md`](references/agent-sources.md), including the
+   dead-chain-id and same-model-contention checks.
+2. **Probe the Console** — `scripts/probe-console.mjs` decides between five states
+   (`authorized` / `gated` / `unauthenticated` / `absent` / `unknown`) from the
+   cheapest evidence first: what the run's own Console tools returned, then the
+   host's `opencode mcp list`, then the config, and only then one `initialize`
+   request. See [`references/console-mcp.md`](references/console-mcp.md).
+3. **Read the bill and calibrate** — with a real `cost_usd`, the spend, requests
+   and pool percentage go through `scripts/calibrate-usage.mjs`, which stores the
+   DB-vs-Console bias, the reverse-solved pool and the per-agent split in the
+   snapshot. That is what turns a percentage into an authoritative one.
+4. **Refresh its model snapshot** — `scripts/refresh-snapshot.mjs` fetches the
    live catalog and returns a compact added/removed diff. LMArena ability scores
    come from a committed seed (`references/model-scores.json`) when it still
    matches the latest LMArena boards; otherwise `scripts/refresh-scores.mjs`
    fetches them. No key and no browser are involved. A brand-new model is always
    looked up right away.
-3. **Check the plan** — prices and limits are read from the current plan pages and
+5. **Check the plan** — prices and limits are read from the current plan pages and
    compared with the cache; only the added or changed models get a deeper
    capability check.
-4. **Pick a model per agent** by role trait, with overrides for known roles. See
-   the allocation policy in `SKILL.md`.
-5. **Build fallback chains** — an ordered `model: [a, b, c]` failover list (2–4
+6. **Pick a model per agent** by role trait, with overrides for known roles, and
+   price every candidate through the single formula in
+   [`references/quota-math.md`](references/quota-math.md) /
+   `scripts/quota-math.mjs` — context tiers and peak hours included.
+7. **Build fallback chains** — an ordered `model: [a, b, c]` failover list (2–4
    entries).
-6. **Write the report** and ask for confirmation before touching your config.
+8. **Write the report**, run the nine self-checks, and ask for confirmation before
+   touching your config.
 
 A few details worth knowing:
 
-- **Go limits are per model, in monthly dollars.** The overall window is 5 hours =
-  20%, weekly = 50%, monthly = 100%. Because each model has its own limit, another
-  Go model is still usable when one is capped — which is why the first fallback is
-  often another Go model.
+- **Go limits are per model, in monthly dollars.** Each model carries its own cap
+  with 5-hour = 20%, weekly = 50%, monthly = 100% slices, and the plan as a whole
+  has a separate pool the Console reports occupancy against. The two layers are
+  never mixed: a "share of this model" and a "share of the plan" are different
+  claims. Because each model has its own cap, another Go model is still usable when
+  one is capped — which is why the first fallback is often another Go model.
+- **Price is not one number.** Some models are priced by context-length tier, some
+  double in peak hours (per message timestamp, not per session), and some bill
+  cache writes. One formula in `references/quota-math.md`, implemented once in
+  `scripts/quota-math.mjs`, applies all of it — and reports anything it had to
+  assume.
 - **Same $ limit ≠ same throughput.** Models burn different numbers of tokens per
   request, so the plan's estimated request counts matter as much as the dollar
-  limit. The skill reads them from the plan pages (the landing page is the more
-  timely one) and prefers the higher count when price and capability tie.
+  limit. The report prints the official estimate *and*, when a bill exists, the
+  observed cost per request — never one without the other.
 - **It flags the fine print.** Limited-time multipliers (with the base limit they
   fall back to), geo-restricted models, and "Contributor" tiers that train on your
   prompts and completions are called out — the last one is opt-in and never
@@ -285,13 +324,14 @@ Fetched fresh every run. Full details and parsing notes are in
 
 | Priority | Source | URL | Gives |
 |---|---|---|---|
+| 0 | Console MCP (optional) | https://opencode.ai/console/mcp | authoritative `cost_usd` / requests / tokens, per-model split, budget policies — see [`references/console-mcp.md`](references/console-mcp.md) |
 | 1 | Go landing page | https://opencode.ai/go | latest promos + featured usage table with estimated requests per 5h |
 | 2 | Go docs | https://opencode.ai/docs/go/ | full model / price / monthly-limit table + estimated requests |
 | 3 | Models endpoint | https://opencode.ai/zen/go/v1/models | live catalog ids (via `scripts/fetch-go-models.mjs`) |
 | 4 | models.dev | https://models.opencode.ai/providers/opencode-go/ | context / output / price / capabilities |
 | 5 | julien.cloud tracker | https://julien.cloud/opencode-go-models/ | merged view + price-change / deprecation log |
 | 6 | LMArena | https://lmarena.ai/ ([dataset](https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset) via the HF datasets-server) | Arena ELO: overall / coding / vision (committed seed; no key, no browser) |
-| — | Price seed | `references/model-prices.json`, refreshed from https://models.dev/api.json (provider `opencode-go`) | committed per-model input / output / cache-read price, context, output limit (dated offline fallback; a live read always wins) |
+| — | Price seed | `references/model-prices.json`, refreshed from https://models.dev/api.json (provider `opencode-go`) | committed per-model input / output / cached read / cached write price, context tiers, cap, peak hours and promos (dated offline fallback; a live read always wins) |
 
 ## Safety and privacy
 
@@ -299,11 +339,16 @@ Fetched fresh every run. Full details and parsing notes are in
   exactly what changes — in `oh-my-opencode-slim.json`, `opencode.jsonc`, agent
   Markdown files, or wherever the change belongs.
 - **Local reads:** your OpenCode config under `~/.config/opencode/` (including
-  `agents/`) and the installed plugin's schema.
+  `agents/`) and the installed plugin's schema. When you opt into calibration, it
+  also reads your **local OpenCode usage database**
+  (`~/.local/share/opencode/opencode.db`, read-only, via `node:sqlite`) to total
+  what each agent and model cost. Nothing from that database is uploaded; the
+  script prints aggregates only.
 - **Network access:** the public pages above, the unauthenticated `opencode.ai`
-  models endpoint, and — only when the score seed is stale — the public LMArena
-  dataset on Hugging Face. A system proxy is used automatically if configured. No
-  credentials and no personal data are sent.
+  models endpoint, the public LMArena dataset on Hugging Face (only when the score
+  seed is stale), and — only if you enable it — your own OpenCode Console MCP
+  account. A system proxy is used automatically if configured. No credentials and
+  no personal data are sent, and no token is ever printed.
 - **No invented numbers.** Every figure carries a source and a fetch date, and
   anything unverifiable is flagged for a manual check.
 - **Unofficial.** This project is not affiliated with, endorsed by, or sponsored

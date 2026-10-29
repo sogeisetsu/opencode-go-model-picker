@@ -9,6 +9,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-30
+
+### Added
+
+- `references/quota-math.md` and `scripts/quota-math.mjs`: the one priced-accounting
+  implementation. Formula v2 prices each assistant message on its own timestamp,
+  picks the price by the request's prompt length when a model has context-length
+  tiers, applies the peak-hour multiplier only to models that declare one, and
+  bills cache writes on the models that charge for them. Reasoning tokens are
+  billed at the output rate, checked message-by-message against the provider's own
+  per-message cost — omitting them under-prices a message by 4–34%. Derived quantities
+  (share of cap, the three independent pool windows, sessions per window, official
+  and observed capacity), the pool reverse-solve order, the eight known gaps, and
+  the degradation rules for every missing field.
+- `references/console-mcp.md` and `scripts/probe-console.mjs`: the five Console MCP
+  states (`authorized` / `gated` / `unauthenticated` / `absent` / `unknown`),
+  decided cheapest-first (in-run tool result → `opencode mcp list` → config → one
+  `initialize` request), with the fixed per-state guidance copy, the three-level
+  fallback, and the enabling steps for the OpenCode CLI and OpenChamber. The probe
+  never prints a token and never classifies a network failure as "not set up".
+- `scripts/calibrate-usage.mjs`: sums the local OpenCode SQLite database per agent
+  and model, compares it with the Console's own cost to measure the bias (warning
+  when it drifts more than 10%), reverse-solves the plan pool in the documented
+  order, projects month-end occupancy from the billing cycle, and — with `--write`
+  — stores `plan`, `models.<id>.billing`, `usage.agentSplit` and `calibration` in
+  the snapshot.
+- `references/model-prices.json` gained `cacheWritePer1M`, `ctxTiers`, `capUsd`,
+  `peak`, `promoUntil` and a verified `status` per model, plus current
+  `planVerifiedAt` dates. It is now the single home of price, cap, context tiers
+  and peak hours.
+- Snapshot schema v3: `plan.go`, `models.<id>.billing`, `availability`,
+  `capabilities` (per-capability source + `verifiedAt`), `usage.agentSplit` and
+  `calibration`.
+- `scripts/discover-agents.mjs` now reports a run-level `deadChainIds` summary
+  (`missing-from-catalog`, `retired`, `registry-missing`, `registry-deprecated`),
+  warns on a shared chain head (`contention`) because the per-model cap is shared,
+  and warns per agent when a Go id's catalog status is retired (`catalog`).
+- `references/data-sources.md` gained a Console-bill (priority 0) section, a
+  two-quota-layer section, official-vs-observed request counts, and a dated
+  capability/compliance table (image input, training, retention, availability).
+
+### Changed
+
+- The report now opens with a mandatory `Basis:` line (`Console bill
+  (authoritative)` / `Estimate` / `Uncalibrated`) and one denominator for the whole
+  table, and the table columns are the priced ones: headroom, accounted
+  `$/session` (median · P90), share of the model cap, 10 runs as a share of the
+  three pool windows, actual monthly occupancy, and why.
+- A new `Usage evidence` block is mandatory: last-30-days spend and requests, a
+  last-7-days pace with a month-end projection, the count of candidates without an
+  ELO, the dead chain ids for this run, and the main agents' share of spend.
+- `SKILL.md`'s workflow was reordered to discover → probe Console → read the bill
+  and calibrate → refresh the snapshot → detect plan changes → allocate → build
+  chains → output → stop, and now ends with nine explicit self-checks.
+- `scripts/refresh-prices.mjs` reads the cache-write price and the context-length
+  tiers from models.dev, and carries the plan-side constants (`capUsd` /
+  `monthlyLimitUsd`, `peak`, `promoUntil`, `estReq*`, `status`) through a rewrite,
+  so regenerating the seed no longer deletes them.
+- The refresh scripts write `schemaVersion: 3` for a newly created snapshot; an
+  existing v2 file is read as-is (every v3 key is optional).
+- `references/agent-sources.md` states that a native `agent.<name>.model` cannot
+  express a chain, and points at the chain-capable source when failover is wanted.
+- Stale plan facts from the 2026-09/10 verifications were corrected against the
+  2026-10-30 plan page (the DeepSeek V4.1 Flash 4x promo is gone; its cap is $80;
+  peak/off-peak pricing replaced it).
+
+### Breaking
+
+- Output format: the previous table columns (role overview, capability focus,
+  current model) are replaced by the priced columns, and the `Basis:` line is
+  mandatory. A v1 report shape is no longer valid.
+- Snapshot schema v2 → v3. Existing files stay readable, but the new fields are
+  absent (hence `null`) until `calibrate-usage.mjs --write` runs.
+- `references/model-prices.json` entry shape grew from 16 to 21 keys; anything
+  reading that seed directly must tolerate the new fields.
+- `SKILL.md`'s workflow numbering changed, so any prompt that referred to
+  "step 2 = refresh" now points at the Console probe instead.
+
 ## [1.4.0] - 2026-10-17
 
 ### Added

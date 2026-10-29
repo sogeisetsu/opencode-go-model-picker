@@ -8,6 +8,35 @@
 
 ## [未发布]
 
+## [2.0.0] - 2026-10-30
+
+### 新增
+
+- `references/quota-math.md` 与 `scripts/quota-math.mjs`：唯一的计价实现。v2 公式按每条 assistant message 自己的时间戳计价；模型有上下文分档时，按该请求的 prompt 长度选档；峰谷倍数只作用于声明了峰谷的模型；只有真正收取缓存写入费的模型才计 `p_cw`。推理 token 按输出价计费（逐条与提供方返回的单条成本核对，漏掉会少算 4–34%）。同时定义派生量（占单模型额度、三个互相独立的池窗口、各窗口可跑会话数、官方容量与实测容量）、池子反解顺序、8 个已知缺口，以及每个字段缺失时的降级规则。
+- `references/console-mcp.md` 与 `scripts/probe-console.mjs`：Console MCP 的五态（`authorized` / `gated` / `unauthenticated` / `absent` / `unknown`），按成本升序判定（本次运行的工具结果 → `opencode mcp list` → 配置文件 → 一次 `initialize` 请求）；附带按 state 分支的固定引导文案、三级保底方案，以及 OpenCode CLI 与 OpenChamber 的开启步骤。探测过程绝不打印 token，也绝不把网络故障判成「没配置」。
+- `scripts/calibrate-usage.mjs`：汇总本地 OpenCode SQLite 数据库的按智能体 / 按模型花费，与 Console 自己的账单相比测出 bias（漂移超过 10% 告警），按文档规定的顺序反解计划池，按计费周期外推月末占用，并在 `--write` 时把 `plan`、`models.<id>.billing`、`usage.agentSplit`、`calibration` 写进快照。
+- `references/model-prices.json` 新增 `cacheWritePer1M`、`ctxTiers`、`capUsd`、`peak`、`promoUntil` 与逐模型 `status`，并补齐本轮 `planVerifiedAt`。它现在是价格、额度、上下文分档与峰谷时段的唯一存放处。
+- 快照 schema v3：新增 `plan.go`、`models.<id>.billing`、`availability`、`capabilities`（每个能力自带 `source` 与 `verifiedAt`）、`usage.agentSplit`、`calibration`。
+- `scripts/discover-agents.mjs` 现在输出运行级 `deadChainIds` 汇总（`missing-from-catalog`、`retired`、`registry-missing`、`registry-deprecated`），对共用链头的智能体给出 `contention` 警告（Go 额度按模型计，会被分摊），并在 Go id 的目录状态为已退役时逐个智能体给出 `catalog` 警告。
+- `references/data-sources.md` 新增 Console 账单（优先级 0）、两层额度、官方请求数与实测请求数、以及带日期的能力 / 合规表（图像输入、训练、留存、可用地区）。
+
+### 已变更
+
+- 报告开头强制一行 `Basis:`（`Console bill (authoritative)` / `Estimate` / `Uncalibrated`），全表同一分母；表格列改为计价列：头部额度、记账 `$/session`（中位 · P90）、占该模型额度、10 次占三个池窗口的比例、实际月占用、理由。
+- 新增强制的 `Usage evidence` 段：近 30 天花费与请求数、近 7 天节奏与月末预测、无 ELO 候选数量、本次运行的死链 id、主智能体花费占比。
+- `SKILL.md` 工作流重排为：发现智能体 → 探测 Console → 读账单并校准 → 刷新快照 → 检测套餐变化 → 分配 → 建链 → 输出 → 停止，并在末尾新增 9 条自检。
+- `scripts/refresh-prices.mjs` 从 models.dev 读取缓存写入价格与上下文分档，并在重写时保留套餐侧常量（`capUsd` / `monthlyLimitUsd`、`peak`、`promoUntil`、`estReq*`、`status`），重新生成种子不再把它们删掉。
+- 刷新脚本新建快照时写入 `schemaVersion: 3`；已有的 v2 文件原样可读（v3 的每个键都是可选的）。
+- `references/agent-sources.md` 明确：原生 `agent.<name>.model` 无法表达模型链，需要故障转移时应改用支持链的来源。
+- 按 2026-10-30 的套餐页面更正 2026-09/10 的过期事实（DeepSeek V4.1 Flash 的 4 倍促销已结束，额度改为 $80，改为峰谷计价）。
+
+### 破坏性变更
+
+- 输出格式：旧表格列（职责介绍、能力侧重、当前模型）被计价列取代，且 `Basis:` 行成为强制项。v1 的报告形状不再有效。
+- 快照 schema v2 → v3。旧文件仍可读，但新字段在 `calibrate-usage.mjs --write` 运行前为 `null`。
+- `references/model-prices.json` 单条记录字段从 16 个增至 21 个；直接读取该种子的代码需要容忍新字段。
+- `SKILL.md` 工作流编号变了，任何「第 2 步 = 刷新快照」的说法现在指向 Console 探测。
+
 ## [1.4.0] - 2026-10-17
 
 ### 新增

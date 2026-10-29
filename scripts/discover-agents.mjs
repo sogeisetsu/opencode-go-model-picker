@@ -36,8 +36,9 @@
 //    parsed minimally by hand for `description`, `model`, `mode` and `hidden`; no
 //    YAML library.
 //
-// Output: compact JSON on stdout, shape { agents, warnings, skippedBuiltins }. Each
-// agent record matches references/agent-sources.md §Inventory record:
+// Output: compact JSON on stdout, shape { agents, warnings, skippedBuiltins,
+// deadChainIds }. Each agent record matches references/agent-sources.md §Inventory
+// record:
 // { name, source, mode, description, model, hidden, traits,
 //   provenance: { file, pointer, fetchedAt } } — model is
 // string | Array<{ id, variant }> | null, traits are derived from description +
@@ -52,6 +53,14 @@
 //                 => warn; absent status is the registry's default-active convention
 //                 and does NOT warn; id missing from the registry => warn (mark the
 //                 slot for manual verification; never lead a chain with it);
+//   catalog       a Go id (opencode-go/*) whose snapshot entry status is
+//                 deprecated/removed/retired (entry.status or entry.price.status,
+//                 case-insensitive) — never put a retired id in a chain. Merely
+//                 absent from the snapshot does NOT warn (see deadChainIds);
+//   contention    two or more agents share the same chain-head id (chain[0],
+//                 the primary pick) — the Go monthly cap is per model, so those
+//                 agents draw from the same allowance; spread them or accept the
+//                 shared budget. A shared fallback slot is normal and does NOT warn;
 //   vision-field  a vision-trait agent (known role `observer`, or a description that
 //                 signals vision) whose chain contains a model without
 //                 models.<id>.vision === true in the snapshot cache. This is a FIELD
@@ -62,6 +71,11 @@
 //                 as null instead of guessed;
 //   builtin-name  only with --include-builtin-names: a kept agent whose name is on
 //                 the built-in denylist (verify it is really custom).
+// deadChainIds is the run-level summary of chain ids that can never work:
+// { id, agents: [<agent names>], reason } with reason "missing-from-catalog",
+// "retired" (Go ids; skipped entirely when the snapshot is unavailable), or
+// "registry-missing" / "registry-deprecated" (non-Go ids). Each dead id keeps
+// its per-agent warning too — the summary adds, never replaces.
 //
 // Flags (all optional; without them the real config is READ, never written):
 //   --config <dir>     fixture root holding opencode.json(c), agents/, and optionally
@@ -108,7 +122,7 @@ const USAGE = [
   "                     add names to the built-in name denylist",
   "  --include-builtin-names",
   "                     keep agents whose name is on the denylist instead of skipping them",
-  "Read-only; compact JSON { agents, warnings, skippedBuiltins } on stdout. Exit 0 (2 on bad usage).",
+  "Read-only; compact JSON { agents, warnings, skippedBuiltins, deadChainIds } on stdout. Exit 0 (2 on bad usage).",
 ].join("\n");
 
 const args = process.argv.slice(2);
@@ -182,7 +196,20 @@ const KNOWN_BUILTIN_AGENTS = new Set(
 const warnings = [];
 const agents = [];
 const skippedBuiltins = [];
+const deadChainIds = [];
 const warn = (kind, agent, message) => warnings.push({ kind, agent, message });
+
+// deadChainIds is the run-level summary of chain ids that can never work,
+// deduped by id. Every dead id ALSO keeps its per-agent warning below — this
+// summary adds a top-level view, it never replaces a warning.
+function recordDeadChainId(id, agentName, reason) {
+  const existing = deadChainIds.find((e) => e.id === id);
+  if (existing) {
+    if (!existing.agents.includes(agentName)) existing.agents.push(agentName);
+    return;
+  }
+  deadChainIds.push({ id, agents: [agentName], reason });
+}
 
 // True when the caller should skip this name, recording what was dropped so a
 // custom agent that merely shares a built-in name stays visible.
@@ -619,11 +646,13 @@ function checkRegistryEntry(id, agentName) {
       `model ${id} is not a Go id and is missing from the local registry ${registryPath}: ` +
         "do not lead a chain with it — mark this slot for manual verification",
     );
+    recordDeadChainId(id, agentName, "registry-missing");
     return;
   }
   const status = typeof entry.status === "string" ? entry.status.toLowerCase() : null;
   if (status === "deprecated" || status === "removed") {
     warn("registry", agentName, `model ${id} has explicit registry status "${entry.status}" — never put it in a chain`);
+    recordDeadChainId(id, agentName, "registry-deprecated");
   }
   // Absent status = the registry's default-active convention: checked, no warning.
 }
@@ -634,6 +663,58 @@ function snapshotVision(id) {
   const entry = snapshot.models ? snapshot.models[bare] : null;
   if (!entry || typeof entry !== "object") return undefined; // id absent from snapshot
   return entry.vision === true || (entry.price && entry.price.vision === true);
+}
+
+// The snapshot's models catalog is the only catalog this script can see, so a Go
+// id without a snapshot entry is dead — but only check that when a snapshot
+// loaded at all; otherwise every Go id would be flagged by its mere absence.
+// entry.status and entry.price.status both count, case-insensitively.
+function checkGoCatalog(id, agentName) {
+  if (!snapshot || !snapshot.models) return; // snapshot unavailable: check skipped entirely
+  const bare = id.slice("opencode-go/".length);
+  const entry = snapshot.models[bare];
+  if (!entry || typeof entry !== "object") {
+    recordDeadChainId(id, agentName, "missing-from-catalog");
+    return; // absence is not a per-agent warning — only the summary records it
+  }
+  const statuses = [entry.status, entry.price && entry.price.status].filter(
+    (s) => typeof s === "string",
+  );
+  const retired = statuses.find((s) =>
+    ["deprecated", "removed", "retired"].includes(s.toLowerCase()),
+  );
+  if (retired !== undefined) {
+    warn(
+      "catalog",
+      agentName,
+      `model ${id} has snapshot status "${retired}" — never put a retired id in a chain`,
+    );
+    recordDeadChainId(id, agentName, "retired");
+  }
+}
+
+// Two or more agents sharing the same chain-head id (the primary pick) draw from
+// ONE Go monthly allowance — the cap is per model, not per agent. Only chain[0]
+// counts: a shared fallback slot is normal and expected. One warning per shared
+// id, not per agent.
+function reportContention() {
+  const headOwners = new Map(); // chain-head id -> agent names
+  for (const record of agents) {
+    const chain = chainOf(record.model);
+    if (!chain.length) continue;
+    const head = chain[0].id;
+    const owners = headOwners.get(head) ?? [];
+    owners.push(record.name);
+    headOwners.set(head, owners);
+  }
+  for (const [id, owners] of headOwners) {
+    if (owners.length < 2) continue;
+    warn(
+      "contention",
+      null,
+      `model ${id} is the chain head for ${owners.length} agents (${owners.join(", ")}) — the Go monthly cap is per model, so these agents draw from the same allowance; spread them over different primary picks or accept the shared budget`,
+    );
+  }
 }
 
 // Vision is a derived trait (KNOWN_ROLE_TRAITS has `observer`; the description
@@ -657,7 +738,10 @@ function validate(record) {
       warn("chain-length", record.name, `fallback chain has ${chain.length} entries — the rule is 2–4`);
     }
   }
-  for (const { id } of chain) checkRegistryEntry(id, record.name);
+  for (const { id } of chain) {
+    checkRegistryEntry(id, record.name);
+    if (id.startsWith("opencode-go/")) checkGoCatalog(id, record.name);
+  }
   if (hasVisionTrait(record)) {
     for (const { id } of chain) {
       if (snapshotVision(id) !== true) {
@@ -684,5 +768,6 @@ discoverMarkdown(join(configRoot, "agents"));
 if (!configDir) discoverMarkdown(join(process.cwd(), ".opencode", "agents"));
 
 for (const record of agents) validate(record);
+reportContention();
 
-process.stdout.write(JSON.stringify({ agents, warnings, skippedBuiltins }) + "\n");
+process.stdout.write(JSON.stringify({ agents, warnings, skippedBuiltins, deadChainIds }) + "\n");
