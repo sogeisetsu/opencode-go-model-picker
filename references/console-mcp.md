@@ -156,9 +156,15 @@ With no network, neither the Console nor a fresh official price exists. The hone
 path is:
 
 - read `references/model-prices.json` and label it with `priceVerifiedAt` /
-  `planVerifiedAt`, plus an explicit **stale** warning once those dates are old;
+  `planVerifiedAt`, plus an explicit **stale** warning once those dates are old.
+  `scripts/quota-math.mjs` does this for you: its `seed` object carries
+  `{ verifiedAt, ageDays, stale, reason }` and the CLI prints `⚠ EXPIRED` past seven
+  days (`references/quota-math.md` §Seed freshness). `scripts/calibrate-usage.mjs`
+  reports the same as `prices` / `# prices …`;
 - if the seed is missing too (a partial install), there is no price at all → drop
-  to level 3 (relative selection only, no money columns).
+  to level 3 (relative selection only, no money columns). The calculator does not
+  invent a price for a missing seed: it exits with `price seed not found`, which is
+  the signal to stop printing money.
 
 There is no "offline level 1": a percentage the user read earlier is a stale
 datum, not a reading. If they can still read the Console UI, that is a live

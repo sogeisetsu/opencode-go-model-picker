@@ -77,9 +77,41 @@ export function loadPriceTable(path = DEFAULT_PRICE_SEED) {
   const models = loaded.value && typeof loaded.value.models === "object" ? loaded.value.models : null;
   if (!models) return { error: `${path} has no "models" object`, models: {} };
   return {
+    path,
     models,
     generatedAt: loaded.value.generatedAt ?? null,
     source: loaded.value.source ?? null,
+  };
+}
+
+// A seed is a dated fallback, so the run must be able to say how old it is. The
+// timestamp is the newest verification any entry carries (price or plan), because
+// that is the last time a human or a script confirmed the table against upstream.
+// Staleness is a report, never a silent refusal: an old seed is still better than
+// no numbers, as long as the report says "expired" and shows the date.
+export const SEED_STALE_AFTER_DAYS = 7;
+
+export function seedFreshness(table, { now = new Date(), maxAgeDays = SEED_STALE_AFTER_DAYS } = {}) {
+  const when = now instanceof Date ? now : new Date(now);
+  let newest = null;
+  for (const entry of Object.values(table?.models ?? {})) {
+    for (const field of ["planVerifiedAt", "priceVerifiedAt"]) {
+      const value = entry?.[field];
+      if (typeof value !== "string") continue;
+      const ms = Date.parse(value);
+      if (Number.isFinite(ms) && (newest === null || ms > newest)) newest = ms;
+    }
+  }
+  if (newest === null) {
+    return { verifiedAt: null, ageDays: null, stale: true, maxAgeDays, reason: "no verification date in the seed" };
+  }
+  const ageDays = (when.getTime() - newest) / 86400000;
+  return {
+    verifiedAt: new Date(newest).toISOString(),
+    ageDays,
+    stale: ageDays > maxAgeDays,
+    maxAgeDays,
+    reason: ageDays > maxAgeDays ? `older than ${maxAgeDays} days` : null,
   };
 }
 
@@ -488,11 +520,13 @@ function cli() {
   const single = costOfUsage(entry, usage, at);
   const { capUsd, mismatch } = capOf(entry);
   const total = single.usd === null ? null : single.usd * count;
+  const seed = seedFreshness(table, { now: at });
   const result = {
     model: entry.id ?? model,
     at,
     count,
     usage,
+    seed: { path: table.path, ...seed },
     costUsdPerRequest: single.usd,
     costUsd: total,
     tierOverK: single.tierOverK ?? null,
@@ -525,6 +559,8 @@ function cli() {
       `sessions in pool: 5h ${result.sessionsPerWindow.fiveHour?.toFixed(1) ?? "-"} / week ${result.sessionsPerWindow.week?.toFixed(1) ?? "-"} / month ${result.sessionsPerWindow.month?.toFixed(1) ?? "-"}`,
       `official capacity ${result.officialCapacity.requests ?? "-"} requests` +
         ` ($${result.officialCapacity.costPerRequestUsd?.toFixed(6) ?? "-"}/request)`,
+      `seed ${seed.verifiedAt ?? "-"}` +
+        (seed.stale ? ` ⚠ EXPIRED (${seed.reason}) — label the number a date and re-fetch` : ` (${seed.ageDays?.toFixed(1)} days old)`),
       result.assumed.length ? `assumed/unverified: ${result.assumed.join(", ")}` : "all fields verified",
     ].join("\n") + "\n",
   );

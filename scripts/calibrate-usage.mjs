@@ -112,6 +112,7 @@ import {
   loadPriceTable,
   median,
   p90,
+  seedFreshness,
   solvePool,
 } from "./quota-math.mjs";
 
@@ -731,6 +732,9 @@ function renderText(report, opts) {
     `# console ${c.range} cost ${fmtUsd(c.costUsd)} | requests ${fmtInt(c.requests)}` +
       ` | month ${fmtUsd(c.monthCostUsd)} | pct month/week/5h ${pctArg(c.monthPct)}` +
       ` / ${pctArg(c.weekPct)} / ${pctArg(c.fiveHourPct)}`,
+    `# prices ${report.prices.path} | verified ${report.prices.verifiedAt ?? "-"}` +
+      ` | ${report.prices.ageDays === null ? "age -" : `${report.prices.ageDays.toFixed(1)}d old`}` +
+      (report.prices.stale ? ` | WARNING expired (${report.prices.reason})` : ""),
     "",
   ];
   const agentRows = Object.entries(report.byAgent)
@@ -921,6 +925,7 @@ async function main() {
       weekPct: opts.weekPct,
       fiveHourPct: opts.fiveHourPct,
     },
+    prices: { path: opts.prices, ...seedFreshness(priceTable, { now }) },
     totals,
     byModel: byModelOut,
     byAgent: byAgentOut,

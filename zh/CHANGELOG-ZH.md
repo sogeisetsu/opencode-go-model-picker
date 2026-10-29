@@ -23,6 +23,7 @@
 - 快照 schema v3：新增 `plan.go`、`models.<id>.billing`、`availability`、`capabilities`（每个能力自带 `source` 与 `verifiedAt`）、`usage.agentSplit`、`calibration`。
 - `scripts/discover-agents.mjs` 现在输出运行级 `deadChainIds` 汇总（`missing-from-catalog`、`retired`、`registry-missing`、`registry-deprecated`），对共用链头的智能体给出 `contention` 警告（Go 额度按模型计，会被分摊），并在 Go id 的目录状态为已退役时逐个智能体给出 `catalog` 警告。
 - `references/data-sources.md` 新增 Console 账单（优先级 0）、两层额度、官方请求数与实测请求数、以及带日期的能力 / 合规表（图像输入、训练、留存、可用地区）。
+- `quota-math.mjs` 会报告价格种子的新鲜度——`verifiedAt`（表中最新的 `planVerifiedAt` / `priceVerifiedAt`）、`ageDays` 与 `stale`——并把超过 7 天的种子标为已过期，让离线运行给数字贴日期而不是当成当前值。`calibrate-usage.mjs` 在 `prices` 字段里报告同样的信息。
 
 ### 已变更
 
@@ -30,7 +31,7 @@
 - 新增强制的 `Usage evidence` 段：近 30 天花费与请求数、近 7 天节奏与月末预测、无 ELO 候选数量、本次运行的死链 id、主智能体花费占比。
 - `SKILL.md` 工作流重排为：发现智能体 → 探测 Console → 读账单并校准 → 刷新快照 → 检测套餐变化 → 分配 → 建链 → 输出 → 停止，并在末尾新增 9 条自检。
 - `scripts/refresh-prices.mjs` 从 models.dev 读取缓存写入价格与上下文分档，并在重写时保留套餐侧常量（`capUsd` / `monthlyLimitUsd`、`peak`、`promoUntil`、`estReq*`、`status`），重新生成种子不再把它们删掉。
-- 刷新脚本新建快照时写入 `schemaVersion: 3`；已有的 v2 文件原样可读（v3 的每个键都是可选的）。
+- `calibrate-usage.mjs --write` 在写入 v3 键时把 `schemaVersion` 提到 3；已有的 v2 文件原样可读（v3 的每个键都是可选的）。
 - `references/agent-sources.md` 明确：原生 `agent.<name>.model` 无法表达模型链，需要故障转移时应改用支持链的来源。
 - 按 2026-10-30 的套餐页面更正 2026-09/10 的过期事实（DeepSeek V4.1 Flash 的 4 倍促销已结束，额度改为 $80，改为峰谷计价）。
 

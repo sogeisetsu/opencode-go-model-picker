@@ -317,6 +317,15 @@ A few details worth knowing:
   The cache never replaces a source — every value keeps its source and fetch date.
   See [`references/model-snapshot.md`](references/model-snapshot.md).
 
+### Where the detail lives
+
+| Reference | Read it for |
+|---|---|
+| [`references/quota-math.md`](references/quota-math.md) | the one pricing formula: context tiers, peak hours, derived quantities, pool reverse-solving, windows, known gaps, calibration constants |
+| [`references/console-mcp.md`](references/console-mcp.md) | the five Console states, detection order, per-state guidance copy, the three-level fallback, enabling steps |
+| [`references/output-format.md`](references/output-format.md) | the report: basis line, priced columns, usage evidence, the nine self-checks |
+| [`references/model-snapshot.md`](references/model-snapshot.md) | the cache: schema v3, refresh policy, key ownership, offline fallbacks |
+
 ## Data sources
 
 Fetched fresh every run. Full details and parsing notes are in

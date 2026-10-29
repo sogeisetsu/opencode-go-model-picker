@@ -186,6 +186,15 @@ TUI 里如果它没出现在 `/` 的补全列表中，先输入 `/skills`，从�
 - **本地用量只读汇总。** 开启校准后，`scripts/calibrate-usage.mjs` 会以只读方式通过 `node:sqlite` 读取本机 OpenCode 用量数据库（`~/.local/share/opencode/opencode.db`），汇总每个智能体、每个模型花了多少；只输出聚合值，不上传任何内容。
 - **省 token。** `~/.cache/opencode/opencode-go-model-picker/snapshot.json` 里缓存了一份归一化后的目录和评分，每次运行只重新抓取、重新核实发生变化的部分。缓存绝不取代来源——每个值都带来源和抓取日期。见 [`references/model-snapshot.md`](references/model-snapshot.md)。
 
+### 细节在哪
+
+| 参考文件 | 什么时候读 |
+|---|---|
+| [`references/quota-math.md`](references/quota-math.md) | 唯一一套计价公式：上下文分档、峰谷时段、派生量、池子反解、窗口定义、已知缺口、校准常数 |
+| [`references/console-mcp.md`](references/console-mcp.md) | Console 的五种状态、探测顺序、按状态的引导文案、三级保底、开启步骤 |
+| [`references/output-format.md`](references/output-format.md) | 报告格式：基准行、计价列、用量证据、九条自检 |
+| [`references/model-snapshot.md`](references/model-snapshot.md) | 缓存：schema v3、刷新策略、key 归属、离线回退 |
+
 ## 数据来源
 
 每次运行都重新抓取。完整清单与解析注意事项见 [`references/data-sources.md`](references/data-sources.md)。

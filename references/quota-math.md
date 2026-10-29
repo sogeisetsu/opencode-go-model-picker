@@ -15,6 +15,7 @@ Sections:
 - Known gaps and how each is handled this version
 - Calibration constants (bias, pool)
 - Degradation when a field is missing
+- Seed freshness (the "expired" label)
 - Running the calculator
 
 ## Where the constants live
@@ -36,11 +37,15 @@ the fields and the fallbacks; it never repeats a value.
 | `status` | `active` / `preview` / `free-limited-time` | plan page | unknown status — treat as active but flag |
 | `context` / `outputLimit` | window sizes, not money | models.dev | irrelevant to cost |
 | `priceVerifiedAt` / `planVerifiedAt` | when the price / plan field was last verified | each refresh | stale — label the date, re-verify |
-
 `capUsd` and `monthlyLimitUsd` are one fact with two names: `refresh-prices.mjs`
 writes both together and `quota-math.mjs` reports a mismatch instead of picking
 one. A live read always beats the seed (`references/data-sources.md`
 §Offline fallback).
+
+**`verifiedAt`.** There is no third field by that name: a record carries the two
+precise timestamps above, and "verified at" means the newer of them. `quota-math.mjs`
+computes that (`seedFreshness`), so a report can print one date and one age for the
+whole seed without anyone re-deriving it — and without a third copy of the fact.
 
 ## Formula v2 (per assistant message)
 
@@ -190,6 +195,23 @@ The calculator never invents a number:
 | `peak` | `k_peak = 1`, flagged "unverified peak" |
 | `capUsd` | no share-of-cap, no capacity — print `-` |
 | `estReqMonth` | no official capacity — print only the observed one |
+
+## Seed freshness (the "expired" label)
+
+Offline, the committed seed is still the best number available — but it is a dated
+one, and the report must say so. `seedFreshness()` (in `scripts/quota-math.mjs`)
+turns the seed's own verification dates into `{ verifiedAt, ageDays, stale, reason }`:
+
+- `verifiedAt` is the newest `planVerifiedAt` / `priceVerifiedAt` in the table.
+- `stale` is `ageDays > 7` (`SEED_STALE_AFTER_DAYS`). Seven days because the plan
+  page changes caps and promos on its own schedule; a week is the longest a number
+  can go unconfirmed and still be called "current-ish".
+- `scripts/quota-math.mjs` prints it on every CLI run and marks an expired seed with
+  `⚠ EXPIRED`; `scripts/calibrate-usage.mjs` reports it as `prices` (and as a
+  `# prices …` line in `--text`).
+- An expired seed is **usable, labelled, and never called current**. A missing seed
+  is not: with no price at all, drop to level 3 (relative selection only, money
+  columns empty) — see `references/console-mcp.md` §Three-level fallback.
 
 ## Running the calculator
 

@@ -61,7 +61,7 @@ const prune = process.argv.includes("--prune");
 const rebuild = process.argv.includes("--rebuild");
 
 // Keep in sync with the "Schema (v2)" section of references/model-snapshot.md.
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 2;
 
 function loadSnapshot(path) {
   const fresh = () => ({ schemaVersion: SCHEMA_VERSION, sources: {}, models: {} });

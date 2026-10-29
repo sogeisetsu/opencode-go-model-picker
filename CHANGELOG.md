@@ -56,6 +56,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `references/data-sources.md` gained a Console-bill (priority 0) section, a
   two-quota-layer section, official-vs-observed request counts, and a dated
   capability/compliance table (image input, training, retention, availability).
+- `quota-math.mjs` reports seed freshness — `verifiedAt` (the newest
+  `planVerifiedAt` / `priceVerifiedAt` in the table), `ageDays` and `stale` — and
+  marks a seed older than seven days as expired, so an offline run labels its
+  numbers instead of presenting them as current. `calibrate-usage.mjs` reports the
+  same under `prices`.
 
 ### Changed
 
@@ -74,8 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tiers from models.dev, and carries the plan-side constants (`capUsd` /
   `monthlyLimitUsd`, `peak`, `promoUntil`, `estReq*`, `status`) through a rewrite,
   so regenerating the seed no longer deletes them.
-- The refresh scripts write `schemaVersion: 3` for a newly created snapshot; an
-  existing v2 file is read as-is (every v3 key is optional).
+- `calibrate-usage.mjs --write` raises `schemaVersion` to 3 when it writes v3 keys;
+  an existing v2 file is read as-is (every v3 key is optional).
 - `references/agent-sources.md` states that a native `agent.<name>.model` cannot
   express a chain, and points at the chain-capable source when failover is wanted.
 - Stale plan facts from the 2026-09/10 verifications were corrected against the

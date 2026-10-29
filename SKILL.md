@@ -93,18 +93,6 @@ All `scripts/…` and `references/…` paths in this skill are relative to **thi
    merge the 5h / week / month windows.
 9. **STOP** — 🛑 no configuration writes before the user confirms (see "Applying Changes" below).
 
-## Final self-check (all 9, before sending)
-
-1. A `Basis:` line exists, and every amount and percentage uses that one denominator.
-2. The per-model cap and the plan pool are separate columns/claims, never conflated.
-3. Every `est req` figure is followed by the observed one (or `-` with the reason).
-4. The count of candidates without an ELO is stated (`n/m`) with their ids.
-5. Dead chain ids from this run are listed (`none` when empty).
-6. The main agents' share of spend is reported (share only, no recommendation).
-7. A month-end occupancy projection is given, or `-` with the reason it cannot be.
-8. The Console MCP state is reported, with guidance only when the state is not `authorized`.
-9. Peak/off-peak, geo and training risks are flagged wherever the pick touches them.
-
 ## Recommendation Modes
 
 Pick exactly one mode; default `balanced`. Modes trade off **performance vs. price only**.
@@ -205,3 +193,19 @@ which script failed, quote its error, and drop to the level the references descr
 | `references/model-prices.json` | live price fetch fails, or you need a cap/tier/peak constant | dated offline price seed and the single home of price, cap, context tiers and peak hours — label it a seed, never current |
 | `references/model-scores.json` | ranking fetch fails (seed reused while dates match) | dated LMArena score seed |
 | `scripts/` | refreshing run data, pricing, calibration, or maintaining the repo | run-time: `fetch-go-models.mjs`, `refresh-snapshot/scores/prices.mjs`, `discover-agents.mjs`, `snapshot-summary.mjs`, `probe-console.mjs`, `quota-math.mjs`, `calibrate-usage.mjs` · shared helpers (imported, not run): `lib/json-io.mjs`, `lib/proxy.mjs` · maintainer-only: `generate-assets.mjs`, `check-docs.mjs` |
+
+## Final self-check (all 9, before sending)
+
+The report is not finished until every line below is true. Anything that cannot be
+checked is reported as `-` with the reason, never silently dropped.
+
+1. A `Basis:` line exists, and every amount and percentage uses that one denominator.
+2. The per-model cap and the plan pool are separate columns/claims, never conflated.
+3. Every `est req` figure is followed by the observed one (or `-` with the reason).
+4. The count of candidates without an ELO is stated (`n/m`) with their ids.
+5. Dead chain ids from this run are listed (`none` when empty).
+6. The main agents' share of spend is reported (share only, no recommendation).
+7. A month-end occupancy projection is given, or `-` with the reason it cannot be.
+8. The Console MCP state is reported, with guidance only when the state is not `authorized`.
+9. Peak/off-peak, geo and training risks are flagged wherever the pick touches them.
+
