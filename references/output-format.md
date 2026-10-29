@@ -43,6 +43,23 @@ Basis: Uncalibrated (no Console, no snapshot) | <date>
 Never print a dollar amount in an `Uncalibrated` report, and never mix an
 `Estimate` percentage into an `authoritative` table.
 
+### Which numbers may be printed under each basis
+
+The two money sources are not interchangeable, so a number has to be converted
+before it appears under a basis:
+
+- **The local database's `cost` is a computed figure** (OpenCode prices each
+  message from the model table), not the provider's invoice. It is the *estimate*
+  side, which is why it needs a bias.
+- **The Console's `cost_usd` is the invoice** and is the *authoritative* side.
+- Under `Basis: Console bill (authoritative)`, every amount in the table is
+  `local cost / bias` for the same window, and the basis line or the appendix
+  states the bias and its date. Printing the raw local cost under an authoritative
+  basis is the exact mixing this section forbids.
+- Under `Basis: Estimate`, print the local figure as-is and label the multiplier.
+- Session medians and P90 are converted the same way as totals — one divisor for
+  the whole table, never per column.
+
 ## 2. Recommendation table
 
 One row per discovered **custom** agent — never OpenCode's built-ins (`build`,
@@ -61,7 +78,8 @@ anything else OpenCode ships). Columns exactly:
   the local DB. Both appear or the cell is `-`: one alone is a half-truth
   (`references/quota-math.md` §Derived quantities).
 - **accounted $/session** — the session cost, median first, P90 second
-  (`<median> · <p90>`). The per-message cost comes from the provider's own reported
+  (`<median> · <p90>`), in the basis line's currency (see "Which numbers may be
+  printed"). The per-message cost comes from the provider's own reported
   figure when the run has it (local DB / Console), and from the shared formula when
   it does not; `calibrate-usage.mjs` prints both (`cost$` vs `recomputed$`) so a
   divergence is visible instead of hidden. The P90 is there because the median
