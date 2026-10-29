@@ -50,6 +50,7 @@
 | `README.md` / `README-ZH.md` | 英文与中文文档。 |
 | `zh/` | 中文文档（本文件、`CHANGELOG-ZH.md`，以及被 git 忽略的本地对读版 `skill-zh.md`）。 |
 | `assets/` | README 头部使用的 SVG 图标、横幅与本地徽章。 |
+| `tests/prompts.json` | 评测用例，不是运行时资产：每条把一句真实请求与技能必须表现出的行为配成对（只读、带日期回退、应用闸门）。没有任何代码加载它；改动工作流或输出格式时，手工跑一遍或交给一个 agent 跑。 |
 | `LICENSE` | 完整的 GPL-3.0-or-later 许可证文本。 |
 | `CONTRIBUTING.md` / `CHANGELOG.md` | 贡献指南与更新日志（英文；中文在 `zh/` 下）。 |
 

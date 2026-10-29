@@ -71,6 +71,7 @@ a Markdown file" instead.
 | `README.md` / `README-ZH.md` | English and Chinese documentation. |
 | `zh/` | Chinese docs (`CONTRIBUTING-ZH.md`, `CHANGELOG-ZH.md`, and a git-ignored local `skill-zh.md` reading copy). |
 | `assets/` | SVG icon, banners and local badges used in the README headers. |
+| `tests/prompts.json` | Evaluation prompts, not runtime assets: each case pairs a realistic request with the behaviour the skill must exhibit (read-only, dated fallback, apply gate). Nothing loads it; run them by hand or hand them to an agent when changing the workflow or output format. |
 | `LICENSE` | The full GPL-3.0-or-later license text. |
 | `CONTRIBUTING.md` / `CHANGELOG.md` | Contribution guide and changelog (English; Chinese under `zh/`). |
 

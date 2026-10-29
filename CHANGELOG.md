@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Moved `test-prompts.json` to `tests/prompts.json` and documented it in the
+  repository layout: it is an evaluation fixture (a request paired with the
+  behaviour the skill must exhibit), not a runtime asset — nothing loads it, and
+  it previously sat in the root with no explanation.
+
 ## [2.0.0] - 2026-10-30
 
 ### Added
@@ -232,7 +239,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   list, and the verify commands). The apply gate is unchanged: the skill still
   stops and asks before touching any config. Synced across `README.md` /
   `README-ZH.md`, `CONTRIBUTING` (EN/ZH), `docs/index.html`, and
-  `test-prompts.json`.
+  `test-prompts.json` (since moved to `tests/prompts.json`).
 
 ## [1.0.0] - 2026-09-25
 
