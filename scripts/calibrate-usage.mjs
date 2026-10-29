@@ -632,7 +632,7 @@ function buildCrossCheck(opts, pool, now) {
 // caller only when a v3 key was actually written (never lowered — see
 // model-snapshot.md "Backward compatibility"). Returns { touched, planWritten }.
 function applySnapshotWrites(snap, opts, ctx) {
-  const { pool, byModel, byAgent, currentBias, previousBias, nowIso, dateStamp } = ctx;
+  const { pool, byModel, byAgent, currentBias, nowIso, dateStamp } = ctx;
   let touched = false;
   let planWritten = false;
 
@@ -693,11 +693,12 @@ function applySnapshotWrites(snap, opts, ctx) {
     touched = true;
   }
 
-  // currentBias is null under underCoverage: only a real bias (or the dated
-  // previous one) is ever written.
-  const calBias = currentBias ?? previousBias;
-  if (calBias !== null) {
-    snap.calibration = { ...(snap.calibration ?? {}), biasDbVsConsole: calBias };
+  // A calibration constant is only as good as its date: write it when THIS run
+  // measured it. With no Console bill this run, a previous bias may still be used
+  // for the pool solve, but it must not be re-stamped with today's date — that
+  // would present an old measurement as a fresh one.
+  if (currentBias !== null) {
+    snap.calibration = { ...(snap.calibration ?? {}), biasDbVsConsole: currentBias };
     snap.calibration.at = dateStamp;
     snap.calibration.note = "recompute each run; warn on >10% drift";
     touched = true;
