@@ -194,7 +194,7 @@ baseline itself is the pick.
 
 Every run starts with a **basis line** and ends with a data appendix:
 
-`Basis: Console bill (authoritative) | 2026-10-30 | pool $60/mo (provisional)` —
+`Basis: Console bill (authoritative) | <date> | pool <usd>/mo (provisional)` —
 or `Basis: Estimate (official unit price × median tokens, high by about N×)`, or
 `Basis: Uncalibrated`. One basis for the whole table; a report never mixes two.
 

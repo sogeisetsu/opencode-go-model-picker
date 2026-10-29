@@ -26,9 +26,9 @@ figure and every percentage in the whole report uses this same denominator — a
 report that mixes two bases is wrong, not merely less precise.
 
 ```text
-Basis: Console bill (authoritative) | 2026-10-30 | pool $60/mo (provisional)
-Basis: Estimate (official unit price x median tokens, high by about 1.46x) | 2026-10-30
-Basis: Uncalibrated (no Console, no snapshot) | 2026-10-30
+Basis: Console bill (authoritative) | <date> | pool <usd>/mo (provisional)
+Basis: Estimate (official unit price x median tokens, high by about <ratio>x) | <date>
+Basis: Uncalibrated (no Console, no snapshot) | <date>
 ```
 
 - **Console bill (authoritative)** — a real `cost_usd` was read this run. Add the
@@ -56,12 +56,12 @@ anything else OpenCode ships). Columns exactly:
   3. opencode/*`), or one model for a source that cannot express a chain, plus the
   flag markers below.
 - **headroom** — the chain head's monthly cap in dollars, then the official request
-  count and the observed one, e.g. `$80 / 173,330 / 12,085`. Official comes from
-  the plan page's estimate, observed from the Console bill or the local DB. Both
-  appear or the cell is `-`: one alone is a half-truth
+  count and the observed one, e.g. `$<cap> / <official req> / <observed req>`.
+  Official comes from the plan page's estimate, observed from the Console bill or
+  the local DB. Both appear or the cell is `-`: one alone is a half-truth
   (`references/quota-math.md` §Derived quantities).
 - **accounted $/session** — the session cost, median first, P90 second
-  (`0.0123 · 0.0456`). The per-message cost comes from the provider's own reported
+  (`<median> · <p90>`). The per-message cost comes from the provider's own reported
   figure when the run has it (local DB / Console), and from the shared formula when
   it does not; `calibrate-usage.mjs` prints both (`cost$` vs `recomputed$`) so a
   divergence is visible instead of hidden. The P90 is there because the median
@@ -94,12 +94,14 @@ Adapter warnings (missing source, missing description, duplicate names) go
 Fixed block directly after the table, format fixed, numbers from this run:
 
 ```text
-Usage evidence (last 30 days): $19.84 / 12,391 requests / 32.5% of the monthly pool
-Last 7 days: $4.12 (6.9%) -> at this pace the month ends around 87%
-Candidates without an ELO: 2/31 (opencode-go/<id>, opencode-go/<id>)
-Dead chain ids: opencode-go/<id> (alias agents), <provider>/<id> ...
-Main agents (not changed, share only): build 74% / plan 19% / ...
+Usage evidence (last 30 days): $<usd> / <requests> requests / <pct>% of the monthly pool
+Last 7 days: $<usd> (<pct>%) -> at this pace the month ends around <pct>%
+Candidates without an ELO: <n>/<m> (<id>, <id>)
+Dead chain ids: <id> (<agents>), <id> ...
+Main agents (not changed, share only): <agent> <pct>% / <agent> <pct>% / ...
 ```
+
+Fill every placeholder with this run's numbers; never keep a previous run's.
 
 - **Window label is mandatory** on every line (`last 30 days`, `last 7 days`,
   `billing cycle`) — a rolling window and a billing cycle are different

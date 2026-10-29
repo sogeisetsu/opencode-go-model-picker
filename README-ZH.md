@@ -141,9 +141,9 @@ TUI 里如果它没出现在 `/` 的补全列表中，先输入 `/skills`，从�
 
 每次运行都从一行 **基准（Basis）** 开始，最后附数据附录：
 
-`Basis: Console bill (authoritative) | 2026-10-30 | pool $60/mo (provisional)`——或
+`Basis: Console bill (authoritative) | <日期> | pool <usd>/mo (provisional)`——或
 `Basis: Estimate (official unit price × median tokens, high by about N×)`，或
-`Basis: Uncalibrated`。全表同一个基准，绝不混用两种。
+`Basis: Uncalibrated`。全表同一个基准，绝不混用两种。（中文界面的实际标签是「基准:」。）
 
 1. **推荐表**——每个自定义智能体一行：智能体名称、建议链（限时 / 地理 / 训练相关注意事项用 ⚠ 标出）、头部额度
    （`$ 额度 / 官方请求数 / 实测请求数`）、记账 `$/session`（中位 · P90）、占该模型额度的比例、10 次运行占 5h · 周 · 月池的比例
