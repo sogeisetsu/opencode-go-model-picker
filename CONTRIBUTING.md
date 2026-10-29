@@ -50,11 +50,16 @@ a Markdown file" instead.
 | `SKILL.md` | The skill itself: frontmatter, iron rules, workflow, allocation policy, fallback policy, schema notes. |
 | `references/data-sources.md` | Where to fetch live plan data and how to parse it. |
 | `references/agent-sources.md` | Agent discovery: source adapters, the uniform inventory record, the role-trait mapping, and fallback when a source is missing. |
-| `references/model-snapshot.md` | Persistent snapshot cache: schema, location, refresh policy, ranking sources, and name matching. |
-| `references/output-format.md` | The exact output structure the skill must produce: a three-part body (recommendation table, paste-ready config, highlights) plus a data appendix. |
+| `references/console-mcp.md` | Console MCP: the five states and what each may claim, detection order, fixed per-state guidance copy, three-level fallback, enabling steps. |
+| `references/quota-math.md` | The one priced-accounting spec: formula v2, context tiers, peak hours, derived quantities, pool reverse-solving, windows, known gaps, calibration constants. |
+| `references/model-snapshot.md` | Persistent snapshot cache: schema v3 (and v2 compatibility), location, refresh policy, key ownership, ranking sources, and name matching. |
+| `references/output-format.md` | The exact output structure the skill must produce: basis line, priced table, usage-evidence block, paste-ready config, highlights, data appendix, conditional Console guidance. |
 | `references/model-scores.json` | Committed LMArena score seed, reused while its board dates are still current. |
-| `references/model-prices.json` | Committed price seed from models.dev: per-model `inputPer1M` / `outputPer1M` / `cacheReadPer1M` / `context` / `outputLimit`; `null` means unverified and is never guessed. |
+| `references/model-prices.json` | Committed price seed (models.dev prices, including cache write and context tiers) plus the hand-verified plan constants (`capUsd`, `estReq*`, `peak`, `promo`); `null` means unverified and is never guessed. |
 | `scripts/fetch-go-models.mjs` | Helper that prints the live model catalog as JSON. |
+| `scripts/quota-math.mjs` | The one pricing implementation: tokens + model id + price constants → `$`, window shares, capacity. Pure functions plus a small CLI. |
+| `scripts/probe-console.mjs` | Read-only Console MCP state detection (five states), cheapest evidence first; never prints a token. |
+| `scripts/calibrate-usage.mjs` | Local SQLite + Console read-outs → per-agent split, bias, reverse-solved pool, month-end forecast; `--write` stores the snapshot v3 keys. |
 | `scripts/refresh-snapshot.mjs` | Refreshes the snapshot cache and prints a compact added / removed diff. |
 | `scripts/refresh-scores.mjs` | Fetches LMArena scores via the HF datasets-server (no key, no browser) into the seed or a snapshot. |
 | `scripts/refresh-prices.mjs` | Refreshes the committed price seed from the models.dev `opencode-go` provider. |
@@ -101,9 +106,10 @@ update, run `node scripts/refresh-prices.mjs` and commit
 `references/model-prices.json`.
 
 If you changed the workflow or output structure, walk through the run mentally
-against `references/output-format.md` and confirm the three-part body (recommendation
-table, paste-ready config, highlights) plus the data appendix are all still
-produced. If you changed model guidance, re-check the affected claims against the
+against `references/output-format.md` and confirm the basis line, the priced
+table, the usage-evidence block, the paste-ready config, the highlights, the data
+appendix and the conditional Console guidance are all still produced. If you
+changed model guidance, re-check the affected claims against the
 sources listed in `references/data-sources.md` and update the verified-date notes.
 If you edited any SVG under `assets/` by hand, prefer editing
 `scripts/generate-assets.mjs` and re-running `node scripts/generate-assets.mjs`

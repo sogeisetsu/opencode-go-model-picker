@@ -42,6 +42,13 @@ policy itself is in `SKILL.md` §Fallback Chain Policy. A custom agent configure
 only with a single model, not registered in any chain-capable tool, is still in
 scope.
 
+**A native agent cannot carry a chain.** `agent.<name>.model` is a single value, so
+there is no failover to express: recommend one model, say the source cannot hold a
+chain, and never write a one-element array or an invented `fallback` key. When the
+user wants failover for that agent, the move is to register the same agent through a
+chain-capable source (`oh-my-opencode-slim`'s `agents.<name>` / its active preset)
+and keep one definition as the effective one — suggest it, do not perform it.
+
 ## Built-in agents are out of scope
 
 Only suggest models for **custom** agents. Skip anything OpenCode ships, even
@@ -161,8 +168,9 @@ inferred traits; the authoritative map is `SKILL.md` §Allocation Policy. An age
 with no `description` still falls back to the override here before the
 conservative balanced chain.
 
-One-line role-overview baseline (single source of truth for the output table's
-"role overview" column fallback):
+One-line role-overview baseline (used whenever an agent has no usable
+`description`: the report's `why` cell and the adapter-warning line fall back to
+it instead of leaving either blank):
 
 | Role | One-line overview (baseline; render in the user's language) |
 |---|---|

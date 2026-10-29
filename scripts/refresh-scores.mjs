@@ -290,7 +290,7 @@ async function main() {
       process.exit(1);
     }
     const snapshot = loaded.missing
-      ? { schemaVersion: 2, sources: {}, models: {} }
+      ? { schemaVersion: 3, sources: {}, models: {} }
       : loaded.value;
     if (typeof snapshot !== "object" || snapshot === null || Array.isArray(snapshot)) {
       console.error(`Error: ${snapshotPath} root value is not a JSON object.`);

@@ -9,7 +9,8 @@ verification.
 Sections:
 
 - Location
-- Schema (v2)
+- Schema (v3)
+- Backward compatibility (v2 files)
 - Refresh policy
 - Failure handling
 - Bundled price seed
@@ -27,11 +28,11 @@ Override the path with `--snapshot <path>` when running the refresh script.
 
 To read it without loading the whole file, run `node scripts/snapshot-summary.mjs` — a compact digest with `--ids <id,...>`, `--trait <trait>`, and `--json`.
 
-## Schema (v2)
+## Schema (v3)
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "sources": {
     "catalog":  { "url": "https://opencode.ai/zen/go/v1/models", "fetchedAt": "ISO-8601", "count": 0 },
     "rankings": {
@@ -45,6 +46,12 @@ To read it without loading the whole file, run `node scripts/snapshot-summary.mj
     }
   },
   "preferences": { "mode": null, "answers": null, "chosenAt": null },
+  "plan": {
+    "go": {
+      "fiveHourUsd": null, "weeklyUsd": null, "monthlyUsd": null,
+      "provisional": true, "source": null, "at": null
+    }
+  },
   "models": {
     "<go-model-id>": {
       "inputPer1M": null,
@@ -73,13 +80,18 @@ To read it without loading the whole file, run `node scripts/snapshot-summary.mj
         "inputPer1M": null,
         "outputPer1M": null,
         "cacheReadPer1M": null,
+        "cacheWritePer1M": null,
         "context": null,
         "outputLimit": null,
+        "ctxTiers": [],
+        "capUsd": null,
+        "peak": null,
         "monthlyLimitUsd": null,
         "estReq5h": null,
         "estReqWeek": null,
         "estReqMonth": null,
         "promo": null,
+        "promoUntil": null,
         "status": null,
         "priceSource": null,
         "planSource": null,
@@ -87,18 +99,66 @@ To read it without loading the whole file, run `node scripts/snapshot-summary.mj
         "priceVerifiedAt": null,
         "planVerifiedAt": null
       },
+      "billing": {
+        "observedCostUsdPerRequest": null,
+        "requests": null,
+        "costUsd": null,
+        "window": null,
+        "source": null,
+        "at": null
+      },
+      "availability": {
+        "geoExcluded": [],
+        "trainsOnData": null,
+        "needsRegionSetting": null
+      },
+      "capabilities": {
+        "imageInput": { "supported": null, "source": null, "verifiedAt": null }
+      },
       "provenance": "https://opencode.ai/docs/go/",
       "verifiedAt": null
     }
+  },
+  "usage": {
+    "agentSplit": {}
+  },
+  "calibration": {
+    "biasDbVsConsole": null,
+    "at": null,
+    "note": "recompute each run; warn on >10% drift"
   }
 }
 ```
+
+The v3 additions, in words:
+
+- **`plan.go`** — the reverse-solved plan pool (`fiveHourUsd`, `weeklyUsd`,
+  `monthlyUsd`) with `provisional`, its `source`, and `at`. Written by
+  `scripts/calibrate-usage.mjs --write` **only when the pool could actually be
+  solved** (`pool.level` 1 or 2); when no percentage is available it leaves an
+  existing `plan.go` untouched rather than restamping a stale number as fresh.
+- **`models.<id>.billing`** — observed cost per request plus the request and cost
+  totals it came from, with the `window` they cover (`last-30d`,
+  `billing-month`). `source: "local-db"` for the per-model split (the local
+  database is what carries per-model cost); `"console"` only when a per-model
+  Console split was actually provided. This is what makes "official vs observed
+  requests" printable (`references/data-sources.md` §Estimated request counts).
+- **`models.<id>.availability`** — `geoExcluded` (region codes), `trainsOnData`,
+  `needsRegionSetting` when a model only works after a privacy setting is changed.
+  `null` = not verified, never "safe".
+- **`models.<id>.capabilities`** — one object per capability, each with its own
+  `source` and `verifiedAt`, so a lab-doc verification is auditable. A `null`
+  `supported` is "unverified", not "text-only" (Iron Rule 5).
+- **`usage.agentSplit`** — each agent's share of spend (a fraction), used for the
+  report's per-agent occupancy and the main-agent share line.
+- **`calibration`** — the DB-vs-Console bias, its date, and the >10% drift rule
+  (`references/quota-math.md` §Calibration constants).
 
 The `score` numbers are **Arena ELO ratings** (roughly 1100–1800), not 0–100
 scores. `overall` comes from the text arena, `coding` from the Code Arena
 (`webdev`), `vision` from the vision arena.
 
-`models.<id>.price` is the committed price-seed entry copied verbatim (16 keys —
+`models.<id>.price` is the committed price-seed entry copied verbatim (21 keys —
 see "Bundled price seed"). The seed flags (`seedUsed`, `priced`, `nullUpstream`,
 `total`, `fetchedAt`) live in `sources.prices`, not in the per-model entry.
 `seedUsed: true` means the seed covered **every** catalog id (full coverage);
@@ -124,6 +184,25 @@ Rules:
   named in the request always wins. `preferences.answers` keeps the diagnostic
   answers and `preferences.chosenAt` when it was chosen. This is skill state, not
   agent config — the skill still never edits the user's agent configuration.
+- **Key ownership.** `refresh-snapshot.mjs` owns `schemaVersion` and
+  `sources.catalog`; `refresh-scores.mjs` owns `sources.rankings` and
+  `models.<id>.score`; `refresh-prices.mjs` owns `sources.prices` and
+  `models.<id>.price`; `calibrate-usage.mjs --write` owns `plan`,
+  `models.<id>.billing`, `usage.agentSplit` and `calibration`. Each writer
+  preserves every other key, so running one never erases another's work.
+
+## Backward compatibility (v2 files)
+
+A v2 snapshot stays readable and needs no rebuild:
+
+- Every v3 key is optional: missing → `null` (or `{}` / `[]` for the containers),
+  and every reader treats that as "unverified" instead of failing.
+- `schemaVersion` is only bumped by a writer that actually adds a v3 key; reading a
+  v2 file never rewrites it.
+- When `models.<id>.price` disagrees with `references/model-prices.json`, the seed
+  wins: the snapshot only caches what this run resolved.
+- A missing or broken snapshot is never silently rebuilt (it holds
+  `preferences.mode`); `refresh-snapshot.mjs --rebuild` is the deliberate reset.
 
 ## Refresh policy
 
@@ -174,6 +253,11 @@ Then:
    with the cached values; deep-verify capabilities (especially vision) from the
    lab's own docs only for the added or changed models.
 4. Reuse the cached values for everything else.
+5. When a Console bill exists, calibrate once with
+   `node scripts/calibrate-usage.mjs --console-cost <usd> --console-requests <n> --month-pct <pct> --write`
+   (add `--console-month-cost <usd>` when the Console shows a cycle spend). It
+   writes `plan`, `models.<id>.billing`, `usage.agentSplit` and `calibration`;
+   without `--write` it only reports.
 
 This is what saves tokens: one compact diff instead of re-reading every page,
 scores that usually come straight from the committed seed, and deep verification
@@ -222,16 +306,22 @@ limited to the models that actually changed.
 model id, so an offline or first run does not have to guess numbers.
 
 - It holds, per model: `inputPer1M`, `outputPer1M`, `cacheReadPer1M`,
-  `context`, `outputLimit`, `monthlyLimitUsd`, `estReq5h`, `estReqWeek`,
-  `estReqMonth`, `promo`, `status`, `priceSource`, `planSource`,
-  `upstreamUpdatedAt`, `priceVerifiedAt`, `planVerifiedAt`. `null` means "not
-  verified" and is never filled by guessing.
+  `cacheWritePer1M`, `context`, `outputLimit`, `ctxTiers`, `capUsd`, `peak`,
+  `monthlyLimitUsd`, `estReq5h`, `estReqWeek`, `estReqMonth`, `promo`,
+  `promoUntil`, `status`, `priceSource`, `planSource`, `upstreamUpdatedAt`,
+  `priceVerifiedAt`, `planVerifiedAt`. `null` means "not verified" and is never
+  filled by guessing.
 - **Freshness rule: upstream identity plus full coverage.** The seed is reused
   only while it covers every current Go catalog id **and** each entry's
   `upstreamUpdatedAt` equals that model's live models.dev `last_updated`;
   otherwise `refresh-prices.mjs --snapshot` fetches live.
-- Plan-page fields (monthly limit, est req, promo, status) are maintained by
-  hand; the script only preserves them and never invents them.
+- Price-side fields (`inputPer1M`, `outputPer1M`, `cacheReadPer1M`,
+  `cacheWritePer1M`, `ctxTiers`, `context`, `outputLimit`) come from models.dev.
+  Plan-side fields (`capUsd` / `monthlyLimitUsd`, `estReq*`, `peak`, `promo`,
+  `promoUntil`, `status`) come from the plan page and are maintainer-verified; the
+  script preserves them, never invents them. `capUsd` and `monthlyLimitUsd` are one
+  fact under two names and are written together
+  (`references/quota-math.md` §Where the constants live).
 - The seed may be read directly from disk when the plan pages or models.dev are
   unreachable — labelled a seed with its date, never presented as current. A
   live read always wins.

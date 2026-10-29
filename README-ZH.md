@@ -51,6 +51,9 @@
   - `oh-my-opencode-slim` 是**可选**的。它只是本技能支持的来源之一；如果你正好在用，本技能会以它已安装的结构规范为准。
 - **Node.js 18+**，仅辅助脚本需要（已在 Node 22 上测试）。在代理后面运行时，刷新脚本需要
   Node 24+，或回移了 `NODE_USE_ENV_PROXY` 的 22.x（已在 22.23.1 上验证）；否则 fetch 会绕过代理，脚本会在 stderr 上提示。
+  `scripts/calibrate-usage.mjs` 另外需要 `node:sqlite`（Node 22.5+）；没有它时该脚本会说明缺口，技能停留在纯本地保底方案。
+- **可选：OpenCode Console MCP。** 不开也能得到推荐，但它是你实际花了多少钱的唯一权威来源。没有它时，报告会把金额标为估算，
+  并说明哪些数字不可信（见 [`references/console-mcp.md`](references/console-mcp.md)）。
 
 ## 安装
 
@@ -136,12 +139,23 @@ TUI 里如果它没出现在 `/` 的补全列表中，先输入 `/skills`，从�
 
 在 `balanced` 下，对常用的高用量智能体，最贵的推荐应该只比当前「便宜但够用」的基线（写作时为 DeepSeek V4.1 Flash）贵一点点、且明显更强；如果没有模型达标，就推荐基线本身。
 
-每次运行最后会给出一份「三段正文 + 数据附录」的报告：
+每次运行都从一行 **基准（Basis）** 开始，最后附数据附录：
 
-1. **推荐表**——每个自定义智能体一行：智能体名称、职责介绍（一行白话说明这个智能体是干什么的：取自它的 `description`，没有时用已知角色的基线，并按你的语言渲染）、能力侧重（trait）、当前模型、推荐模型，以及为什么（成本 / 吞吐 / 能力层面的理由），限时、地理或训练相关的注意事项用 ⚠ 标出。
-2. **可粘贴配置**——针对每个检测到的来源给出一段完整、可直接复制粘贴的 JSONC：slim 预设对应 `oh-my-opencode-slim.json`，原生 `agent` 块对应 `opencode.jsonc`（两者都检测到就两段都给）；来源支持回退链的会保留链路。
-3. **要点说明**——一段话讲清为什么这么改：模式与理由、价格上限、完整的注意事项原文，以及与上次快照相比的套餐变化。
-4. **数据附录**——来源与抓取日期（种子标注）、快照差异、相关模型价格表、首次使用的决策因素表、待人工核实清单，以及验证命令。
+`Basis: Console bill (authoritative) | 2026-10-30 | pool $60/mo (provisional)`——或
+`Basis: Estimate (official unit price × median tokens, high by about N×)`，或
+`Basis: Uncalibrated`。全表同一个基准，绝不混用两种。
+
+1. **推荐表**——每个自定义智能体一行：智能体名称、建议链（限时 / 地理 / 训练相关注意事项用 ⚠ 标出）、头部额度
+   （`$ 额度 / 官方请求数 / 实测请求数`）、记账 `$/session`（中位 · P90）、占该模型额度的比例、10 次运行占 5h · 周 · 月池的比例
+   （三个互相独立的窗口，绝不相加）、实际月占用，以及理由。
+2. **用量证据**——近 30 天的花费与请求数、近 7 天花费与月末预测、无 ELO 评分的候选（`n/m` 加 id 列表）、
+   `scripts/discover-agents.mjs` 本次列出的死链 id，以及主智能体的花费占比（只报占比，绝不改它们）。
+3. **可粘贴配置**——针对每个检测到的来源给出一段完整、可直接复制粘贴的 JSONC：slim 预设对应
+   `oh-my-opencode-slim.json`，原生 `agent` 块对应 `opencode.jsonc`（两者都检测到就两段都给）；来源支持回退链的会保留链路。
+4. **要点说明**——一段话：模式与理由、价格上限、完整的注意事项原文、与上次快照相比的套餐变化，以及基准行对可信度的含义。
+5. **数据附录**——来源与抓取日期（种子标注）、快照差异、相关模型表、校准行（bias、日期、漂移）、首次使用的决策因素表、
+   待人工核实清单，以及验证命令。
+6. **Console 引导**——仅当 Console MCP 不是 authorized 时出现：状态、不开它的代价，以及具体的开启步骤。
 
 之后它会**停下来问你**，确认后才应用。
 
@@ -149,23 +163,27 @@ TUI 里如果它没出现在 `/` 的补全列表中，先输入 `/skills`，从�
 
 技能由一份指令文件（`SKILL.md`）加若干按需加载的参考文档组成。一次典型的运行是这样的：
 
-1. **找到你的智能体**（只读）——`opencode.jsonc` 或 `~/.config/opencode/agents/*.md` 里的原生智能体、`oh-my-opencode-slim` 预设，以及你声明的其他插件来源。细节见 [`references/agent-sources.md`](references/agent-sources.md)。
-2. **刷新模型快照**——`scripts/refresh-snapshot.mjs` 抓取实时目录，返回一份紧凑的新增/下架差异。LMArena 能力分优先取自提交进仓库的种子（`references/model-scores.json`）；只要它的榜单日期仍与 LMArena 最新一致就直接用，否则由 `scripts/refresh-scores.mjs` 抓取。免 key、全程不使用浏览器。全新模型会立刻查一次。
-3. **核对套餐**——从当前套餐页面读取价格和额度并与缓存对比；只有新增或变化的模型才会做更深的能力核实。
-4. **按角色特征给每个智能体挑模型**，并对已知角色做覆盖。策略见 `SKILL.md`。
-5. **构建回退链**——一条有序的 `model: [a, b, c]` 故障转移列表（2–4 项）。
-6. **输出报告**，并在动你的配置前先征得确认。
+1. **找到你的智能体**（只读）——`opencode.jsonc` 或 `~/.config/opencode/agents/*.md` 里的原生智能体、`oh-my-opencode-slim` 预设，以及你声明的其他插件来源。细节见 [`references/agent-sources.md`](references/agent-sources.md)，包括死链 id 与「多个智能体共用同一模型」的检测。
+2. **探测 Console**——`scripts/probe-console.mjs` 按成本升序在五种状态（`authorized` / `gated` / `unauthenticated` / `absent` / `unknown`）之间判定：先看本次运行的工具返回，再看宿主自己的 `opencode mcp list`，再看配置，最后才发一次 `initialize` 请求。见 [`references/console-mcp.md`](references/console-mcp.md)。
+3. **读账单并校准**——拿到真实 `cost_usd` 后，花费、请求数与池占用百分比交给 `scripts/calibrate-usage.mjs`，把 DB 与 Console 的偏差（bias）、反解出的池子、以及按智能体的分摊写进快照。百分比因此才有权威性。
+4. **刷新模型快照**——`scripts/refresh-snapshot.mjs` 抓取实时目录，返回一份紧凑的新增/下架差异。LMArena 能力分优先取自提交进仓库的种子（`references/model-scores.json`）；只要它的榜单日期仍与 LMArena 最新一致就直接用，否则由 `scripts/refresh-scores.mjs` 抓取。免 key、全程不使用浏览器。全新模型会立刻查一次。
+5. **核对套餐**——从当前套餐页面读取价格和额度并与缓存对比；只有新增或变化的模型才会做更深的能力核实。
+6. **按角色特征给每个智能体挑模型**，并对已知角色做覆盖；每个候选都走 [`references/quota-math.md`](references/quota-math.md) / `scripts/quota-math.mjs` 里那唯一一套公式计价，包含上下文分档与峰谷时段。
+7. **构建回退链**——一条有序的 `model: [a, b, c]` 故障转移列表（2–4 项）。
+8. **输出报告**，跑完九条自检，并在动你的配置前先征得确认。
 
 几点值得了解：
 
-- **Go 额度是按模型计的月度美元金额。** 整体窗口为 5 小时 = 20%、每周 = 50%、每月 = 100%。因为每个模型各有限额，某个被限流时另一个 Go 模型仍然可用——所以第一层回退常常是另一个 Go 模型。
-- **同样的美元额度 ≠ 同样的吞吐量。** 各模型每次请求消耗的 token 不同，所以套餐给出的**预估请求数**和美元额度一样重要。技能会从套餐页面读取（落地页更新更及时），在价格与能力接近时优先选请求数更高的模型。
+- **Go 额度是按模型计的月度美元金额。** 每个模型都带自己的额度，并按 5 小时 = 20%、每周 = 50%、每月 = 100% 切分；整个套餐另有一个池子，Console 的占用百分比是相对它算的。两层额度绝不混用：「占这个模型多少」和「占套餐池多少」是两种不同的说法。因为每个模型各有限额，某个被限流时另一个 Go 模型仍然可用——所以第一层回退常常是另一个 Go 模型。
+- **价格不是一个数字。** 有些模型按上下文长度分档计价，有些在峰时翻倍（按每条消息的时间戳判，不是按会话起点），还有些收取缓存写入费。这些都只由 [`references/quota-math.md`](references/quota-math.md) 的一套公式、`scripts/quota-math.mjs` 的一处实现来处理，并把任何不得不做的假设列出来。
+- **同样的美元额度 ≠ 同样的吞吐量。** 各模型每次请求消耗的 token 不同，所以套餐给出的**预估请求数**和美元额度一样重要。报告会同时给出官方预估与（有账单时的）实测单请求花费，绝不只给其中一个。
 - **它会标出隐藏条款。** 限时倍数（以及促销结束后回落到的基础额度）、有地理限制的模型、以及用你的 prompt 和补全结果训练模型的「Contributor」档，都会被明确指出——最后一项属于自愿选择，绝不会被悄悄推荐。
 - **回退链取决于你用的工具。** 形如 `model: ["a", "b", "c"]` 的数组在 `oh-my-opencode-slim` 里是一条有序故障转移链（不同构建之间键名与行为可能不同——以你本地安装的 `oh-my-opencode-slim.schema.json` 为准）。如果每一项都失败，会话会中止，所以链尾应该是你真正能依赖的模型。直接定义在 OpenCode 里的智能体只接受单个 `model`（没有链），因此那里本技能只推荐一个模型并说明这一点。其他支持模型链的工具同样适用——使用 `oh-my-opencode-slim` 只是一个建议，并非必须。
 - **能力看实验室文档，不看名字。** 模型的能力会去它所属实验室的官方文档里核实，绝不从模型编号猜。这对视觉类智能体（比如 `observer`）需要的**视觉**输入尤其重要。
 - **能力评分随技能一起提供。** 提交进仓库的 LMArena 种子（`references/model-scores.json`）让第一次运行无需抓取并匹配排行榜。只有种子的榜单日期仍等于 LMArena 最新发布时才复用；匹配不到的分数保持 `null`，绝不猜。评分是 LMArena 的 Arena ELO（`overall` / `coding` / `vision`），不是 0–100；LMArena 没有 cost 列，所以 cost 保持 `null`。
-- **价格同样随技能一起提供。** 提交进仓库的价格种子（`references/model-prices.json`）让套餐页面抓取不到时，逐模型价格依然离线可读。只有实时读取才算当前值；种子值汇报时一定附带日期。
-- **失败路径是显式的。** 刷新脚本失败、或两个脚本并发写同一份快照时，会改为串行重跑并读回确认。目录或网络不可达时，技能回退到快照缓存和提交进仓库的带日期种子，并给每个数值标注其日期。非 Go 回退 id 会先对照本地模型注册表的 `status` 核实才会被推荐；所有数据源都不可达时直接停止，绝不编造数字。
+- **价格同样随技能一起提供。** 提交进仓库的价格种子（`references/model-prices.json`）让套餐页面抓取不到时，逐模型价格、额度、上下文分档与峰谷时段依然离线可读。只有实时读取才算当前值；种子值汇报时一定附带日期。
+- **失败路径是显式的。** 刷新脚本失败、或两个脚本并发写同一份快照时，会改为串行重跑并读回确认。目录或网络不可达时，技能回退到快照缓存和提交进仓库的带日期种子，并给每个数值标注其日期。非 Go 回退 id 会先对照本地模型注册表的 `status` 核实才会被推荐；所有数据源都不可达时直接停止，绝不编造数字。断网且连种子都没有时，只给相对选型，金额列留空。
+- **本地用量只读汇总。** 开启校准后，`scripts/calibrate-usage.mjs` 会以只读方式通过 `node:sqlite` 读取本机 OpenCode 用量数据库（`~/.local/share/opencode/opencode.db`），汇总每个智能体、每个模型花了多少；只输出聚合值，不上传任何内容。
 - **省 token。** `~/.cache/opencode/opencode-go-model-picker/snapshot.json` 里缓存了一份归一化后的目录和评分，每次运行只重新抓取、重新核实发生变化的部分。缓存绝不取代来源——每个值都带来源和抓取日期。见 [`references/model-snapshot.md`](references/model-snapshot.md)。
 
 ## 数据来源
@@ -174,19 +192,20 @@ TUI 里如果它没出现在 `/` 的补全列表中，先输入 `/skills`，从�
 
 | 优先级 | 来源 | 网址 | 提供内容 |
 |---|---|---|---|
+| 0 | Console MCP（可选） | https://opencode.ai/console/mcp | 权威的 `cost_usd` / 请求数 / token 数、按模型拆分、预算策略——见 [`references/console-mcp.md`](references/console-mcp.md) |
 | 1 | Go 落地页 | https://opencode.ai/go | 最新促销 + 带每 5 小时预估请求数的精选用量表 |
 | 2 | Go 文档 | https://opencode.ai/docs/go/ | 完整模型 / 价格 / 月度额度表 + 预估请求数 |
 | 3 | 模型端点 | https://opencode.ai/zen/go/v1/models | 实时目录编号（经 `scripts/fetch-go-models.mjs`） |
 | 4 | models.dev | https://models.opencode.ai/providers/opencode-go/ | 上下文 / 输出 / 价格 / 能力 |
 | 5 | julien.cloud 追踪 | https://julien.cloud/opencode-go-models/ | 合并视图 + 价格变动 / 弃用日志 |
 | 6 | LMArena | https://lmarena.ai/（[数据集](https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset)，经 HF datasets-server） | Arena ELO：overall / coding / vision（仓库种子；免 key、无浏览器） |
-| — | 价格种子 | `references/model-prices.json`，经 https://models.dev/api.json（provider `opencode-go`）刷新 | 提交进仓库的逐模型输入 / 输出 / 缓存读取价格、上下文、输出上限（带日期的离线回退；实时读取始终优先） |
+| — | 价格种子 | `references/model-prices.json`，经 https://models.dev/api.json（provider `opencode-go`）刷新 | 提交进仓库的逐模型输入 / 输出 / 缓存读取 / 缓存写入价格、上下文分档、额度、峰谷与促销（带日期的离线回退；实时读取始终优先） |
 
 ## 安全与隐私
 
 - **默认只读。** 在你确认之前不会写入任何东西；确认之后，你会看到确切的改动——无论它落在 `oh-my-opencode-slim.json`、`opencode.jsonc`、智能体 Markdown 文件还是别处。
-- **本地读取：** `~/.config/opencode/` 下的 OpenCode 配置（含 `agents/`），以及已安装插件的结构规范。
-- **网络访问：** 上面那些公开页面、免鉴权的 `opencode.ai` 模型端点，以及仅在评分种子过期时访问的公开 LMArena 数据集（Hugging Face）。如配置了系统代理会自动使用。不发送凭据，也不发送个人数据。
+- **本地读取：** `~/.config/opencode/` 下的 OpenCode 配置（含 `agents/`），以及已安装插件的结构规范。开启校准后，还会以只读方式读取本机 OpenCode 用量数据库（`~/.local/share/opencode/opencode.db`，经 `node:sqlite`）来汇总每个智能体、每个模型的花费；库里的内容不会被上传，脚本只打印聚合值。
+- **网络访问：** 上面那些公开页面、免鉴权的 `opencode.ai` 模型端点、仅在评分种子过期时访问的公开 LMArena 数据集（Hugging Face），以及——只有你开启时——你自己的 OpenCode Console MCP 账号。如配置了系统代理会自动使用。不发送凭据，也不发送个人数据；任何 token 都不会被打印。
 - **不编造数字。** 每个数值都带来源与抓取日期；无法核实的会标记出来等你人工确认。
 - **非官方。** 本项目与 OpenCode、SST 或任何模型厂商均无隶属、背书或赞助关系。模型名称与价格归各自所有者。
 

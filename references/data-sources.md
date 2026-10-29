@@ -6,24 +6,43 @@ Fetch fresh on every run, except ranking scores, which are cached with a short T
 
 Sections:
 
+- Console bill (priority 0)
 - Offline fallback (committed price seed)
-- Estimated request counts (throughput)
+- Two quota layers — never mix them
+- Estimated request counts (throughput) — official vs observed
 - Snapshot file and snapshot shape
 - Failure handling
 - Rules and parse notes
 - Capability verification (esp. vision)
+- Capability and compliance table (geo, training, retention)
 - Limited-time usage multipliers; geo restrictions and privacy-for-discount models
 - Ranking / ability scores (for the snapshot)
 
 | Priority | Source | URL | Gives | Method | Notes |
 |---|---|---|---|---|---|
-| 1 | Go landing page | https://opencode.ai/go | latest promos + featured usage table with estimated requests per 5h | webfetch (markdown) | **Most timely**; surfaces limited-time multipliers (e.g. "DeepSeek V4.1 Flash 4× usage") and estimated request counts |
-| 2 | Go docs | https://opencode.ai/docs/go/ | full model list, price table, monthly limits, overall limits, estimated requests (assumptions + req/5h/week/month) | webfetch | Anchor `#usage-limits`; authoritative for prices; also the "Estimated requests" and privacy/geo sections |
+| 0 | Console MCP | `https://opencode.ai/console/mcp` | authoritative `cost_usd`, requests, tokens, per-model split, budget policies with `spentDollars` / `resetsAt` | Console tools in-run (`get_usage`), else `node scripts/probe-console.mjs` | **Only authoritative money source.** State machine, guidance and fallbacks: `references/console-mcp.md`. Never a substitute for a price list — the bill says what you spent, not what a model costs per 1M |
+| 1 | Go landing page | https://opencode.ai/go | latest promos + featured usage table with estimated requests per 5h | webfetch (markdown) | **Most timely**; surfaces limited-time multipliers and the featured caps |
+| 2 | Go docs | https://opencode.ai/docs/go/ | full model list, price table, monthly limits, overall limits, estimated requests (assumptions + req/5h/week/month), privacy table | webfetch | Anchor `#usage-limits`; authoritative for prices and per-model caps; also the "Estimated requests" and privacy/geo sections |
 | 3 | Models endpoint | https://opencode.ai/zen/go/v1/models | live catalog (ids) | `node scripts/fetch-go-models.mjs` or curl | Unauthenticated; includes preview/deprecated ids |
 | 4 | Models.dev | https://models.opencode.ai/providers/opencode-go/ | context/output/price/capabilities | webfetch | Third party |
 | 5 | julien.cloud tracker | https://julien.cloud/opencode-go-models/ | merged view + price-change log / deprecation | webfetch | Third party |
 | 6 | LMArena (rankings) | https://lmarena.ai/ — dataset [lmarena-ai/leaderboard-dataset](https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset) via the HF datasets-server | Arena ELO: overall / coding / vision | `node scripts/refresh-scores.mjs` (no key, no browser) | Official LMArena dataset; cost absent (stays null); proxy auto-enabled; seed at `references/model-scores.json` |
-| 7 | models.dev (prices) | https://models.dev/api.json — provider `opencode-go` | machine-readable prices, context, output limit per model | `node scripts/refresh-prices.mjs` | Committed seed `references/model-prices.json` reused while each model's `upstreamUpdatedAt` still matches models.dev; plan-page monthly limits and est req stay manually verified |
+| 7 | models.dev (prices) | https://models.dev/api.json — provider `opencode-go` | machine-readable prices (incl. cache write and context tiers), context, output limit per model | `node scripts/refresh-prices.mjs` | Committed seed `references/model-prices.json` reused while each model's `upstreamUpdatedAt` still matches models.dev; plan-page caps and est req stay manually verified |
+
+## Console bill (priority 0)
+
+Read this before anything else, because it is the only source that can make an
+absolute percentage true:
+
+- Call the Console tool (`get_usage`) for `24h` / `7d` / `30d` / `all`. A non-empty
+  `cost_usd` means the report's basis is `Console bill (authoritative)`.
+- No tool in this run → `node scripts/probe-console.mjs` decides the state from the
+  host's own list, the config, and at most one `initialize` request. `authorized`
+  requires a bill; a reachable server alone is `unknown`.
+- Feed what you read into `node scripts/calibrate-usage.mjs` so the bias, the pool
+  and the per-agent split land in the snapshot instead of in your head.
+- The bill is per user and per workspace; it does not tell you a model's unit
+  price. Prices still come from the plan page / models.dev.
 
 ## Offline fallback (committed price seed)
 
@@ -36,21 +55,46 @@ cache → seed → "data unavailable".
 Seed schema, key list and staleness identity: `references/model-snapshot.md`
 §Bundled price seed / §Bundled score seed.
 
-## Estimated request counts (throughput)
+## Two quota layers — never mix them
+
+Go has two different limits. Conflating them produces numbers that look precise and
+are wrong:
+
+| Layer | What it is | Where it comes from | Used for |
+|---|---|---|---|
+| **Per-model cap** | one model's monthly dollar allowance, with its own 5h = 20% / week = 50% / month = 100% slices | plan page table (`capUsd` in `references/model-prices.json`) | "how much of *this model* is left", headroom, observed capacity |
+| **Plan pool** | the plan-level allowance the Console reports occupancy against | Console reading, reverse-solved per `references/quota-math.md` §Reverse-solving | "how much of *the plan* is left", month-end projection |
+
+Rules:
+
+- The per-model cap is **published**; the plan pool is **reverse-solved** and always
+  `provisional` until a second reading confirms it.
+- Every percentage states which layer it belongs to. A "share of pool %" computed
+  against a model cap (or the reverse) is a defect, not a rounding error.
+- The three windows are independent budgets at both layers: 5h / week / month are
+  never added together.
+
+## Estimated request counts (throughput) — official vs observed
 
 A monthly dollar limit alone does not tell you how much work a model can do: two
 models with the same $ limit can serve very different numbers of requests, because
-each model burns a different number of tokens per request. The **estimated request
-count** is therefore a primary signal, not a footnote.
+each model burns a different number of tokens per request.
 
-- `https://opencode.ai/go` shows a usage table with estimated requests per 5 hours
-  and monthly $ limits, and is the **more timely** source — read it first.
+- `https://opencode.ai/go` shows the featured usage table (estimated requests per 5h
+  and the monthly cap), and is the **more timely** source — read it first.
 - `https://opencode.ai/docs/go/` has an "Estimated requests" section stating the
   per-request token assumptions (input / cached / output) and listing requests per
-  5h / week / month per model. Use it for the assumptions and to cross-check.
-- Record `est req/5h` (plus week/month when shown) in the snapshot, with source +
-  date. When price and capability are close, prefer the model with the **higher
-  estimated request count** for the same $ limit, and report the number.
+  5h / week / month. That is the **official** estimate: the published assumption
+  structure, priced at the model's own rates.
+- The **observed** count comes from the Console bill: `c_req_observed = cost$ ÷
+  requests` over the same window. It reflects real traffic, which is usually heavier
+  in cached input than the official assumption.
+- Write both into the snapshot / report: `est req/5h` (official, with source + date)
+  and, when a bill exists, `observed $/request` plus the request count
+  (`models.<id>.billing`, `references/model-snapshot.md` §Schema v3).
+- For a tie on price and capability, prefer the higher **official** estimate per 5h
+  and say which number that is; never compare an official count against an observed
+  count as if they shared a denominator.
 
 ## Snapshot file
 
@@ -59,7 +103,9 @@ and refresh it cheaply each run — see `references/model-snapshot.md`.
 
 ## Snapshot shape
 
-`model id (opencode-go/<id>) | input $/1M | output $/1M | monthly $ limit | est. req/5h | est. req/week | est. req/month | context | reasoning | vision | status | source+date`
+`model id (opencode-go/<id>) | input $/1M | output $/1M | cached read $/1M | cached
+write $/1M | cap $ | est. req/5h | est. req/week | est. req/month | observed
+$/request | context | reasoning | vision | status | source+date`
 
 ## Failure handling
 
@@ -79,13 +125,20 @@ and refresh it cheaply each run — see `references/model-snapshot.md`.
   not lead a chain with it; use a verified alternative or mark that slot for
   manual verification.
 - **Network fully down** → stop and report that no data source is reachable;
-  never improvise numbers.
+  never improvise numbers. Offline, a dated seed may still be labelled and used
+  (`references/quota-math.md` §Degradation); with no seed either, drop to relative
+  selection only and leave the money columns empty.
 
 ## Rules
 
 - Config uses `opencode-go/<modelID>` (e.g. `opencode-go/kimi-k3`).
-- Go limits are **per-model monthly dollar amounts**; overall limits are 5h = 20% of
-  monthly, weekly = 50%, monthly = 100% ($12 / $30 / $60 at time of writing — re-check).
+- Limits are **per-model monthly dollar amounts**, each with 5h = 20% of that
+  model's monthly cap, weekly = 50%, monthly = 100%. The plan-level pool is a
+  separate, reverse-solved number (§Two quota layers). Caps change between runs —
+  re-read them, never hardcode one.
+- Prices are tiered by context length on some models and doubled during peak hours
+  on others; both live in `references/model-prices.json` and are applied by
+  `scripts/quota-math.mjs`. Never price a request from the headline $/1M alone.
 - If a number is not in a fetched source, mark it for manual verification; do not infer it.
 - The endpoint catalog ≠ what the user's key can use. Tell the user to run
   `/models` (or `opencode models --refresh`) to see their actual entitlement.
@@ -95,7 +148,11 @@ and refresh it cheaply each run — see `references/model-snapshot.md`.
 - `/go` and `/docs/go/` are rendered pages; use the markdown extraction. The usage
   table on `/go` is a **featured subset** — take the full list from `/docs/go/`.
 - `/zen/go/v1/models` returns `{ "object": "list", "data": [{ "id": "...", ... }] }`.
-- Prices live on models.dev (input/output/cached). Merge by model id.
+- Prices live on models.dev (input / output / cached read / cached write, plus
+  context-length tiers under `cost.tiers`). Merge by model id.
+- The plan page, not models.dev, owns the monthly cap, the estimated requests and
+  the peak-hours rule; those are carried in `references/model-prices.json` as
+  `capUsd`, `estReq*` and `peak`.
 - If a lab's official page is JS-rendered and `webfetch` returns empty content
   (zero word count or a high boilerplate ratio), retry with a web search scoped
   to the official domain instead of treating the empty page as "no evidence".
@@ -113,12 +170,15 @@ https://mimo.mi.com/models/mimo-v2.5 and the image-understanding docs),
 **`deepseek-flash` (DeepSeek V4.1 Flash)** and **`deepseek-v4-flash-vision-exp`**
 support image input. **Caution:** models.dev's capability flags omit modality, so
 a missing "vision" flag there is NOT evidence of text-only — always use the lab's
-own docs. DeepSeek V4.1 Flash is
-currently on a **limited-time 4× usage promo** ($15 → $60 monthly, 6,500 → 26,000
-req/5h per https://opencode.ai/go) — re-check on every run; when it ends the limit
-falls back to $15.
+own docs.
 
-Verified 2026-10-03 (incremental — the 2026-09-10 entry above still stands):
+> Superseded 2026-10-30: that entry also recorded a limited-time 4× usage promo on
+> DeepSeek V4.1 Flash ($15 → $60 monthly). Re-reading the plan page on 2026-10-30
+> showed **no 4× promo** and an **$80** monthly cap for V4.1 Flash, with peak/off-peak
+> pricing instead. Plan-page facts age fast; take them from this run's fetch, not
+> from this paragraph.
+
+Verified 2026-10-03 (incremental — the vision facts above still stand):
 
 - `mimo-v2.6-flash`, `mimo-v2.6-pro` (Xiaomi MiMo) support image input. Source:
   https://mimo.mi.com/docs/en-US/quick-start/usage-guide/multimodal-understanding/image-understanding
@@ -136,14 +196,46 @@ Verified 2026-10-03 (incremental — the 2026-09-10 entry above still stands):
   - API request model id: `deepseek-flash` — the docs say "Use `deepseek-flash`
     as the model name"; `deepseek-v4.1-flash` is a version name, NOT a
     documented API id (its acceptance is unverified).
-- Plan-level note (re-check every run; NOT a capability fact): DeepSeek now marks
-  `deepseek-v4-flash` and `deepseek-v4-flash-vision-exp` as retired; requests are
-  temporarily routed to V4.1-Flash, while the Go plan still lists and bills them
-  separately ($30 / $15 vs the $60 monthly allowance).
-- Plan-level note (re-check every run; NOT a capability fact): `deepseek-v4-pro`
-  is not vision-capable itself, and DeepSeek's announcement says that from
-  2026-09-14 all `deepseek-v4-pro` requests route to V4.1-Flash at V4.1-Flash
-  rates. Source: https://api-docs.deepseek.com/news/news260910/.
+- `deepseek-v4-pro` is not vision-capable itself. (DeepSeek's 2026-09-10
+  announcement also said v4-pro requests route to V4.1-Flash at V4.1-Flash rates;
+  that routing was **not** re-verified on 2026-10-30, when the plan page listed
+  V4 Pro with its own prices again — treat the routing as unverified.)
+
+## Capability and compliance table (geo, training, retention)
+
+Compliance facts age as fast as prices, so they are recorded here **with the date
+they were read**, and every run re-reads the plan page's Privacy table. This is the
+record from the 2026-10-30 fetch; a value not in this table is unknown, not "safe".
+
+| Model | Image input (lab docs) | Trains on your data | Retention | Availability |
+|---|---|---|---|---|
+| `deepseek-v4.1-flash` | yes (2026-10-03, lab docs) | no | 0 days, ZDR renewed monthly (agreement through 2026-10-31 at fetch time) | Global region must be selected in Settings › Privacy for requests from China |
+| `deepseek-v4-pro` | no | no | as above | as above |
+| `mimo-v2.6-flash` | yes (2026-10-03, lab docs) | no | 0 days | — |
+| `mimo-v2.6-pro` | yes (2026-10-03, lab docs) | no | 0 days | — |
+| `grok-4.7` | unverified | no | 30 days (ZDR disables the stateful Responses API) | — |
+| `gpt-6-luna` / `gpt-5.6-luna` | unverified | no | 30 days abuse-monitoring logs | — |
+| `claude-haiku-5-5` | unverified | no | 30 days | — |
+| `gemini-4-argon` | unverified | no | 0 days | price promo: 50% off through 2026-11-30 |
+| `muse-spark-1.2-contributor` | unverified | **yes** — paid-for-discount Contributor tier | not ZDR | needs "allow paid endpoints that train on request data" in Settings › Privacy; region policy applies |
+| `muse-spark-1.3-contributor` | unverified | **yes** | not ZDR | as above |
+| `iceman-contributor-free` | unverified | **yes** | not ZDR | free for a limited time |
+| `beam-free` | unverified | no | 30 days | free for a limited time; not available in a long list of excluded regions (read it from the plan page) |
+| every other Go model | unverified this run | no | 0 days | — |
+
+"unverified" means this skill has not confirmed it from the model's own lab docs —
+it is **not** a claim that the model is text-only. A vision lane needs the lab's
+confirmation, never this table's silence.
+
+**Peak pricing (DeepSeek).** The plan page publishes 01:00–04:00 and 06:00–10:00
+UTC, Monday–Friday, at 2× the off-peak rates, and `references/model-prices.json`
+carries that as `peak`. Measured 2026-10-29: a 30-day sample of messages inside
+those hours was billed at the **off-peak** rate exactly (n = 1016, per-message
+ratio 1.000), so the surcharge may have started after the sample or may not apply
+to Go routing at all. Keep the multiplier in the formula (it is the published
+price) and read the `recomputed` vs `actual` columns of
+`scripts/calibrate-usage.mjs` each run instead of assuming either way —
+`references/quota-math.md` §Formula v2.
 
 ## Limited-time usage multipliers
 

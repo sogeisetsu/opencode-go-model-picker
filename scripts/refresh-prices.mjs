@@ -66,8 +66,8 @@ const CATALOG_URL = "https://opencode.ai/zen/go/v1/models";
 const PROVIDER = "opencode-go";
 const PLAN_URL = "https://opencode.ai/docs/go/";
 // Snapshot schema version — keep in sync with references/model-snapshot.md
-// ("Schema (v2)"). Not to be confused with the price seed's own schemaVersion.
-const SNAPSHOT_SCHEMA_VERSION = 2;
+// ("Schema (v3)"). Not to be confused with the price seed's own schemaVersion.
+const SNAPSHOT_SCHEMA_VERSION = 3;
 
 function argValue(name) {
   const i = process.argv.indexOf(name);
@@ -140,17 +140,56 @@ async function fetchModelsDev() {
 
 // Plan fields are maintainer-verified: carry them through from the previous
 // seed entry when present, else keep null (planSource still the plan URL).
+// capUsd is the pricing-side name of the very same monthly cap the plan table
+// calls monthlyLimitUsd; both are carried together so no reader ever sees one
+// without the other. peak / promoUntil are plan-page facts too, so they are
+// preserved here rather than being re-fetched (models.dev does not carry them).
 function planFieldsOf(prev) {
   return {
-    monthlyLimitUsd: prev?.monthlyLimitUsd ?? null,
+    capUsd: prev?.capUsd ?? prev?.monthlyLimitUsd ?? null,
+    peak: prev?.peak ?? null,
+    monthlyLimitUsd: prev?.monthlyLimitUsd ?? prev?.capUsd ?? null,
     estReq5h: prev?.estReq5h ?? null,
     estReqWeek: prev?.estReqWeek ?? null,
     estReqMonth: prev?.estReqMonth ?? null,
     promo: prev?.promo ?? null,
+    promoUntil: prev?.promoUntil ?? null,
     status: prev?.status ?? null,
     planSource: typeof prev?.planSource === "string" ? prev.planSource : PLAN_URL,
     planVerifiedAt: prev?.planVerifiedAt ?? null,
   };
+}
+
+// Context-length price tiers are part of the price, so they come from models.dev
+// with the rest of the price rather than being maintained by hand. Shape:
+//   models.dev cost.tiers[{ tier: { type: "context", size }, input, output, cache_read, cache_write }]
+//   -> [{ overK, input, output, cacheRead, cacheWrite }]
+// A model priced for "over 200k" only through the legacy context_over_200k key
+// gets a single 200k tier. No tiers -> [] (single price for every request).
+function ctxTiersOf(cost) {
+  const tiers = [];
+  for (const tier of Array.isArray(cost?.tiers) ? cost.tiers : []) {
+    const size = num(tier?.tier?.size);
+    if (tier?.tier?.type !== "context" || size === null) continue;
+    tiers.push({
+      overK: size,
+      input: num(tier.input),
+      output: num(tier.output),
+      cacheRead: num(tier.cache_read),
+      cacheWrite: num(tier.cache_write),
+    });
+  }
+  if (!tiers.length && cost?.context_over_200k) {
+    const over = cost.context_over_200k;
+    tiers.push({
+      overK: 200000,
+      input: num(over.input),
+      output: num(over.output),
+      cacheRead: num(over.cache_read),
+      cacheWrite: num(over.cache_write),
+    });
+  }
+  return tiers.sort((a, b) => a.overK - b.overK);
 }
 
 // Build one price entry for a Go id from models.dev data. A catalog id that is
@@ -164,13 +203,18 @@ function buildEntry(id, models, now, prev) {
     inputPer1M: num(cost?.input),
     outputPer1M: num(cost?.output),
     cacheReadPer1M: num(cost?.cache_read),
+    cacheWritePer1M: num(cost?.cache_write),
     context: num(limit?.context),
     outputLimit: num(limit?.output),
+    ctxTiers: ctxTiersOf(cost),
+    capUsd: plan.capUsd,
+    peak: plan.peak,
     monthlyLimitUsd: plan.monthlyLimitUsd,
     estReq5h: plan.estReq5h,
     estReqWeek: plan.estReqWeek,
     estReqMonth: plan.estReqMonth,
     promo: plan.promo,
+    promoUntil: plan.promoUntil,
     status: plan.status,
     priceSource: MODELS_DEV_URL,
     planSource: plan.planSource,
