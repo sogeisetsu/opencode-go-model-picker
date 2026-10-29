@@ -84,9 +84,12 @@
 // at level 3 an existing plan.go is left exactly as it is — its `at` is never
 // refreshed, so a stale pool cannot look freshly calibrated — and the report
 // says planWritten: false. models.<id>.billing.source is always "local-db":
-// the per-model numbers come from the local DB, while the Console aggregate
-// (one total, no per-model split) lives only in the top-level console block;
-// "console" is reserved for a per-model Console split this CLI cannot take.
+// the per-model numbers come from the local DB. Console get_usage DOES return
+// a per-model split (top 10 models with requests + cost_usd), but no CLI flag
+// passes that split to this script — only the aggregate reaches it via
+// --console-cost / --console-requests, and that aggregate lives in the
+// top-level console block. "console" is reserved for a billing entry actually
+// fed from a per-model Console split.
 //
 // Output: default = one compact JSON object on stdout (with `storage` and
 // `planWritten`);
@@ -621,9 +624,10 @@ function buildCrossCheck(opts, pool, now) {
 // --write rules: only touch a target key when this run has at least one
 // non-null value for it; an incoming null NEVER nulls out an existing value;
 // plan.go only on a SOLVED pool (level <= 2), else left exactly as it is and
-// reported as planWritten: false; billing.source is always "local-db" (the
-// Console aggregate is not a per-model split); sources / models.<id>.price|
-// score / preferences stay intact, and schemaVersion is raised to 3 by the
+// reported as planWritten: false; billing.source is always "local-db" (no
+// per-model Console split is passed to this script); sources /
+// models.<id>.price|score / preferences stay intact, and schemaVersion is
+// raised to 3 by the
 // caller only when a v3 key was actually written (never lowered — see
 // model-snapshot.md "Backward compatibility"). Returns { touched, planWritten }.
 function applySnapshotWrites(snap, opts, ctx) {
@@ -655,10 +659,11 @@ function applySnapshotWrites(snap, opts, ctx) {
     planWritten = true;
   }
 
-  // Per-model billing comes from the local DB: the Console aggregate is ONE
-  // total, not a per-model split — the aggregate stays in the top-level
-  // console block (the bias already uses it); "console" would only be valid
-  // for a per-model Console split, which this CLI has no flag for.
+  // Per-model billing comes from the local DB. Console get_usage can return a
+  // per-model split, but no flag of this CLI passes that split in — only the
+  // aggregate (--console-cost / --console-requests), and it stays in the
+  // top-level console block (the bias already uses it). "console" stays
+  // reserved for an entry actually fed from a per-model Console split.
   for (const [id, m] of Object.entries(byModel)) {
     const observed = m.costPerRequestUsd; // per model, from the DB; null when unpriced
     if (observed === null && m.requests === null && m.costUsd === null) continue;

@@ -60,9 +60,12 @@ anything else OpenCode ships). Columns exactly:
   the plan page's estimate, observed from the Console bill or the local DB. Both
   appear or the cell is `-`: one alone is a half-truth
   (`references/quota-math.md` §Derived quantities).
-- **accounted $/session** — the session cost from the shared formula, median first,
-  P90 second (`0.0123 · 0.0456`). The P90 is there because the median hides the
-  long tail; never print only one of them.
+- **accounted $/session** — the session cost, median first, P90 second
+  (`0.0123 · 0.0456`). The per-message cost comes from the provider's own reported
+  figure when the run has it (local DB / Console), and from the shared formula when
+  it does not; `calibrate-usage.mjs` prints both (`cost$` vs `recomputed$`) so a
+  divergence is visible instead of hidden. The P90 is there because the median
+  hides the long tail; never print only one of them.
 - **share of model cap %** — `C ÷ cap` for the same session.
 - **10 runs as % of 5h · week · month** — three **independent** window shares of
   the plan pool, e.g. `3.1 · 1.2 · 0.6`. Never sum them, never print a combined
