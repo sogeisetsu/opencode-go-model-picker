@@ -1,1 +1,0 @@
-{ "mcp": { "some-other-server": { "type": "local", "command": ["echo", "hi"] } } }
