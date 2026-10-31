@@ -21,8 +21,8 @@ magnitude less text**. Measured against the 2.0.0 tag:
 | Lines | 1,776 | 168 | **10.6× fewer** (−91%) |
 | Estimated tokens | ≈27,400 | ≈2,200 | **≈25,200 saved per full read** |
 | `SKILL.md` alone | 18,804 chars ≈4,900 tok | 4,221 chars ≈1,100 tok | −78% |
-| Runnable entry points | 9 scripts | 1 (`go.mjs`) | −8 |
-| Minimal install zip | 128,802 B | 89,203 B | −31% |
+| Runnable entry points | 9 runtime scripts (11 with maintainer tools) | 1 (`go.mjs`) | −8 runtime |
+| Minimal install zip | 128,802 B | 89,158 B | −31% |
 
 A typical 2.0.0 run loaded `SKILL.md` plus two or three references (≈11–15k
 tokens); the same run now loads 8.3k characters, about 2.2k tokens — roughly

@@ -128,7 +128,7 @@ async function runVerb(argv, io) {
     if (argValue(argv, "--config")) probeArgs.push("--config", argValue(argv, "--config"));
     consoleState = (await probeConsole(probeArgs)).output;
   } catch (err) {
-    consoleState = { state: "unknown", evidence: [String(err.message ?? err)], guidanceKey: "console-mcp#unknown" };
+    consoleState = { state: "unknown", evidence: [String(err.message ?? err)], guidanceKey: "plan-facts#console-unknown" };
   }
 
   let usage;
