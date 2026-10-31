@@ -24,7 +24,7 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { stripBom } from "./json-io.mjs";
+const stripBom = (text) => (text.charCodeAt(0) === 0xfeff ? text.slice(1) : text);
 
 // Nested key under `metadata:` in the SKILL.md frontmatter, e.g.
 //     metadata:

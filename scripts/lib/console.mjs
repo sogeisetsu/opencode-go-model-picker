@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // opencode-go-model-picker — detect the OpenCode Console MCP state (read-only, no tokens printed).
 // Copyright (C) 2026 sogeisetsu
 //
@@ -18,7 +17,7 @@
 // You should have received a copy of the GNU General Public License along with
 // this program. If not, see <https://www.gnu.org/licenses/>.
 //
-// Five states, decided from the cheapest evidence first (references/console-mcp.md
+// Five states, decided from the cheapest evidence first (references/plan-facts.md
 // is the authoritative copy table; this script only names the state):
 //
 //   authorized      the in-run tool returned a non-empty cost_usd (real bill)
@@ -37,7 +36,7 @@
 // response bodies are cut to a short, header-free snippet.
 //
 // Usage:
-//   node scripts/probe-console.mjs [--tool-status <authorized|gated|unauthorized|absent|unknown>]
+//   node scripts/go.mjs run [--tool-status <authorized|gated|unauthorized|absent|unknown>]
 //                                  [--tool-cost-usd <usd>] [--config <file>] [--url <url>]
 //                                  [--no-probe] [--no-mcp-list] [--json] [--help]
 //   --tool-status / --tool-cost-usd  what the console.get_usage call in THIS run
@@ -56,7 +55,8 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { stripBom } from "./lib/json-io.mjs";
+import { stripBom } from "./json-io.mjs";
+import { UsageError, makeIo } from "./io.mjs";
 
 const DEFAULT_URL = "https://opencode.ai/console/mcp";
 const CONSOLE_NAMES = new Set(["console", "opencode_console", "opencode-console", "opencode go"]);
@@ -64,7 +64,7 @@ const PROBE_TIMEOUT_MS = 8000;
 const SNIPPET_MAX = 240;
 
 const USAGE = [
-  "Usage: node scripts/probe-console.mjs [--tool-status <state>] [--tool-cost-usd <usd>]",
+  "Usage: node scripts/go.mjs run [--tool-status <state>] [--tool-cost-usd <usd>]",
   "                                       [--config <file>] [--url <url>] [--no-probe]",
   "                                       [--mcp-list <file>] [--no-mcp-list] [--json] [--help]",
   "  --mcp-list <file>  read a saved `opencode mcp list` output instead of running the CLI (fixtures)",
@@ -326,22 +326,18 @@ function decide({ toolStatus, toolCostUsd, config, mcpList, probe }) {
   return { state: "unknown", evidence };
 }
 
-async function main() {
-  const argv = process.argv.slice(2);
-  if (has(argv, "--help") || has(argv, "-h")) {
-    process.stdout.write(`${USAGE}\n`);
-    return;
-  }
+// Detection only: returns the state object (and never writes to stdout) so the
+// `run` pipeline can consume it without parsing its own output.
+export async function probeConsole(argv = []) {
+  if (has(argv, "--help") || has(argv, "-h")) return { exitCode: 0, help: USAGE };
   const toolStatus = argValue(argv, "--tool-status");
   if (toolStatus !== undefined && !STATES.includes(toolStatus)) {
-    process.stderr.write(`Unknown --tool-status ${toolStatus} (expected ${STATES.join("|")})\n`);
-    process.exit(2);
+    throw new UsageError(`Unknown --tool-status ${toolStatus} (expected ${STATES.join("|")})`);
   }
   const costRaw = argValue(argv, "--tool-cost-usd");
   const toolCostUsd = costRaw === undefined ? null : Number(costRaw);
   if (toolCostUsd !== null && !Number.isFinite(toolCostUsd)) {
-    process.stderr.write("--tool-cost-usd must be a number\n");
-    process.exit(2);
+    throw new UsageError("--tool-cost-usd must be a number");
   }
 
   const config = scanConfig(argValue(argv, "--config"));
@@ -360,26 +356,44 @@ async function main() {
     decision = decide({ toolStatus, toolCostUsd, config, mcpList, probe });
   }
   delete decision.needsProbe;
-  const output = {
-    state: decision.state,
-    guidanceKey: `console-mcp#${decision.state}`,
-    evidence: decision.evidence,
-    server: config.found[0]
-      ? {
-          name: config.found[0].name,
-          url: configuredUrl,
-          source: config.found[0].file,
-          hasAuth: config.found[0].hasAuth,
-          enabled: config.found[0].enabled,
-        }
-      : null,
-    probe,
-    mcpList,
-    checkedAt: new Date().toISOString(),
+  return {
+    exitCode: 0,
+    output: {
+      state: decision.state,
+      guidanceKey: `console-mcp#${decision.state}`,
+      evidence: decision.evidence,
+      server: config.found[0]
+        ? {
+            name: config.found[0].name,
+            url: configuredUrl,
+            source: config.found[0].file,
+            hasAuth: config.found[0].hasAuth,
+            enabled: config.found[0].enabled,
+          }
+        : null,
+      probe,
+      mcpList,
+      checkedAt: new Date().toISOString(),
+    },
   };
-  process.stdout.write(`${JSON.stringify(output)}\n`);
 }
 
-main().catch((err) => {
-  process.stdout.write(`${JSON.stringify({ state: "unknown", error: String(err?.message ?? err) })}\n`);
-});
+export async function consoleCli(argv = [], io = {}) {
+  const streams = makeIo(io);
+  try {
+    const result = await probeConsole(argv);
+    if (result.help) {
+      streams.stdout.write(`${result.help}\n`);
+      return 0;
+    }
+    streams.stdout.write(`${JSON.stringify(result.output)}\n`);
+    return result.exitCode;
+  } catch (err) {
+    if (err instanceof UsageError) {
+      streams.stderr.write(`${err.message}\n`);
+      return 2;
+    }
+    streams.stdout.write(`${JSON.stringify({ state: "unknown", error: String(err?.message ?? err) })}\n`);
+    return 0;
+  }
+}

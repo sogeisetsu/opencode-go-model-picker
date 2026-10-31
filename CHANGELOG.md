@@ -7,14 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [Chinese version](zh/CHANGELOG-ZH.md)
 
-## [Unreleased]
+## [3.0.0] - 2026-11-01
+
+### Breaking
+
+- **One entry point.** `scripts/go.mjs` replaces eleven scripts — `discover-agents`,
+  `probe-console`, `calibrate-usage`, `quota-math`, `refresh-snapshot`,
+  `refresh-prices`, `refresh-scores`, `snapshot-summary` and `fetch-go-models` are
+  gone. Four verbs: `run` (agents → Console → usage → refresh → plan diff → basis,
+  one serial pass, one `run.json`), `report` (table, money columns, config blocks),
+  `check` (the gate before delivery), `apply` (exact diff; writes only with
+  `--write`, only the named file, only that agent's `model` value).
+- **One reference.** `references/plan-facts.md` replaces `quota-math.md`,
+  `model-snapshot.md`, `data-sources.md`, `agent-sources.md`, `console-mcp.md` and
+  `output-format.md`. `SKILL.md` drops from ~19k to ~4k characters and is
+  model-facing only; teaching moved to the READMEs.
+- **Code over prose.** The refresh order (three writers, one snapshot file), the
+  `Basis:` line and its denominator, the priced `$/session` column, chain-shape
+  rules, seed staleness, mode resolution and the apply diff are computed, not
+  described. The nine self-checks became `go.mjs check`.
+- `apply` refuses a chain containing a dead id and refuses to write a result that
+  does not re-parse.
+
+### Added
+
+- `node --test tests/*.test.mjs` (built-in `node:test`, no dependencies):
+  `tests/golden/` holds outputs captured from the 2.0.0 scripts and covers pricing,
+  discovery and the five Console states; CLI tests cover offline degradation, the
+  report gate, and dry-run versus `--write`.
+- `run --offline` always produces a dated, seed-labelled `run.json`; `data.quality`
+  says `live` / `seed` / `none` instead of leaving the reader to infer it.
 
 ### Changed
 
+- `scripts/check-docs.mjs` and `scripts/generate-assets.mjs` moved to `tools/`:
+  they maintain the repository, not the skill, and are not part of the minimal
+  install.
 - Moved `test-prompts.json` to `tests/prompts.json` and documented it in the
   repository layout: it is an evaluation fixture (a request paired with the
-  behaviour the skill must exhibit), not a runtime asset — nothing loads it, and
-  it previously sat in the root with no explanation.
+  behaviour the skill must exhibit), not a runtime asset — nothing loads it.
 
 ## [2.0.0] - 2026-10-30
 

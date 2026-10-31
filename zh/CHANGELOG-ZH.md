@@ -6,11 +6,24 @@
 
 [英文版](../CHANGELOG.md)
 
-## [未发布]
+## [3.0.0] - 2026-11-01
+
+### 破坏性变更
+
+- **单一入口。** `scripts/go.mjs` 取代了十一个脚本——`discover-agents`、`probe-console`、`calibrate-usage`、`quota-math`、`refresh-snapshot`、`refresh-prices`、`refresh-scores`、`snapshot-summary`、`fetch-go-models` 全部移除。四个动词：`run`（盘点 agent → 探 Console → 读本地用量 → 刷数据 → 比套餐变化 → 定 Basis，一次串行产出 `run.json`）、`report`（表格、金额列、配置块）、`check`（交付前的机检闸门）、`apply`（精确 diff；只有带 `--write` 才写，只写用户点名的那个文件，只改该 agent 的 `model`）。
+- **一份 reference。** `references/plan-facts.md` 取代 `quota-math.md`、`model-snapshot.md`、`data-sources.md`、`agent-sources.md`、`console-mcp.md` 与 `output-format.md`。`SKILL.md` 从约 19k 字符降到约 4k，只面向模型；教学性内容移入 README。
+- **能写进代码的就不写进散文。** 刷新顺序（三个写入者共用一个快照文件）、`Basis:` 行与分母、计价 `$/session` 列、回退链形状规则、种子过期判定、模式决议与 apply 的 diff 全部由代码计算。原来的九条自查变成 `go.mjs check`。
+- `apply` 会拒绝包含死 id 的链，也会拒绝写入一个无法重新解析的结果。
+
+### 新增
+
+- `node --test tests/*.test.mjs`（内置 `node:test`，不引入任何依赖）：`tests/golden/` 保存了从 2.0.0 脚本录制的金标，覆盖计价、agent 盘点与 Console 五态；CLI 测试覆盖离线降级、报告闸门，以及 dry-run 与 `--write` 的差别。
+- `run --offline` 始终产出自带日期、标注为 seed 的 `run.json`；`data.quality` 直接给出 `live` / `seed` / `none`，不再让读者自己推断。
 
 ### 已变更
 
-- 把 `test-prompts.json` 移到 `tests/prompts.json`，并在仓库结构表里说明它是什么：它是评测夹具（把一句请求与技能必须表现出的行为配对），不是运行时资产——没有任何代码加载它，此前它孤零零地放在根目录且无任何说明。
+- `scripts/check-docs.mjs` 与 `scripts/generate-assets.mjs` 移到 `tools/`：它们维护仓库，不属于技能运行时，也不进最小安装包。
+- 把 `test-prompts.json` 移到 `tests/prompts.json`，并在仓库结构表里说明它是评测夹具（一句请求配一段技能必须表现出的行为），不是运行时资产——没有任何代码加载它。
 
 ## [2.0.0] - 2026-10-30
 

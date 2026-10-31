@@ -77,16 +77,15 @@ still works — it just recommends a single model for those agents.
   - `oh-my-opencode-slim` is **optional**. It is only one of the supported
     sources; if you happen to use it, the skill treats its installed schema as the
     source of truth.
-- **Node.js 18+**, only for the helper scripts (tested on Node 22). Behind a
-  proxy the refresh scripts need Node 24+ or a 22.x build that backported
-  `NODE_USE_ENV_PROXY` (verified on 22.23.1) — otherwise fetch bypasses the proxy
-  and a script says so on stderr. `scripts/calibrate-usage.mjs` additionally needs
-  `node:sqlite` (Node 22.5+); without it that one script reports the gap and the
-  skill stays on its local-only fallback.
+- **Node.js 22+**, for the single entry point (tested on Node 22.23.1). The local
+  usage read uses `node:sqlite`; on a runtime without it the run reports the gap
+  and continues on the price seed. Behind a proxy the network steps need Node 24+
+  or a 22.x build that backported `NODE_USE_ENV_PROXY` (22.23.1 is verified) —
+  otherwise fetch bypasses the proxy and the run says so on stderr.
 - **Optional: the OpenCode Console MCP.** Not required to get recommendations, but
   it is the only authoritative source for what you actually spent. Without it the
   report labels its money an estimate and tells you which numbers cannot be
-  trusted (`references/console-mcp.md`).
+  trusted (`references/plan-facts.md`).
 
 ## Installation
 
@@ -127,10 +126,10 @@ only uses `SKILL.md`, `references/`, and `scripts/`. Copy just those three into
 `~/.config/opencode/skills/opencode-go-model-picker/` and skip the rest (README,
 LICENSE, `assets/`, `zh/`, …) — they are documentation only.
 
-Then check that the helper script runs:
+Then check that the entry point runs:
 
 ```bash
-node scripts/fetch-go-models.mjs   # prints { fetchedAt, source, count, ids }
+node scripts/go.mjs --help
 ```
 
 ### Let an AI agent install it
@@ -147,8 +146,8 @@ Install the "OpenCode Go Model Picker" skill for me.
    - references/
    - scripts/
 3. Do not copy the rest of the repo (README, LICENSE, assets, ...).
-4. Verify by running "node scripts/fetch-go-models.mjs" inside the installed
-   folder and confirming it prints JSON.
+4. Verify by running "node scripts/go.mjs --help" inside the installed folder and
+   confirming it prints the four verbs.
 5. Tell me the install path and whether it worked.
 ```
 
@@ -206,7 +205,7 @@ or `Basis: Estimate (official unit price × median tokens, high by about N×)`, 
    occupancy, and why.
 2. **Usage evidence** — spend and requests for the last 30 days, the last 7 days
    with a month-end projection, candidates without an ELO rating (`n/m` plus
-   ids), dead chain ids from `scripts/discover-agents.mjs`, and the main agents'
+   ids), dead chain ids from the run's `deadChainIds`, and the main agents'
    share of spend (share only; they are never re-assigned).
 3. **Paste-ready config** — a complete copy-pasteable JSONC block per detected
    source: `oh-my-opencode-slim.json` for the slim preset, `opencode.jsonc` for a
@@ -226,40 +225,29 @@ The skill then **stops and asks** before applying anything.
 
 ## How it works
 
-The skill is a set of instructions (`SKILL.md`) plus references it loads only when
-needed. A typical run goes like this:
+The skill is a single entry point (`scripts/go.mjs`) plus one reference the model
+reads for judgement calls. A run is three steps:
 
-1. **Find your agents** (read-only) — native agents in `opencode.jsonc` or
-   `~/.config/opencode/agents/*.md`, `oh-my-opencode-slim` presets, and any other
-   plugin source you declare. The details live in
-   [`references/agent-sources.md`](references/agent-sources.md), including the
-   dead-chain-id and same-model-contention checks.
-2. **Probe the Console** — `scripts/probe-console.mjs` decides between five states
-   (`authorized` / `gated` / `unauthenticated` / `absent` / `unknown`) from the
-   cheapest evidence first: what the run's own Console tools returned, then the
-   host's `opencode mcp list`, then the config, and only then one `initialize`
-   request. See [`references/console-mcp.md`](references/console-mcp.md).
-3. **Read the bill and calibrate** — with a real `cost_usd`, the spend, requests
-   and pool percentage go through `scripts/calibrate-usage.mjs`, which stores the
-   DB-vs-Console bias, the reverse-solved pool and the per-agent split in the
-   snapshot. That is what turns a percentage into an authoritative one.
-4. **Refresh its model snapshot** — `scripts/refresh-snapshot.mjs` fetches the
-   live catalog and returns a compact added/removed diff. LMArena ability scores
-   come from a committed seed (`references/model-scores.json`) when it still
-   matches the latest LMArena boards; otherwise `scripts/refresh-scores.mjs`
-   fetches them. No key and no browser are involved. A brand-new model is always
-   looked up right away.
-5. **Check the plan** — prices and limits are read from the current plan pages and
-   compared with the cache; only the added or changed models get a deeper
-   capability check.
-6. **Pick a model per agent** by role trait, with overrides for known roles, and
-   price every candidate through the single formula in
-   [`references/quota-math.md`](references/quota-math.md) /
-   `scripts/quota-math.mjs` — context tiers and peak hours included.
-7. **Build fallback chains** — an ordered `model: [a, b, c]` failover list (2–4
-   entries).
-8. **Write the report**, run the nine self-checks, and ask for confirmation before
-   touching your config.
+```bash
+node scripts/go.mjs run --out run.json       # agents, Console, usage, data, diff, basis
+node scripts/go.mjs report --run run.json --picks picks.json --out report.md
+node scripts/go.mjs check report.md --run run.json
+node scripts/go.mjs apply --run run.json --picks picks.json --target <file>   # diff only
+```
+
+1. **`run`** discovers custom agents (native, `oh-my-opencode-slim`, plugin),
+   probes the Console state, reads the local usage DB, refreshes catalog, prices
+   and scores **in one serial pass**, diffs the plan against the previous snapshot
+   and decides the `Basis:` line. Every step degrades instead of failing: offline
+   runs use the dated seeds, a missing DB or Console is reported, a stale seed is
+   labelled `EXPIRED`. The output is one `run.json` with a source and date for
+   every number.
+2. **The model decides** — a 2–4 entry chain and a one-sentence `why` per agent.
+   It verifies capabilities (vision above all) in the model's own lab docs and
+   keeps the per-model cap separate from the plan pool.
+3. **`report` renders the table, money columns and config blocks; `check` gates
+   it; `apply` prints the exact diff and writes only the file the user names,
+   only after confirmation.**
 
 A few details worth knowing:
 
@@ -271,13 +259,12 @@ A few details worth knowing:
   one is capped — which is why the first fallback is often another Go model.
 - **Price is not one number.** Some models are priced by context-length tier, some
   double in peak hours (per message timestamp, not per session), and some bill
-  cache writes. One formula in `references/quota-math.md`, implemented once in
-  `scripts/quota-math.mjs`, applies all of it — and reports anything it had to
+  cache writes. One implementation prices all of it and reports anything it had to
   assume.
 - **Same $ limit ≠ same throughput.** Models burn different numbers of tokens per
   request, so the plan's estimated request counts matter as much as the dollar
   limit. The report prints the official estimate *and*, when a bill exists, the
-  observed cost per request — never one without the other.
+  observed count — never one without the other.
 - **It flags the fine print.** Limited-time multipliers (with the base limit they
   fall back to), geo-restricted models, and "Contributor" tiers that train on your
   prompts and completions are called out — the last one is opt-in and never
@@ -285,58 +272,38 @@ A few details worth knowing:
 - **Fallback chains depend on your tool.** An array like `model: ["a", "b", "c"]`
   is an ordered failover chain in `oh-my-opencode-slim` (key names and behavior can
   differ between builds — your installed `oh-my-opencode-slim.schema.json` is the
-  authority). If every entry fails, the session aborts, so the
-  chain should end on a model you can rely on. Agents defined directly in OpenCode
-  take a single `model` (no chain), so there the skill recommends one model and
-  says so. Any other tool that supports chains works just as well — using
-  `oh-my-opencode-slim` is only a suggestion, not a requirement.
+  authority). Agents defined directly in OpenCode take a single `model` (no chain),
+  so there the skill recommends one model and says so.
 - **Capabilities come from the lab, not the name.** The skill verifies a model's
   abilities in its own lab documentation, never infers them from the model ID.
-  This matters most for **vision** input, which vision-capable agents (such as
-  `observer`) need.
-- **Ability scores ship with the skill.** A committed LMArena seed
-  (`references/model-scores.json`) means the first run does not have to fetch and
-  match the leaderboards. It is reused only while its board dates still match
-  LMArena's latest release; `null` scores are left unfilled rather than guessed.
-  The scores are LMArena Arena ELO ratings (`overall` / `coding` / `vision`), not
-  0–100, and LMArena has no cost column, so cost stays `null`.
-- **Prices ship with the skill too.** A committed price seed
-  (`references/model-prices.json`) keeps per-model prices readable offline when
-  the plan pages cannot be fetched. Only a live read counts as current, and a
-  seed value is always reported with its date.
-- **Failure paths are explicit.** A failed refresh script — or two of them writing
-  the snapshot concurrently — is re-run serially and the result read back. If the
-  catalog or network is unreachable, the skill falls back to the snapshot cache and
-  the committed, dated seeds and labels every value with that date. A non-Go
-  fallback id is verified against the local model registry's `status` before being
-  recommended, and with no data source reachable it stops rather than inventing
-  numbers.
-- **It saves tokens.** A cached snapshot at
-  `~/.cache/opencode/opencode-go-model-picker/snapshot.json` holds the normalized
-  catalog and scores, so each run re-fetches and re-verifies only what changed.
-  The cache never replaces a source — every value keeps its source and fetch date.
-  See [`references/model-snapshot.md`](references/model-snapshot.md).
+  This matters most for **vision** input.
+- **Ability scores and prices ship with the skill.** Two committed seeds
+  (`references/model-scores.json`, `references/model-prices.json`) keep the first
+  run offline-capable. A seed is reused only while its dates still match upstream,
+  is always labelled as a seed, and `null` is left unfilled rather than guessed.
+- **Failure paths are explicit.** An unreachable catalog or network falls back to
+  the snapshot cache and the dated seeds; with no data source at all the run says
+  `data.quality: none` instead of inventing numbers.
 
 ### Where the detail lives
 
-| Reference | Read it for |
+| Read | For |
 |---|---|
-| [`references/quota-math.md`](references/quota-math.md) | the one pricing formula: context tiers, peak hours, derived quantities, pool reverse-solving, windows, known gaps, calibration constants |
-| [`references/console-mcp.md`](references/console-mcp.md) | the five Console states, detection order, per-state guidance copy, the three-level fallback, enabling steps |
-| [`references/output-format.md`](references/output-format.md) | the report: basis line, priced columns, usage evidence, the nine self-checks |
-| [`references/model-snapshot.md`](references/model-snapshot.md) | the cache: schema v3, refresh policy, key ownership, offline fallbacks |
+| [`references/plan-facts.md`](references/plan-facts.md) | plan facts, Console states and fallbacks, capability verification, the risks to flag |
+| `scripts/go.mjs --help` | the four verbs and their flags |
+| [`SKILL.md`](SKILL.md) | what the model is asked to do |
 
 ## Data sources
 
-Fetched fresh every run. Full details and parsing notes are in
-[`references/data-sources.md`](references/data-sources.md).
+Fetched fresh every run when the network allows; the committed seeds cover offline
+runs. Facts and fallbacks: [`references/plan-facts.md`](references/plan-facts.md).
 
 | Priority | Source | URL | Gives |
 |---|---|---|---|
-| 0 | Console MCP (optional) | https://opencode.ai/console/mcp | authoritative `cost_usd` / requests / tokens, per-model split, budget policies — see [`references/console-mcp.md`](references/console-mcp.md) |
+| 0 | Console MCP (optional) | https://opencode.ai/console/mcp | authoritative `cost_usd` / requests / tokens, per-model split, budget policies |
 | 1 | Go landing page | https://opencode.ai/go | latest promos + featured usage table with estimated requests per 5h |
 | 2 | Go docs | https://opencode.ai/docs/go/ | full model / price / monthly-limit table + estimated requests |
-| 3 | Models endpoint | https://opencode.ai/zen/go/v1/models | live catalog ids (via `scripts/fetch-go-models.mjs`) |
+| 3 | Models endpoint | https://opencode.ai/zen/go/v1/models | live catalog ids |
 | 4 | models.dev | https://models.opencode.ai/providers/opencode-go/ | context / output / price / capabilities |
 | 5 | julien.cloud tracker | https://julien.cloud/opencode-go-models/ | merged view + price-change / deprecation log |
 | 6 | LMArena | https://lmarena.ai/ ([dataset](https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset) via the HF datasets-server) | Arena ELO: overall / coding / vision (committed seed; no key, no browser) |
@@ -404,5 +371,4 @@ dashboard generator
 [`code-yeongyu/oh-my-openagent#1768`](https://github.com/code-yeongyu/oh-my-openagent/issues/1768).
 Official Go data sources plus `oh-my-opencode-slim`'s static per-agent role
 guidance are reused here. The skill was later generalized from
-`oh-my-opencode-slim`-only to any OpenCode agent source — see
-[`references/agent-sources.md`](references/agent-sources.md).
+`oh-my-opencode-slim`-only to any OpenCode agent source.

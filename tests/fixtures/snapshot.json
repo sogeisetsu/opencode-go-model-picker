@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 3,
+  "sources": {
+    "catalog": { "url": "https://opencode.ai/zen/go/v1/models", "fetchedAt": "2026-10-29T21:00:00.000Z", "count": 9 },
+    "prices": { "url": "https://models.dev/api.json", "fetchedAt": "2026-10-29T21:00:00.000Z", "priced": 6, "total": 9 },
+    "rankings": {
+      "fetchedAt": "2026-10-29T21:00:00.000Z",
+      "publishDates": { "overall": "2026-10-20", "coding": "2026-10-20", "vision": "2026-10-18" }
+    }
+  },
+  "preferences": { "mode": "balanced", "answers": {}, "chosenAt": "2026-10-29T21:05:00.000Z" },
+  "models": {
+    "deepseek-v4.1-flash": {
+      "inputPer1M": 0.15,
+      "outputPer1M": 0.6,
+      "monthlyLimitUsd": 40,
+      "estReq5h": 900,
+      "context": 256000,
+      "reasoning": true,
+      "vision": false,
+      "score": { "coding": 1240, "overall": 1255 },
+      "status": "active"
+    },
+    "qwen3.8-flash": {
+      "inputPer1M": 0.1,
+      "outputPer1M": 0.4,
+      "monthlyLimitUsd": 25,
+      "estReq5h": 1400,
+      "context": 131072,
+      "reasoning": false,
+      "vision": false,
+      "score": { "coding": 1190, "overall": 1205 },
+      "status": "active"
+    },
+    "kimi-k2.7-code": {
+      "inputPer1M": 0.35,
+      "outputPer1M": 1.4,
+      "monthlyLimitUsd": 60,
+      "estReq5h": 500,
+      "context": 262144,
+      "reasoning": true,
+      "vision": false,
+      "score": { "coding": 1290, "overall": 1260 },
+      "status": "active"
+    },
+    "gemini-4-argon": {
+      "inputPer1M": 1.1,
+      "outputPer1M": 4.4,
+      "monthlyLimitUsd": 30,
+      "estReq5h": 260,
+      "context": 1048576,
+      "reasoning": true,
+      "vision": true,
+      "score": { "coding": 1270, "overall": 1290 },
+      "status": "active"
+    },
+    "gpt-6-luna": {
+      "inputPer1M": 1.6,
+      "outputPer1M": 6.4,
+      "monthlyLimitUsd": 20,
+      "estReq5h": 180,
+      "context": 400000,
+      "reasoning": true,
+      "vision": true,
+      "score": { "coding": 1320, "overall": 1330 },
+      "status": "active"
+    },
+    "hy3": {
+      "inputPer1M": 0,
+      "outputPer1M": 0,
+      "monthlyLimitUsd": 5,
+      "estReq5h": 2000,
+      "context": 131072,
+      "reasoning": false,
+      "vision": false,
+      "score": {},
+      "status": "active"
+    },
+    "retired-model": { "status": "retired" }
+  }
+}

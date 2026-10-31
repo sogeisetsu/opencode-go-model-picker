@@ -28,7 +28,7 @@
 // version the variable may or may not be honored — and when it is not, the fetch
 // silently bypasses the proxy and looks exactly like a network failure — so say
 // so instead of letting the caller misdiagnose it
-// (references/data-sources.md §Failure handling).
+// (references/plan-facts.md §Failure handling).
 
 import { spawnSync } from "node:child_process";
 

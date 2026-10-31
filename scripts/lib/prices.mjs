@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // opencode-go-model-picker — build the OpenCode Go price seed / merge prices into a snapshot.
 // Copyright (C) 2026 sogeisetsu
 //
@@ -41,23 +40,23 @@
 // fetches live instead.
 //
 // Usage:
-//   node scripts/refresh-prices.mjs                     # write references/model-prices.json
-//   node scripts/refresh-prices.mjs --out <seed.json>
-//   node scripts/refresh-prices.mjs --snapshot <snap.json>
+//   node scripts/go.mjs run                     # write references/model-prices.json
+//   node scripts/go.mjs run --out <seed.json>
+//   node scripts/go.mjs run --snapshot <snap.json>
 //     # user path: reuse the committed seed when its upstream last_updated dates
 //     # are still current, else fetch and merge fresh prices into the snapshot.
-//   node scripts/refresh-prices.mjs --seed <seed.json>   # override the seed path
-//   node scripts/refresh-prices.mjs --no-env-proxy
+//   node scripts/go.mjs run --seed <seed.json>   # override the seed path
+//   node scripts/go.mjs run --no-env-proxy
 //
 // Exit code: 1 on error, else 0.
 
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readJsonFile, writeJsonFileAtomic } from "./lib/json-io.mjs";
-import { maybeReexec } from "./lib/proxy.mjs";
+import { readJsonFile, writeJsonFileAtomic } from "./json-io.mjs";
+import { maybeReexec } from "./proxy.mjs";
+import { FailError, makeIo } from "./io.mjs";
 
-maybeReexec();
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -65,25 +64,28 @@ const MODELS_DEV_URL = "https://models.dev/api.json";
 const CATALOG_URL = "https://opencode.ai/zen/go/v1/models";
 const PROVIDER = "opencode-go";
 const PLAN_URL = "https://opencode.ai/docs/go/";
-// Snapshot schema version — keep in sync with references/model-snapshot.md
+// Snapshot schema version — keep in sync with references/plan-facts.md
 // ("Schema (v3)"). Not to be confused with the price seed's own schemaVersion.
 const SNAPSHOT_SCHEMA_VERSION = 3;
 
-function argValue(name) {
-  const i = process.argv.indexOf(name);
-  return i >= 0 ? process.argv[i + 1] : undefined;
+function parseOpts(argv) {
+  const value = (name) => {
+    const i = argv.indexOf(name);
+    return i >= 0 ? argv[i + 1] : undefined;
+  };
+  return {
+    snapshotArg: value("--snapshot"),
+    outArg: value("--out"),
+    seedPath: value("--seed") ?? join(root, "references", "model-prices.json"),
+    defaultSnapshot: join(
+      homedir(),
+      ".cache",
+      "opencode",
+      "opencode-go-model-picker",
+      "snapshot.json"
+    ),
+  };
 }
-
-const snapshotArg = argValue("--snapshot");
-const outArg = argValue("--out");
-const seedPath = argValue("--seed") ?? join(root, "references", "model-prices.json");
-const defaultSnapshot = join(
-  homedir(),
-  ".cache",
-  "opencode",
-  "opencode-go-model-picker",
-  "snapshot.json"
-);
 
 async function request(url) {
   let lastErr;
@@ -251,28 +253,27 @@ function seedIsCurrent(seed, goIds, models) {
 
 const hasPrice = (entry) => typeof entry?.inputPer1M === "number";
 
-const now = new Date().toISOString();
-
-async function main() {
+export async function refreshPrices(argv = [], io = {}) {
+  const { stderr } = makeIo(io);
+  const { snapshotArg, outArg, seedPath, defaultSnapshot } = parseOpts(argv);
+  const now = new Date().toISOString();
   const goIds = await fetchCatalog();
 
   if (snapshotArg) {
     const snapshotPath = snapshotArg === "true" ? defaultSnapshot : snapshotArg;
     const loaded = readJsonFile(snapshotPath);
     if (loaded.error) {
-      console.error(
-        `Error: cannot read ${snapshotPath}: ${loaded.error}\n` +
+      throw new FailError(
+        `cannot read ${snapshotPath}: ${loaded.error}\n` +
           "The snapshot also stores user state (preferences.mode), so it is not overwritten " +
-          "automatically. Fix the JSON, or run refresh-snapshot.mjs --rebuild to start over.",
+          "automatically. Fix the JSON, or pass rebuild to start over.",
       );
-      process.exit(1);
     }
     const snapshot = loaded.missing
       ? { schemaVersion: SNAPSHOT_SCHEMA_VERSION, sources: {}, models: {} }
       : loaded.value;
     if (typeof snapshot !== "object" || snapshot === null || Array.isArray(snapshot)) {
-      console.error(`Error: ${snapshotPath} root value is not a JSON object.`);
-      process.exit(1);
+      throw new FailError(`${snapshotPath} root value is not a JSON object.`);
     }
     snapshot.models ??= {};
     snapshot.sources ??= {};
@@ -288,7 +289,7 @@ async function main() {
       for (const id of goIds) entries[id] = prevSeed.models[id];
       seedUsed = true;
     } else {
-      console.error("Committed price seed is not current; fetching live prices…");
+      stderr.write("Committed price seed is not current; fetching live prices…\n");
       entries = buildEntries(goIds, models, now, prevSeed?.models ?? {});
     }
 
@@ -322,21 +323,14 @@ async function main() {
       (nullUpstreamIds.length
         ? `; ${nullUpstreamIds.length} null upstream (${nullUpstreamIds.join(", ")})`
         : "; no null upstream");
-    process.stdout.write(
-      JSON.stringify(
-        {
-          out: snapshotPath,
-          summary,
-          seedUsed,
-          priced,
-          total,
-          nullUpstream: nullUpstreamIds,
-        },
-        null,
-        2
-      ) + "\n"
-    );
-    return;
+    return {
+      out: snapshotPath,
+      summary,
+      seedUsed,
+      priced,
+      total,
+      nullUpstream: nullUpstreamIds,
+    };
   }
 
   // Maintainer path: always fetch and rewrite the committed seed, carrying
@@ -360,25 +354,13 @@ async function main() {
   writeJsonFileAtomic(outPath, seed);
   const idsWith = goIds.filter((id) => hasPrice(entries[id]));
   const idsWithout = goIds.filter((id) => !hasPrice(entries[id]));
-  process.stdout.write(
-    JSON.stringify(
-      {
-        out: outPath,
-        catalog: goIds.length,
-        withPrices: idsWith.length,
-        withoutPrices: idsWithout.length,
-        idsWithoutPrices: idsWithout,
-      },
-      null,
-      2
-    ) + "\n"
-  );
+  return {
+    out: outPath,
+    catalog: goIds.length,
+    withPrices: idsWith.length,
+    withoutPrices: idsWithout.length,
+    idsWithoutPrices: idsWithout,
+  };
 }
 
-main().catch((err) => {
-  const cause = err.cause
-    ? ` (${err.cause.code ?? err.cause.message ?? String(err.cause)})`
-    : "";
-  console.error(`Error: ${err.message ?? err}${cause}`);
-  process.exit(1);
-});
+

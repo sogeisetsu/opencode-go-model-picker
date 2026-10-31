@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // opencode-go-model-picker — calibrate local DB usage accounting against Console readings.
 // Copyright (C) 2026 sogeisetsu
 //
@@ -25,7 +24,7 @@
 // snapshot is only written with --write (atomic, every other key preserved).
 //
 // Usage:
-//   node scripts/calibrate-usage.mjs [--db <path>] [--snapshot <path>]
+//   node scripts/go.mjs run [--db <path>] [--snapshot <path>]
 //     [--prices <path>] [--days <n>] [--cycle-start <YYYY-MM-DD>]
 //     [--console-cost <usd>] [--console-requests <n>]
 //     [--console-range <24h|7d|30d|all>] [--console-month-cost <usd>]
@@ -68,7 +67,7 @@
 // presenting the ratio as the bias (the DB may predate v2 storage, or the
 // Console may aggregate other clients); such a bias is never written.
 //
-// Reverse-solving order — quota-math.mjs solvePool() fixes it, it is not a
+// Reverse-solving order — lib/pricing.mjs solvePool() fixes it, it is not a
 // preference (it breaks the circular dependency):
 //   1. --console-month-cost + --month-pct       -> exact pool, level 1;
 //   2. else DB cycle cost through a known bias  -> provisional pool, level 2;
@@ -101,7 +100,8 @@
 
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { readJsonFile, writeJsonFileAtomic } from "./lib/json-io.mjs";
+import { readJsonFile, writeJsonFileAtomic } from "./json-io.mjs";
+import { FailError, HelpRequested, UsageError, makeIo } from "./io.mjs";
 import {
   DEFAULT_PRICE_SEED,
   biasDrift,
@@ -114,7 +114,7 @@ import {
   p90,
   seedFreshness,
   solvePool,
-} from "./quota-math.mjs";
+} from "./pricing.mjs";
 
 const DAY_MS = 86400000;
 const DEFAULT_DB = join(homedir(), ".local", "share", "opencode", "opencode.db");
@@ -125,8 +125,8 @@ const DEFAULT_SNAPSHOT = join(
   "opencode-go-model-picker",
   "snapshot.json",
 );
-// Mirrors refresh-snapshot.mjs / refresh-prices.mjs — seeds a snapshot this
-// script creates from scratch. references/model-snapshot.md: "schemaVersion is
+// Mirrors go.mjs run / go.mjs run — seeds a snapshot this
+// script creates from scratch. references/plan-facts.md: "schemaVersion is
 // only bumped by a writer that actually adds a v3 key": --write raises an
 // existing value to 3 only when it writes at least one v3 key (plan / billing /
 // usage / calibration), and NEVER lowers an existing value (a future 4 stays 4).
@@ -140,35 +140,24 @@ const UNDER_COVERAGE_RATIO = 0.2;
 
 const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
-// Every failure is one compact JSON line on stdout — never a stack trace.
+// Every failure becomes a thrown FailError; `usageCli` turns it into the same
+// one-line JSON the old CLI printed.
 function fail(message, code = 1, extra = {}) {
-  process.stdout.write(JSON.stringify({ ok: false, ...extra, error: message }) + "\n");
-  process.exit(code);
+  throw new FailError(message, code, extra);
 }
 
 function badUsage(message) {
-  process.stderr.write(`${message}\n`);
-  process.exit(2);
+  throw new UsageError(message);
 }
 
-function printHelp() {
-  process.stdout.write(
-    [
-      "Usage: node scripts/calibrate-usage.mjs [--db <path>] [--snapshot <path>]",
-      "                                        [--prices <path>] [--days <n>]",
-      "                                        [--cycle-start <YYYY-MM-DD>]",
-      "                                        [--console-cost <usd>] [--console-requests <n>]",
-      "                                        [--console-range <24h|7d|30d|all>]",
-      "                                        [--console-month-cost <usd>] [--month-pct <pct>]",
-      "                                        [--week-pct <pct>] [--five-hour-pct <pct>]",
-      "                                        [--write] [--text] [--top <n>]",
-      "Read the local OpenCode DB read-only (v2 session_message, else v1 message),",
-      "calibrate it against Console readings. Output: one compact JSON object",
-      "(default) or tables with --text. Exit 0 success, 1 failure (node:sqlite",
-      "missing / unreadable DB or snapshot), 2 bad usage.",
-    ].join("\n") + "\n",
-  );
-}
+const USAGE_TEXT = [
+  "Usage: go.mjs run [--db <path>] [--snapshot <path>] [--prices <path>] [--days <n>]",
+  "                [--cycle-start <YYYY-MM-DD>] [--console-cost <usd>] [--console-requests <n>]",
+  "                [--console-range <24h|7d|30d|all>] [--console-month-cost <usd>]",
+  "                [--month-pct <pct>] [--week-pct <pct>] [--five-hour-pct <pct>] [--write]",
+  "Reads the local OpenCode DB read-only (v2 session_message, else v1 message) and",
+  "calibrates it against Console readings. Exit 0 success, 1 failure, 2 bad usage.",
+].join("\n") + "\n";
 
 function utcMonthStart() {
   const now = new Date();
@@ -220,8 +209,7 @@ function parseArgs(argv) {
     return n;
   };
   if (argv.includes("--help") || argv.includes("-h")) {
-    printHelp();
-    process.exit(0);
+    throw new HelpRequested(USAGE_TEXT);
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -286,7 +274,7 @@ async function loadSqlite() {
   }
 }
 
-// An unreadable snapshot is a hard error (refresh-prices.mjs wording): it also
+// An unreadable snapshot is a hard error (go.mjs run wording): it also
 // holds user state (preferences.mode), so it is never rebuilt silently. A
 // MISSING snapshot is fine and only matters to --write (which then creates it).
 function loadSnapshot(path) {
@@ -295,7 +283,7 @@ function loadSnapshot(path) {
     fail(
       `cannot read ${path}: ${loaded.error} — the snapshot also stores user state ` +
         "(preferences.mode), so it is not overwritten automatically. Fix the JSON, " +
-        "or run node scripts/refresh-snapshot.mjs --rebuild to start over.",
+        "or run node scripts/go.mjs run --rebuild to start over.",
     );
   }
   if (loaded.missing) return null;
@@ -478,10 +466,12 @@ function accumulate(rows, sessionAgents, opts, nowMs, windowFromMs, cycleStartMs
       agentRow = {
         requests: 0, sessions: new Set(), costSum: 0, priced: 0,
         models: new Map(), costs: new Map(),
+        tokens: { input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
       };
       byAgent.set(agent, agentRow);
     }
     agentRow.requests++;
+    for (const key of Object.keys(agentRow.tokens)) agentRow.tokens[key] += usage[key];
     agentRow.sessions.add(row.session_id);
     if (cost !== null) {
       agentRow.costSum += cost;
@@ -554,6 +544,11 @@ function buildByAgent(byAgent, windowCostUsd) {
     out[agent] = {
       requests: a.requests,
       sessions: a.sessions.size,
+      tokens: a.tokens,
+      tokensPerSession:
+        a.sessions.size > 0
+          ? Object.fromEntries(Object.entries(a.tokens).map(([k, v]) => [k, v / a.sessions.size]))
+          : null,
       costUsd,
       share:
         costUsd !== null && num(windowCostUsd) !== null && windowCostUsd > 0
@@ -806,8 +801,8 @@ function renderText(report, opts) {
 
 // --- main -------------------------------------------------------------------
 
-async function main() {
-  const opts = parseArgs(process.argv.slice(2));
+export async function usageReport(argv = []) {
+  const opts = parseArgs(argv);
   const DatabaseSync = await loadSqlite();
   const priceTable = loadPriceTable(opts.prices);
   if (priceTable.error) fail(`cannot read ${opts.prices}: ${priceTable.error}`);
@@ -873,7 +868,7 @@ async function main() {
   let planWritten = false;
   if (opts.write) {
     // A missing snapshot is fine: this run creates it (seeded like
-    // refresh-snapshot.mjs); an unreadable one already failed in loadSnapshot.
+    // go.mjs run); an unreadable one already failed in loadSnapshot.
     const snap = snapshot ?? {
       schemaVersion: SNAPSHOT_SCHEMA_VERSION,
       sources: {},
@@ -938,12 +933,34 @@ async function main() {
     planWritten,
     snapshotPath: opts.snapshot,
   };
-  if (opts.text) process.stdout.write(renderText(report, opts) + "\n");
-  else process.stdout.write(JSON.stringify(report) + "\n");
+  return { report, opts };
 }
 
-// A rejected promise (or any stray throw) still prints one {"ok":false,...}
-// line — never a stack trace.
-main().catch((err) => {
-  fail(err && err.message ? err.message : String(err));
-});
+// The only place a failure becomes output: one compact JSON line, never a stack
+// trace. Exit code comes from the FailError (1 by default, 2 for usage).
+export async function usageCli(argv = [], io = {}) {
+  const streams = makeIo(io);
+  try {
+    const { report, opts } = await usageReport(argv);
+    if (opts.text) streams.stdout.write(renderText(report, opts) + "\n");
+    else streams.stdout.write(JSON.stringify(report) + "\n");
+    return 0;
+  } catch (err) {
+    if (err instanceof HelpRequested) {
+      streams.stdout.write(err.text);
+      return 0;
+    }
+    if (err instanceof UsageError) {
+      streams.stderr.write(`${err.message}\n`);
+      return 2;
+    }
+    if (err instanceof FailError) {
+      streams.stdout.write(JSON.stringify({ ok: false, ...err.extra, error: err.message }) + "\n");
+      return err.code;
+    }
+    streams.stdout.write(
+      JSON.stringify({ ok: false, error: err && err.message ? err.message : String(err) }) + "\n",
+    );
+    return 1;
+  }
+}

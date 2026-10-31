@@ -1,0 +1,1 @@
+{"state":"unauthenticated","guidanceKey":"console-mcp#unauthenticated","evidence":["in-run tool status: unauthenticated"],"server":null,"probe":{"ran":false,"reason":"not needed"},"mcpList":{"ran":false,"hasConsole":false,"needsAuth":false,"disabled":false,"connected":false},"checkedAt":"2026-10-31T19:21:17.588Z"}

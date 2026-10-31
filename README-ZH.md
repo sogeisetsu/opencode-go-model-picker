@@ -49,11 +49,11 @@
 - **OpenCode**，且支持 Agent Skills。技能会被放进 `~/.config/opencode/skills/`。
 - **至少有一个自定义智能体**需要调优——你自己在 `opencode.jsonc` 或 Markdown 里定义的、一个 [`oh-my-opencode-slim`](https://github.com/alvinunreal/oh-my-opencode-slim) 预设里的，或其他插件提供的智能体。（OpenCode 自带的智能体不需要调优。）
   - `oh-my-opencode-slim` 是**可选**的。它只是本技能支持的来源之一；如果你正好在用，本技能会以它已安装的结构规范为准。
-- **Node.js 18+**，仅辅助脚本需要（已在 Node 22 上测试）。在代理后面运行时，刷新脚本需要
-  Node 24+，或回移了 `NODE_USE_ENV_PROXY` 的 22.x（已在 22.23.1 上验证）；否则 fetch 会绕过代理，脚本会在 stderr 上提示。
-  `scripts/calibrate-usage.mjs` 另外需要 `node:sqlite`（Node 22.5+）；没有它时该脚本会说明缺口，技能停留在纯本地保底方案。
+- **Node.js 22+**，单一入口 `scripts/go.mjs` 需要它（已在 Node 22.23.1 上测试）。本机用量读取用到 `node:sqlite`；
+  运行时没有它时，本次运行会报告这个缺口，并继续用价格种子兜底。在代理后面运行时，联网步骤需要
+  Node 24+，或回移了 `NODE_USE_ENV_PROXY` 的 22.x（已在 22.23.1 上验证）；否则 fetch 会绕过代理，运行会在 stderr 上说明。
 - **可选：OpenCode Console MCP。** 不开也能得到推荐，但它是你实际花了多少钱的唯一权威来源。没有它时，报告会把金额标为估算，
-  并说明哪些数字不可信（见 [`references/console-mcp.md`](references/console-mcp.md)）。
+  并说明哪些数字不可信（见 [`references/plan-facts.md`](references/plan-facts.md)）。
 
 ## 安装
 
@@ -87,10 +87,10 @@ npx skills add sogeisetsu/opencode-go-model-picker -g -a opencode
 
 **最小化安装。** 你不需要整个仓库。运行时只会用到 `SKILL.md`、`references/` 和 `scripts/`。只把这三样复制进 `~/.config/opencode/skills/opencode-go-model-picker/` 就行，其余（README、LICENSE、`assets/`、`zh/`……）都只是文档。
 
-然后确认辅助脚本能跑起来：
+然后确认入口能跑起来：
 
 ```bash
-node scripts/fetch-go-models.mjs   # 输出 { fetchedAt, source, count, ids }
+node scripts/go.mjs --help
 ```
 
 ### 让 AI Agent 帮你安装
@@ -107,7 +107,7 @@ node scripts/fetch-go-models.mjs   # 输出 { fetchedAt, source, count, ids }
    - references/
    - scripts/
 3. 不要复制仓库里的其他内容（README、LICENSE、assets 等）。
-4. 验证：在安装目录里运行 "node scripts/fetch-go-models.mjs"，确认能输出 JSON。
+4. 验证：在安装目录里运行 "node scripts/go.mjs --help"，确认它输出四个动词。
 5. 告诉我安装路径以及是否成功。
 ```
 
@@ -149,7 +149,7 @@ TUI 里如果它没出现在 `/` 的补全列表中，先输入 `/skills`，从�
    （`$ 额度 / 官方请求数 / 实测请求数`）、记账 `$/session`（中位 · P90）、占该模型额度的比例、10 次运行占 5h · 周 · 月池的比例
    （三个互相独立的窗口，绝不相加）、实际月占用，以及理由。
 2. **用量证据**——近 30 天的花费与请求数、近 7 天花费与月末预测、无 ELO 评分的候选（`n/m` 加 id 列表）、
-   `scripts/discover-agents.mjs` 本次列出的死链 id，以及主智能体的花费占比（只报占比，绝不改它们）。
+   本次运行 `deadChainIds` 里的死链 id，以及主智能体的花费占比（只报占比，绝不改它们）。
 3. **可粘贴配置**——针对每个检测到的来源给出一段完整、可直接复制粘贴的 JSONC：slim 预设对应
    `oh-my-opencode-slim.json`，原生 `agent` 块对应 `opencode.jsonc`（两者都检测到就两段都给）；来源支持回退链的会保留链路。
 4. **要点说明**——一段话：模式与理由、价格上限、完整的注意事项原文、与上次快照相比的套餐变化，以及基准行对可信度的含义。
@@ -161,50 +161,55 @@ TUI 里如果它没出现在 `/` 的补全列表中，先输入 `/skills`，从�
 
 ## 工作原理
 
-技能由一份指令文件（`SKILL.md`）加若干按需加载的参考文档组成。一次典型的运行是这样的：
+技能只有一个入口（`scripts/go.mjs`），外加一份供模型做判断时查阅的参考文档。一次运行分三步：
 
-1. **找到你的智能体**（只读）——`opencode.jsonc` 或 `~/.config/opencode/agents/*.md` 里的原生智能体、`oh-my-opencode-slim` 预设，以及你声明的其他插件来源。细节见 [`references/agent-sources.md`](references/agent-sources.md)，包括死链 id 与「多个智能体共用同一模型」的检测。
-2. **探测 Console**——`scripts/probe-console.mjs` 按成本升序在五种状态（`authorized` / `gated` / `unauthenticated` / `absent` / `unknown`）之间判定：先看本次运行的工具返回，再看宿主自己的 `opencode mcp list`，再看配置，最后才发一次 `initialize` 请求。见 [`references/console-mcp.md`](references/console-mcp.md)。
-3. **读账单并校准**——拿到真实 `cost_usd` 后，花费、请求数与池占用百分比交给 `scripts/calibrate-usage.mjs`，把 DB 与 Console 的偏差（bias）、反解出的池子、以及按智能体的分摊写进快照。百分比因此才有权威性。
-4. **刷新模型快照**——`scripts/refresh-snapshot.mjs` 抓取实时目录，返回一份紧凑的新增/下架差异。LMArena 能力分优先取自提交进仓库的种子（`references/model-scores.json`）；只要它的榜单日期仍与 LMArena 最新一致就直接用，否则由 `scripts/refresh-scores.mjs` 抓取。免 key、全程不使用浏览器。全新模型会立刻查一次。
-5. **核对套餐**——从当前套餐页面读取价格和额度并与缓存对比；只有新增或变化的模型才会做更深的能力核实。
-6. **按角色特征给每个智能体挑模型**，并对已知角色做覆盖；每个候选都走 [`references/quota-math.md`](references/quota-math.md) / `scripts/quota-math.mjs` 里那唯一一套公式计价，包含上下文分档与峰谷时段。
-7. **构建回退链**——一条有序的 `model: [a, b, c]` 故障转移列表（2–4 项）。
-8. **输出报告**，跑完九条自检，并在动你的配置前先征得确认。
+```bash
+node scripts/go.mjs run --out run.json       # agents, Console, usage, data, diff, basis
+node scripts/go.mjs report --run run.json --picks picks.json --out report.md
+node scripts/go.mjs check report.md --run run.json
+node scripts/go.mjs apply --run run.json --picks picks.json --target <file>   # diff only
+```
+
+1. **`run`** 发现自定义智能体（原生、`oh-my-opencode-slim`、插件），探测 Console 状态，读取本机用量数据库，
+   **在一次串行过程中**刷新目录、价格与评分，把当前套餐与上一份快照做 diff，并决定 `Basis:` 行。
+   每一步都降级而不是失败：离线运行用带日期的种子兜底，缺 DB 或缺 Console 会如实报告，过期种子标注 `EXPIRED`。
+   输出是一份 `run.json`，每个数字都带来源和日期。
+2. **由模型决定**——为每个智能体给出 2–4 项的链，以及一句话的 `why`。能力（尤其是视觉）会去模型所属实验室的
+   官方文档核实，并把单模型上限与套餐池分开记。
+3. **`report` 渲染表格、金额列与配置块；`check` 把关，不通过不交付；`apply` 打出确切的 diff，
+   并且只在确认之后写入用户点名的那个文件。**
 
 几点值得了解：
 
 - **Go 额度是按模型计的月度美元金额。** 每个模型都带自己的额度，并按 5 小时 = 20%、每周 = 50%、每月 = 100% 切分；整个套餐另有一个池子，Console 的占用百分比是相对它算的。两层额度绝不混用：「占这个模型多少」和「占套餐池多少」是两种不同的说法。因为每个模型各有限额，某个被限流时另一个 Go 模型仍然可用——所以第一层回退常常是另一个 Go 模型。
-- **价格不是一个数字。** 有些模型按上下文长度分档计价，有些在峰时翻倍（按每条消息的时间戳判，不是按会话起点），还有些收取缓存写入费。这些都只由 [`references/quota-math.md`](references/quota-math.md) 的一套公式、`scripts/quota-math.mjs` 的一处实现来处理，并把任何不得不做的假设列出来。
+- **价格不是一个数字。** 有些模型按上下文长度分档计价，有些在峰时翻倍（按每条消息的时间戳判，不是按会话起点），还有些收取缓存写入费。这些由同一处实现统一计价，并把它不得不做的任何假设都报出来。
 - **同样的美元额度 ≠ 同样的吞吐量。** 各模型每次请求消耗的 token 不同，所以套餐给出的**预估请求数**和美元额度一样重要。报告会同时给出官方预估与（有账单时的）实测单请求花费，绝不只给其中一个。
 - **它会标出隐藏条款。** 限时倍数（以及促销结束后回落到的基础额度）、有地理限制的模型、以及用你的 prompt 和补全结果训练模型的「Contributor」档，都会被明确指出——最后一项属于自愿选择，绝不会被悄悄推荐。
 - **回退链取决于你用的工具。** 形如 `model: ["a", "b", "c"]` 的数组在 `oh-my-opencode-slim` 里是一条有序故障转移链（不同构建之间键名与行为可能不同——以你本地安装的 `oh-my-opencode-slim.schema.json` 为准）。如果每一项都失败，会话会中止，所以链尾应该是你真正能依赖的模型。直接定义在 OpenCode 里的智能体只接受单个 `model`（没有链），因此那里本技能只推荐一个模型并说明这一点。其他支持模型链的工具同样适用——使用 `oh-my-opencode-slim` 只是一个建议，并非必须。
 - **能力看实验室文档，不看名字。** 模型的能力会去它所属实验室的官方文档里核实，绝不从模型编号猜。这对视觉类智能体（比如 `observer`）需要的**视觉**输入尤其重要。
-- **能力评分随技能一起提供。** 提交进仓库的 LMArena 种子（`references/model-scores.json`）让第一次运行无需抓取并匹配排行榜。只有种子的榜单日期仍等于 LMArena 最新发布时才复用；匹配不到的分数保持 `null`，绝不猜。评分是 LMArena 的 Arena ELO（`overall` / `coding` / `vision`），不是 0–100；LMArena 没有 cost 列，所以 cost 保持 `null`。
-- **价格同样随技能一起提供。** 提交进仓库的价格种子（`references/model-prices.json`）让套餐页面抓取不到时，逐模型价格、额度、上下文分档与峰谷时段依然离线可读。只有实时读取才算当前值；种子值汇报时一定附带日期。
-- **失败路径是显式的。** 刷新脚本失败、或两个脚本并发写同一份快照时，会改为串行重跑并读回确认。目录或网络不可达时，技能回退到快照缓存和提交进仓库的带日期种子，并给每个数值标注其日期。非 Go 回退 id 会先对照本地模型注册表的 `status` 核实才会被推荐；所有数据源都不可达时直接停止，绝不编造数字。断网且连种子都没有时，只给相对选型，金额列留空。
-- **本地用量只读汇总。** 开启校准后，`scripts/calibrate-usage.mjs` 会以只读方式通过 `node:sqlite` 读取本机 OpenCode 用量数据库（`~/.local/share/opencode/opencode.db`），汇总每个智能体、每个模型花了多少；只输出聚合值，不上传任何内容。
-- **省 token。** `~/.cache/opencode/opencode-go-model-picker/snapshot.json` 里缓存了一份归一化后的目录和评分，每次运行只重新抓取、重新核实发生变化的部分。缓存绝不取代来源——每个值都带来源和抓取日期。见 [`references/model-snapshot.md`](references/model-snapshot.md)。
+- **能力评分和价格随技能一起提供。** 两份提交进仓库的种子（`references/model-scores.json`、`references/model-prices.json`）让第一次运行离线也能跑。种子只有在日期仍与上游一致时才会复用，汇报时一定标注为种子；`null` 保持原样，绝不猜。
+- **失败路径是显式的。** 目录或网络不可达时，回退到快照缓存和带日期的提交种子；所有数据源都拿不到时，本次运行会报告 `data.quality: none`，而不是编造数字。
+- **本地用量只读汇总。** 开启校准后，会以只读方式通过 `node:sqlite` 读取本机 OpenCode 用量数据库（`~/.local/share/opencode/opencode.db`），汇总每个智能体、每个模型花了多少；只输出聚合值，不上传任何内容。
+- **省 token。** `~/.cache/opencode/opencode-go-model-picker/snapshot.json` 里缓存了一份归一化后的目录和评分，每次运行只重新抓取、重新核实发生变化的部分。缓存绝不取代来源——每个值都带来源和抓取日期。
 
 ### 细节在哪
 
-| 参考文件 | 什么时候读 |
+| 参考 | 用途 |
 |---|---|
-| [`references/quota-math.md`](references/quota-math.md) | 唯一一套计价公式：上下文分档、峰谷时段、派生量、池子反解、窗口定义、已知缺口、校准常数 |
-| [`references/console-mcp.md`](references/console-mcp.md) | Console 的五种状态、探测顺序、按状态的引导文案、三级保底、开启步骤 |
-| [`references/output-format.md`](references/output-format.md) | 报告格式：基准行、计价列、用量证据、九条自检 |
-| [`references/model-snapshot.md`](references/model-snapshot.md) | 缓存：schema v3、刷新策略、key 归属、离线回退 |
+| [`references/plan-facts.md`](references/plan-facts.md) | 套餐事实、Console 状态与回退、能力核验、需要标注的风险 |
+| `scripts/go.mjs --help` | 四个动词及其参数 |
+| [`SKILL.md`](SKILL.md) | 模型被要求做什么 |
 
 ## 数据来源
 
-每次运行都重新抓取。完整清单与解析注意事项见 [`references/data-sources.md`](references/data-sources.md)。
+联网时每次运行都重新抓取；离线时由提交进仓库的种子兜底。事实与回退：[`references/plan-facts.md`](references/plan-facts.md)。
 
 | 优先级 | 来源 | 网址 | 提供内容 |
 |---|---|---|---|
-| 0 | Console MCP（可选） | https://opencode.ai/console/mcp | 权威的 `cost_usd` / 请求数 / token 数、按模型拆分、预算策略——见 [`references/console-mcp.md`](references/console-mcp.md) |
+| 0 | Console MCP（可选） | https://opencode.ai/console/mcp | 权威的 `cost_usd` / 请求数 / token 数、按模型拆分、预算策略 |
 | 1 | Go 落地页 | https://opencode.ai/go | 最新促销 + 带每 5 小时预估请求数的精选用量表 |
 | 2 | Go 文档 | https://opencode.ai/docs/go/ | 完整模型 / 价格 / 月度额度表 + 预估请求数 |
-| 3 | 模型端点 | https://opencode.ai/zen/go/v1/models | 实时目录编号（经 `scripts/fetch-go-models.mjs`） |
+| 3 | 模型端点 | https://opencode.ai/zen/go/v1/models | 实时目录编号 |
 | 4 | models.dev | https://models.opencode.ai/providers/opencode-go/ | 上下文 / 输出 / 价格 / 能力 |
 | 5 | julien.cloud 追踪 | https://julien.cloud/opencode-go-models/ | 合并视图 + 价格变动 / 弃用日志 |
 | 6 | LMArena | https://lmarena.ai/（[数据集](https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset)，经 HF datasets-server） | Arena ELO：overall / coding / vision（仓库种子；免 key、无浏览器） |
@@ -240,4 +245,4 @@ TUI 里如果它没出现在 `/` 的补全列表中，先输入 `/skills`，从�
 
 ## 由来
 
-本项目源于 2026 年 9 月的一次调研：当时没有任何官方或知名技能能做「感知套餐的 OpenCode Go 智能体模型选择」。最接近的同类是面板生成器 [`itsmylife44/cliproxyapi-dashboard`](https://github.com/itsmylife44/cliproxyapi-dashboard)（`oh-my-opencode-slim-config-generator.tsx`，MIT 许可），以及成本画像需求 [`code-yeongyu/oh-my-openagent#1768`](https://github.com/code-yeongyu/oh-my-openagent/issues/1768)。这里复用了 OpenCode Go 的官方数据来源，以及 `oh-my-opencode-slim` 静态的按智能体角色指引。后来从「仅支持 `oh-my-opencode-slim`」扩展为支持任意 OpenCode 智能体来源——见 [`references/agent-sources.md`](references/agent-sources.md)。
+本项目源于 2026 年 9 月的一次调研：当时没有任何官方或知名技能能做「感知套餐的 OpenCode Go 智能体模型选择」。最接近的同类是面板生成器 [`itsmylife44/cliproxyapi-dashboard`](https://github.com/itsmylife44/cliproxyapi-dashboard)（`oh-my-opencode-slim-config-generator.tsx`，MIT 许可），以及成本画像需求 [`code-yeongyu/oh-my-openagent#1768`](https://github.com/code-yeongyu/oh-my-openagent/issues/1768)。这里复用了 OpenCode Go 的官方数据来源，以及 `oh-my-opencode-slim` 静态的按智能体角色指引。后来从「仅支持 `oh-my-opencode-slim`」扩展为支持任意 OpenCode 智能体来源。
