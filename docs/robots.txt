@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sogeisetsu.github.io/opencode-go-model-picker/sitemap.xml
