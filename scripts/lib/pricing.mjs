@@ -429,7 +429,7 @@ function selfCheck() {
   const offPeak = costOfUsage(deepseek, { input: 410, cacheRead: 71300, output: 310 }, "2026-10-30T20:00:00Z");
   const peak = costOfUsage(deepseek, { input: 410, cacheRead: 71300, output: 310 }, "2026-10-30T07:00:00Z");
   const handOffPeak = (410 * 0.15 + 310 * 0.6 + 71300 * 0.003) / 1e6;
-  // Reasoning is billed at the output rate (field verification, see quota-math.md).
+  // Reasoning is billed at the output rate (verified against per-message cost).
   const withReasoning = costOfUsage(
     deepseek,
     { input: 313, cacheRead: 310016, output: 73, reasoning: 872 },

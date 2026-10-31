@@ -401,7 +401,7 @@ function accumulate(rows, sessionAgents, opts, nowMs, windowFromMs, cycleStartMs
     const usage = {
       input: int0(row.t_in),
       output: int0(row.t_out),
-      // Reasoning is billed at the output rate; quota-math adds it to the priced
+      // Reasoning is billed at the output rate; pricing.mjs adds it to the priced
       // output, so it must be passed here or every priced message comes out low.
       reasoning: int0(row.t_reason),
       cacheRead: int0(row.t_cr),
@@ -625,7 +625,7 @@ function buildCrossCheck(opts, pool, now) {
 // models.<id>.price|score / preferences stay intact, and schemaVersion is
 // raised to 3 by the
 // caller only when a v3 key was actually written (never lowered — see
-// model-snapshot.md "Backward compatibility"). Returns { touched, planWritten }.
+// plan-facts.md). Returns { touched, planWritten }.
 function applySnapshotWrites(snap, opts, ctx) {
   const { pool, byModel, byAgent, currentBias, nowIso, dateStamp } = ctx;
   let touched = false;

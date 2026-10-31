@@ -1,9 +1,8 @@
 // opencode-go-model-picker — pricing and chain-shape regression tests.
 // Copyright (C) 2026 sogeisetsu
 //
-// The goldens under tests/golden/ were captured from the pre-refactor scripts
-// (quota-math.mjs / probe-console.mjs / discover-agents.mjs). A difference is a
-// regression, never a number to refresh by hand.
+// The goldens under tests/golden/ were captured before the 3.0.0 refactor. A
+// difference is a regression, never a number to refresh by hand.
 
 import test from "node:test";
 import assert from "node:assert/strict";

@@ -93,7 +93,7 @@
 //   --help             print this usage block and exit 0.
 //
 // Built-ins: the rule is "anything OpenCode ships is skipped" (references/
-// agent-sources.md §Built-in agents are out of scope) — a set no script can
+// plan-facts.md §Console states) — a set no script can
 // enumerate from config files. KNOWN_BUILTIN_AGENTS is therefore a NAME DENYLIST
 // for the built-ins documented at that page, not the definition of the rule: a
 // skipped agent is still reported under `skippedBuiltins` (with its file) so a
@@ -414,7 +414,7 @@ function normalizeModel(raw) {
 const chainOf = (model) =>
   Array.isArray(model) ? model : model ? [{ id: model, variant: null }] : [];
 
-// --- inventory fields: mode / hidden / traits (agent-sources.md) --------------
+// --- inventory fields: mode / hidden / traits --------------------------------
 
 const MODES = new Set(["primary", "subagent", "all"]);
 

@@ -9,9 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.0.0] - 2026-11-01
 
+### The size of the simplification
+
+3.0.0 is not a feature release: it is the same job described with **an order of
+magnitude less text**. Measured against the 2.0.0 tag:
+
+| What the model must read | 2.0.0 | 3.0.0 | Change |
+|---|---|---|---|
+| Markdown files | 7 (`SKILL.md` + 6 references) | 2 (`SKILL.md` + `plan-facts.md`) | −5 files |
+| Characters | 104,181 | 8,291 | **12.6× smaller** (−92%) |
+| Lines | 1,776 | 168 | **10.6× fewer** (−91%) |
+| Estimated tokens | ≈27,400 | ≈2,200 | **≈25,200 saved per full read** |
+| `SKILL.md` alone | 18,804 chars ≈4,900 tok | 4,221 chars ≈1,100 tok | −78% |
+| Runnable entry points | 9 scripts | 1 (`go.mjs`) | −8 |
+| Minimal install zip | 128,802 B | 89,203 B | −31% |
+
+A typical 2.0.0 run loaded `SKILL.md` plus two or three references (≈11–15k
+tokens); the same run now loads 8.3k characters, about 2.2k tokens — roughly
+**80–85% less context** before any work starts. Token figures are estimates at
+3.8 characters/token (no tokenizer ships with the repo); character and line counts
+are exact: `git show v2.0.0:SKILL.md | wc -c` and the same for each reference.
+
+Code did not shrink — it moved: ~4,700 lines of scripts became ~5,300 lines of
+modules plus tests, because the rules that used to be prose (refresh order, basis
+selection, priced columns, chain shape, apply diff) are now enforced by code.
+
 ### Breaking
 
-- **One entry point.** `scripts/go.mjs` replaces eleven scripts — `discover-agents`,
+- **One entry point.** `scripts/go.mjs` replaces nine scripts — `discover-agents`,
   `probe-console`, `calibrate-usage`, `quota-math`, `refresh-snapshot`,
   `refresh-prices`, `refresh-scores`, `snapshot-summary` and `fetch-go-models` are
   gone. Four verbs: `run` (agents → Console → usage → refresh → plan diff → basis,

@@ -360,7 +360,7 @@ export async function probeConsole(argv = []) {
     exitCode: 0,
     output: {
       state: decision.state,
-      guidanceKey: `console-mcp#${decision.state}`,
+      guidanceKey: `plan-facts#console-${decision.state}`,
       evidence: decision.evidence,
       server: config.found[0]
         ? {
