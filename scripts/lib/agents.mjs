@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // opencode-go-model-picker — discover custom OpenCode agents and validate their chains.
 // Copyright (C) 2026 sogeisetsu
 //
@@ -19,12 +18,12 @@
 // this program. If not, see <https://www.gnu.org/licenses/>.
 //
 // Discover CUSTOM agents (OpenCode built-ins are skipped) and print an inventory.
-// Usage: node scripts/discover-agents.mjs [--config <dir>] [--snapshot <path>]
+// Usage: node scripts/go.mjs run [--config <dir>] [--snapshot <path>]
 //                                          [--registry <path>] [--builtin <a,b,c>]
 //                                          [--extra-builtin <a,b,c>]
 //                                          [--include-builtin-names] [--help]
 //
-// Sources (see references/agent-sources.md; a missing or unparseable source is a
+// Sources (see references/plan-facts.md; a missing or unparseable source is a
 // warning, never a throw — one failing source does not abort the others):
 // 1. slim: <config>/oh-my-opencode-slim.json (or .jsonc). Active preset = top-level
 //    `preset`; agents = presets.<preset>.<agent>. JSONC tolerance (// line comments,
@@ -37,12 +36,12 @@
 //    YAML library.
 //
 // Output: compact JSON on stdout, shape { agents, warnings, skippedBuiltins,
-// deadChainIds }. Each agent record matches references/agent-sources.md §Inventory
+// deadChainIds }. Each agent record matches references/plan-facts.md §Inventory
 // record:
 // { name, source, mode, description, model, hidden, traits,
 //   provenance: { file, pointer, fetchedAt } } — model is
 // string | Array<{ id, variant }> | null, traits are derived from description +
-// name + mode (references/agent-sources.md §Role-trait mapping), and mode is
+// name + mode (references/plan-facts.md §Role-trait mapping), and mode is
 // "primary" | "subagent" | "all" (null when a source states an unrecognized
 // value). Warning entry: { kind, agent, message } with kind one of:
 //   source        missing/unparseable source file or directory;
@@ -66,7 +65,7 @@
 //                 models.<id>.vision === true in the snapshot cache. This is a FIELD
 //                 CHECK, NOT a capability verification: the snapshot field may
 //                 simply be unverified — confirm image input from the model's own
-//                 lab docs (references/data-sources.md §Capability verification);
+//                 lab docs (references/plan-facts.md §Capability verification);
 //   mode          a source states a `mode` outside primary/subagent/all — recorded
 //                 as null instead of guessed;
 //   builtin-name  only with --include-builtin-names: a kept agent whose name is on
@@ -94,7 +93,7 @@
 //   --help             print this usage block and exit 0.
 //
 // Built-ins: the rule is "anything OpenCode ships is skipped" (references/
-// agent-sources.md §Built-in agents are out of scope) — a set no script can
+// plan-facts.md §Console states) — a set no script can
 // enumerate from config files. KNOWN_BUILTIN_AGENTS is therefore a NAME DENYLIST
 // for the built-ins documented at that page, not the definition of the rule: a
 // skipped agent is still reported under `skippedBuiltins` (with its file) so a
@@ -107,12 +106,13 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
-import { stripBom } from "./lib/json-io.mjs";
+import { stripBom } from "./json-io.mjs";
+import { UsageError, makeIo } from "./io.mjs";
 
 // --- CLI -------------------------------------------------------------------
 
 const USAGE = [
-  "Usage: node scripts/discover-agents.mjs [--config <dir>] [--snapshot <path>] [--registry <path>]",
+  "Usage: node scripts/go.mjs run [--config <dir>] [--snapshot <path>] [--registry <path>]",
   "                                          [--builtin <a,b,c>] [--extra-builtin <a,b,c>] [--include-builtin-names] [--help]",
   "  --config <dir>     read fixture config (opencode.json(c), agents/, slim json(c)) from <dir>",
   "  --snapshot <path>  snapshot JSON for the vision field check",
@@ -125,7 +125,10 @@ const USAGE = [
   "Read-only; compact JSON { agents, warnings, skippedBuiltins, deadChainIds } on stdout. Exit 0 (2 on bad usage).",
 ].join("\n");
 
-const args = process.argv.slice(2);
+// Read-only inventory. Returns the records plus every warning the run has to
+// report; `discoverCli` is the thin printer.
+export function discoverAgents(argv = []) {
+const args = argv;
 let configDir = null;
 let snapshotPath = null;
 let registryPath = null;
@@ -135,8 +138,7 @@ let includeBuiltinNames = false;
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   if (a === "--help" || a === "-h") {
-    console.log(USAGE);
-    process.exit(0);
+    return { exitCode: 0, help: USAGE };
   } else if (
     a === "--config" ||
     a === "--snapshot" ||
@@ -146,8 +148,7 @@ for (let i = 0; i < args.length; i++) {
   ) {
     const value = args[++i];
     if (!value) {
-      console.error(`Missing value for ${a}\n${USAGE}`);
-      process.exit(2);
+      throw new UsageError(`Missing value for ${a}`);
     }
     if (a === "--config") configDir = resolve(value);
     else if (a === "--snapshot") snapshotPath = resolve(value);
@@ -163,8 +164,7 @@ for (let i = 0; i < args.length; i++) {
   } else if (a === "--include-builtin-names") {
     includeBuiltinNames = true;
   } else {
-    console.error(`Unknown argument: ${a}\n${USAGE}`);
-    process.exit(2);
+    throw new UsageError(`Unknown argument: ${a}`);
   }
 }
 
@@ -178,7 +178,7 @@ const defaultRegistry = join(home, ".cache", "opencode", "models.json");
 snapshotPath = snapshotPath ?? defaultSnapshot;
 registryPath = registryPath ?? defaultRegistry;
 
-// OpenCode built-ins are out of scope (references/agent-sources.md §Built-in agents
+// OpenCode built-ins are out of scope (references/plan-facts.md §Built-in agents
 // are out of scope). The rule there is "anything OpenCode ships is skipped", and
 // the exact set changes between versions — a script cannot enumerate it from config
 // files, so this is a NAME DENYLIST for the built-ins that page documents, not the
@@ -414,7 +414,7 @@ function normalizeModel(raw) {
 const chainOf = (model) =>
   Array.isArray(model) ? model : model ? [{ id: model, variant: null }] : [];
 
-// --- inventory fields: mode / hidden / traits (agent-sources.md) --------------
+// --- inventory fields: mode / hidden / traits --------------------------------
 
 const MODES = new Set(["primary", "subagent", "all"]);
 
@@ -446,7 +446,7 @@ const KNOWN_ROLE_TRAITS = [
   [/^council/, "diversity"], // council / councillor / councillor-*
 ];
 
-// Signals per references/agent-sources.md §Role-trait mapping. Order is the output
+// Signals per references/plan-facts.md §Role-trait mapping. Order is the output
 // order; short tokens are word-bounded so "build" is not read as "ui" and
 // "codebase" is not read as a coding lane.
 const TRAIT_SIGNALS = [
@@ -770,4 +770,50 @@ if (!configDir) discoverMarkdown(join(process.cwd(), ".opencode", "agents"));
 for (const record of agents) validate(record);
 reportContention();
 
-process.stdout.write(JSON.stringify({ agents, warnings, skippedBuiltins, deadChainIds }) + "\n");
+return { exitCode: 0, agents, warnings, skippedBuiltins, deadChainIds };
+}
+
+export function discoverCli(argv = [], io = {}) {
+  const streams = makeIo(io);
+  try {
+    const result = discoverAgents(argv);
+    if (result.help) {
+      streams.stdout.write(`${result.help}\n`);
+      return 0;
+    }
+    streams.stdout.write(
+      JSON.stringify({
+        agents: result.agents,
+        warnings: result.warnings,
+        skippedBuiltins: result.skippedBuiltins,
+        deadChainIds: result.deadChainIds,
+      }) + "\n",
+    );
+    return 0;
+  } catch (err) {
+    if (err instanceof UsageError) {
+      streams.stderr.write(`${err.message}\n`);
+      return 2;
+    }
+    throw err;
+  }
+}
+
+// Chain shape rules, in one place: 2–4 entries, no duplicate id, every id
+// non-empty. Used where a chain comes from a model pick rather than a config
+// file, so the rule is enforced instead of described.
+export function validateChain(ids, { min = 2, max = 4 } = {}) {
+  const list = Array.isArray(ids) ? ids : ids ? [ids] : [];
+  const problems = [];
+  const seen = new Map();
+  for (const entry of list) {
+    const key = typeof entry === "string" ? entry : entry && entry.id;
+    if (!key) problems.push("empty model id");
+    else seen.set(key, (seen.get(key) ?? 0) + 1);
+  }
+  for (const [id, n] of seen) if (n > 1) problems.push(`duplicate model id ${id} (${n}x)`);
+  if (list.length < min || list.length > max) {
+    problems.push(`chain has ${list.length} entries — the rule is ${min}–${max}`);
+  }
+  return { ok: problems.length === 0, problems, length: list.length };
+}

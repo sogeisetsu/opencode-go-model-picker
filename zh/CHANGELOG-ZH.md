@@ -6,11 +6,42 @@
 
 [英文版](../CHANGELOG.md)
 
-## [未发布]
+## [3.0.0] - 2026-11-01
+
+### 这次简化有多大
+
+3.0.0 不是功能版，而是**用少一个数量级的文字描述同一件事**。对比 2.0.0 的 tag：
+
+| 模型要读的东西 | 2.0.0 | 3.0.0 | 变化 |
+|---|---|---|---|
+| Markdown 文档数 | 7 份（`SKILL.md` + 6 份 reference） | 2 份（`SKILL.md` + `plan-facts.md`） | −5 份 |
+| 字符数 | 104,181 | 8,291 | **小 12.6 倍**（−92%） |
+| 行数 | 1,776 | 168 | **少 10.6 倍**（−91%） |
+| 估算 tokens | ≈27,400 | ≈2,200 | **全量读一次省 ≈25,200 tokens** |
+| 仅 `SKILL.md` | 18,804 字符 ≈4,900 tok | 4,221 字符 ≈1,100 tok | −78% |
+| 可运行入口 | 9 个运行时脚本（含维护工具共 11 个） | 1 个（`go.mjs`） | 运行时 −8 个 |
+| 最小安装包 | 128,802 B | 89,158 B | −31% |
+
+2.0.0 的一次典型运行会读 `SKILL.md` 加两三份 reference（约 11–15k tokens）；同样的运行现在读 8,291 字符，约 2.2k tokens——开工前就少花**约 80–85% 的上下文**。token 数是按 3.8 字符/token 估算的（仓库不自带 tokenizer），字符数与行数是实测：`git show v2.0.0:SKILL.md | wc -c`，每份 reference 同理。
+
+代码没有变小，而是搬了家：约 4,700 行脚本变成约 5,300 行模块加测试，因为原先写在散文里的规则（刷新顺序、Basis 选择、计价列、链形状、apply diff）现在由代码强制执行。
+
+### 破坏性变更
+
+- **单一入口。** `scripts/go.mjs` 取代了九个脚本——`discover-agents`、`probe-console`、`calibrate-usage`、`quota-math`、`refresh-snapshot`、`refresh-prices`、`refresh-scores`、`snapshot-summary`、`fetch-go-models` 全部移除。四个动词：`run`（盘点 agent → 探 Console → 读本地用量 → 刷数据 → 比套餐变化 → 定 Basis，一次串行产出 `run.json`）、`report`（表格、金额列、配置块）、`check`（交付前的机检闸门）、`apply`（精确 diff；只有带 `--write` 才写，只写用户点名的那个文件，只改该 agent 的 `model`）。
+- **一份 reference。** `references/plan-facts.md` 取代 `quota-math.md`、`model-snapshot.md`、`data-sources.md`、`agent-sources.md`、`console-mcp.md` 与 `output-format.md`。`SKILL.md` 从约 19k 字符降到约 4k，只面向模型；教学性内容移入 README。
+- **能写进代码的就不写进散文。** 刷新顺序（三个写入者共用一个快照文件）、`Basis:` 行与分母、计价 `$/session` 列、回退链形状规则、种子过期判定、模式决议与 apply 的 diff 全部由代码计算。原来的九条自查变成 `go.mjs check`。
+- `apply` 会拒绝包含死 id 的链，也会拒绝写入一个无法重新解析的结果。
+
+### 新增
+
+- `node --test tests/*.test.mjs`（内置 `node:test`，不引入任何依赖）：`tests/golden/` 保存了从 2.0.0 脚本录制的金标，覆盖计价、agent 盘点与 Console 五态；CLI 测试覆盖离线降级、报告闸门，以及 dry-run 与 `--write` 的差别。
+- `run --offline` 始终产出自带日期、标注为 seed 的 `run.json`；`data.quality` 直接给出 `live` / `seed` / `none`，不再让读者自己推断。
 
 ### 已变更
 
-- 把 `test-prompts.json` 移到 `tests/prompts.json`，并在仓库结构表里说明它是什么：它是评测夹具（把一句请求与技能必须表现出的行为配对），不是运行时资产——没有任何代码加载它，此前它孤零零地放在根目录且无任何说明。
+- `scripts/check-docs.mjs` 与 `scripts/generate-assets.mjs` 移到 `tools/`：它们维护仓库，不属于技能运行时，也不进最小安装包。
+- 把 `test-prompts.json` 移到 `tests/prompts.json`，并在仓库结构表里说明它是评测夹具（一句请求配一段技能必须表现出的行为），不是运行时资产——没有任何代码加载它。
 
 ## [2.0.0] - 2026-10-30
 

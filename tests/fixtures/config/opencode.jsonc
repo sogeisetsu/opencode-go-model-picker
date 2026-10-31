@@ -1,0 +1,30 @@
+{
+  // Fixture for discovery tests: a native agent map with a chain, a single
+  // model, and a chain whose tail id is absent from the catalog snapshot.
+  "agent": {
+    "orchestrator": {
+      "description": "plans work, delegates to specialists, runs every turn",
+      "mode": "primary",
+      "model": [
+        "opencode-go/deepseek-v4.1-flash",
+        "opencode-go/qwen3.8-flash",
+        "opencode/glm-5.2"
+      ]
+    },
+    "fixer": {
+      "description": "bounded implementation work in one lane",
+      "mode": "subagent",
+      "model": "opencode-go/kimi-k2.7-code"
+    },
+    "observer": {
+      "description": "reads screenshots, diagrams and PDFs",
+      "mode": "subagent",
+      "model": ["opencode-go/gemini-4-argon", "opencode-go/retired-model"]
+    },
+    "build": {
+      "description": "a user agent whose name collides with a built-in",
+      "mode": "primary",
+      "model": "opencode-go/hy3"
+    }
+  }
+}

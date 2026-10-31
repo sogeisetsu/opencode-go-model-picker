@@ -19,7 +19,7 @@
 // this program. If not, see <https://www.gnu.org/licenses/>.
 //
 // Generate the repository's SVG assets: icon, banners and local badges.
-// Usage: node scripts/generate-assets.mjs
+// Usage: node tools/generate-assets.mjs
 //
 // Everything is emitted as plain SVG (no external fonts or images), so the
 // assets render identically offline and on GitHub.
@@ -240,7 +240,7 @@ const files = {
   }),
   [join(badgesDir, "license.svg")]: badgeSvg("license", "GPL-3.0-or-later", C.dark, C.ink),
   [join(badgesDir, "version.svg")]: badgeSvg("version", VERSION, C.green, C.greenInk),
-  [join(badgesDir, "node.svg")]: badgeSvg("node", ">=18", C.dark, C.ink),
+  [join(badgesDir, "node.svg")]: badgeSvg("node", ">=22", C.dark, C.ink),
   [join(badgesDir, "agent-skill.svg")]: badgeSvg("OpenCode", "Agent Skill", C.dark, C.ink),
   [join(badgesDir, "prs-welcome.svg")]: badgeSvg("PRs", "welcome", C.green, C.greenInk),
 };

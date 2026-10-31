@@ -41,23 +41,23 @@
 // fetches live instead.
 //
 // Usage:
-//   node scripts/refresh-scores.mjs                     # write references/model-scores.json
-//   node scripts/refresh-scores.mjs --out <seed.json>
-//   node scripts/refresh-scores.mjs --snapshot <snap.json>
+//   node scripts/go.mjs run                     # write references/model-scores.json
+//   node scripts/go.mjs run --out <seed.json>
+//   node scripts/go.mjs run --snapshot <snap.json>
 //     # user path: reuse the committed seed when its publish dates are still the
 //     # latest, else fetch and merge fresh scores into the snapshot.
-//   node scripts/refresh-scores.mjs --seed <seed.json>   # override the seed path
-//   node scripts/refresh-scores.mjs --no-env-proxy
+//   node scripts/go.mjs run --seed <seed.json>   # override the seed path
+//   node scripts/go.mjs run --no-env-proxy
 //
 // Exit code: 1 on error, else 0.
 
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readJsonFile, writeJsonFileAtomic } from "./lib/json-io.mjs";
-import { maybeReexec } from "./lib/proxy.mjs";
+import { readJsonFile, writeJsonFileAtomic } from "./json-io.mjs";
+import { maybeReexec } from "./proxy.mjs";
+import { FailError, makeIo } from "./io.mjs";
 
-maybeReexec();
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = "https://datasets-server.huggingface.co";
@@ -100,21 +100,24 @@ const NOISE = new Set([
   "128k",
 ]);
 
-function argValue(name) {
-  const i = process.argv.indexOf(name);
-  return i >= 0 ? process.argv[i + 1] : undefined;
+function parseOpts(argv) {
+  const value = (name) => {
+    const i = argv.indexOf(name);
+    return i >= 0 ? argv[i + 1] : undefined;
+  };
+  return {
+    snapshotArg: value("--snapshot"),
+    outArg: value("--out"),
+    seedPath: value("--seed") ?? join(root, "references", "model-scores.json"),
+    defaultSnapshot: join(
+      homedir(),
+      ".cache",
+      "opencode",
+      "opencode-go-model-picker",
+      "snapshot.json"
+    ),
+  };
 }
-
-const snapshotArg = argValue("--snapshot");
-const outArg = argValue("--out");
-const seedPath = argValue("--seed") ?? join(root, "references", "model-scores.json");
-const defaultSnapshot = join(
-  homedir(),
-  ".cache",
-  "opencode",
-  "opencode-go-model-picker",
-  "snapshot.json"
-);
 
 const normalize = (s) =>
   String(s)
@@ -267,34 +270,33 @@ function buildEntry(goId, boardData, fetchedAt) {
   return entry;
 }
 
-const now = new Date().toISOString();
-
 async function fetchCatalog() {
   const url = "https://opencode.ai/zen/go/v1/models";
   const catalog = await fetchJson(url);
   return (catalog.data ?? []).map((m) => m && m.id).filter(Boolean).sort();
 }
 
-async function main() {
+export async function refreshScores(argv = [], io = {}) {
+  const { stderr } = makeIo(io);
+  const { snapshotArg, outArg, seedPath, defaultSnapshot } = parseOpts(argv);
+  const now = new Date().toISOString();
   const goIds = await fetchCatalog();
 
   if (snapshotArg) {
     const snapshotPath = snapshotArg === "true" ? defaultSnapshot : snapshotArg;
     const loaded = readJsonFile(snapshotPath);
     if (loaded.error) {
-      console.error(
-        `Error: cannot read ${snapshotPath}: ${loaded.error}\n` +
+      throw new FailError(
+        `cannot read ${snapshotPath}: ${loaded.error}\n` +
           "The snapshot also stores user state (preferences.mode), so it is not overwritten " +
-          "automatically. Fix the JSON, or run refresh-snapshot.mjs --rebuild to start over.",
+          "automatically. Fix the JSON, or pass rebuild to start over.",
       );
-      process.exit(1);
     }
     const snapshot = loaded.missing
       ? { schemaVersion: 2, sources: {}, models: {} }
       : loaded.value;
     if (typeof snapshot !== "object" || snapshot === null || Array.isArray(snapshot)) {
-      console.error(`Error: ${snapshotPath} root value is not a JSON object.`);
-      process.exit(1);
+      throw new FailError(`${snapshotPath} root value is not a JSON object.`);
     }
     snapshot.models ??= {};
     snapshot.sources ??= {};
@@ -306,7 +308,7 @@ async function main() {
     // Try the committed seed first, but only if it is still current.
     const seedLoaded = readJsonFile(seedPath);
     if (seedLoaded.error) {
-      console.error(`Warning: ignoring the committed seed ${seedPath}: ${seedLoaded.error}`);
+      stderr.write(`Warning: ignoring the committed seed ${seedPath}: ${seedLoaded.error}\n`);
     }
     if (seedLoaded.value && typeof seedLoaded.value === "object") {
       const seed = seedLoaded.value;
@@ -325,7 +327,7 @@ async function main() {
     }
 
     if (!scores) {
-      console.error("LMArena boards are not covered by the current seed; fetching…");
+      stderr.write("LMArena boards are not covered by the current seed; fetching…\n");
       const live = await fetchBoards();
       publishDates = live.publishDates;
       scores = {};
@@ -347,20 +349,13 @@ async function main() {
       seedUsed,
     };
     writeJsonFileAtomic(snapshotPath, snapshot);
-    process.stdout.write(
-      JSON.stringify(
-        {
-          publishDates,
-          out: snapshotPath,
-          matched: snapshot.sources.rankings.matched,
-          total: goIds.length,
-          seedUsed,
-        },
-        null,
-        2
-      ) + "\n"
-    );
-    return;
+    return {
+      publishDates,
+      out: snapshotPath,
+      matched: snapshot.sources.rankings.matched,
+      total: goIds.length,
+      seedUsed,
+    };
   }
 
   // Maintainer path: always fetch and write the committed seed.
@@ -387,19 +382,13 @@ async function main() {
   };
   const outPath = outArg ?? seedPath;
   writeJsonFileAtomic(outPath, seed);
-  process.stdout.write(
-    JSON.stringify(
-      { publishDates: live.publishDates, out: outPath, matched: matched.length, total: goIds.length, ids: matched },
-      null,
-      2
-    ) + "\n"
-  );
+  return {
+    publishDates: live.publishDates,
+    out: outPath,
+    matched: matched.length,
+    total: goIds.length,
+    ids: matched,
+  };
 }
 
-main().catch((err) => {
-  const cause = err.cause
-    ? ` (${err.cause.code ?? err.cause.message ?? String(err.cause)})`
-    : "";
-  console.error(`Error: ${err.message ?? err}${cause}`);
-  process.exit(1);
-});
+

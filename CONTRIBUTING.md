@@ -47,31 +47,29 @@ a Markdown file" instead.
 
 | Path | Responsibility |
 |---|---|
-| `SKILL.md` | The skill itself: frontmatter, iron rules, workflow, allocation policy, fallback policy, schema notes. |
-| `references/data-sources.md` | Where to fetch live plan data and how to parse it. |
-| `references/agent-sources.md` | Agent discovery: source adapters, the uniform inventory record, the role-trait mapping, and fallback when a source is missing. |
-| `references/console-mcp.md` | Console MCP: the five states and what each may claim, detection order, fixed per-state guidance copy, three-level fallback, enabling steps. |
-| `references/quota-math.md` | The one priced-accounting spec: formula v2, context tiers, peak hours, derived quantities, pool reverse-solving, windows, known gaps, calibration constants. |
-| `references/model-snapshot.md` | Persistent snapshot cache: schema v3 (and v2 compatibility), location, refresh policy, key ownership, ranking sources, and name matching. |
-| `references/output-format.md` | The exact output structure the skill must produce: basis line, priced table, usage-evidence block, paste-ready config, highlights, data appendix, conditional Console guidance. |
+| `SKILL.md` | The skill itself: frontmatter, the four verbs, what the model decides, the hard rules. Model-facing only — teaching belongs in the READMEs. |
+| `references/plan-facts.md` | The judgement reference: plan facts, Console states and fallbacks, capability verification, the risks to flag. |
 | `references/model-scores.json` | Committed LMArena score seed, reused while its board dates are still current. |
 | `references/model-prices.json` | Committed price seed (models.dev prices, including cache write and context tiers) plus the hand-verified plan constants (`capUsd`, `estReq*`, `peak`, `promo`); `null` means unverified and is never guessed. |
-| `scripts/fetch-go-models.mjs` | Helper that prints the live model catalog as JSON. |
-| `scripts/quota-math.mjs` | The one pricing implementation: tokens + model id + price constants → `$`, window shares, capacity. Pure functions plus a small CLI. |
-| `scripts/probe-console.mjs` | Read-only Console MCP state detection (five states), cheapest evidence first; never prints a token. |
-| `scripts/calibrate-usage.mjs` | Local SQLite + Console read-outs → per-agent split, bias, reverse-solved pool, month-end forecast; `--write` stores the snapshot v3 keys. |
-| `scripts/refresh-snapshot.mjs` | Refreshes the snapshot cache and prints a compact added / removed diff. |
-| `scripts/refresh-scores.mjs` | Fetches LMArena scores via the HF datasets-server (no key, no browser) into the seed or a snapshot. |
-| `scripts/refresh-prices.mjs` | Refreshes the committed price seed from the models.dev `opencode-go` provider. |
-| `scripts/generate-assets.mjs` | Regenerates the SVG icon, banners and local badges; the version badge is read from `SKILL.md`. |
-| `scripts/check-docs.mjs` | One-stop doc check: relative links, EN/ZH doc pairs, frontmatter, no CJK in English docs, and version/badge/changelog agreement. |
-| `scripts/lib/json-io.mjs` | Shared helpers (BOM-tolerant JSON reads, atomic writes) imported by the other scripts — not run directly. |
-| `scripts/lib/proxy.mjs` | Shared proxy re-exec (`NODE_USE_ENV_PROXY`) imported by the four network scripts — not run directly. |
-| `scripts/lib/skill-md.mjs` | Reads `SKILL.md`'s `metadata.version`; used by both the badge generator and the doc checker so they cannot disagree. |
+| `scripts/go.mjs` | **The only entry point**: `run`, `report`, `check`, `apply`. |
+| `scripts/lib/agents.mjs` | Agent discovery (native, slim, plugin), trait derivation, chain validation. |
+| `scripts/lib/pricing.mjs` | The one pricing implementation: tokens + model id + price constants → `$`, window shares, capacity. |
+| `scripts/lib/usage.mjs` | Local SQLite + Console read-outs → per-agent split, bias, reverse-solved pool, month-end forecast. |
+| `scripts/lib/console.mjs` | Console MCP state detection (five states), cheapest evidence first; never prints a token. |
+| `scripts/lib/snapshot.mjs` | Snapshot read/write, catalog refresh, plan diff. |
+| `scripts/lib/prices.mjs` / `scores.mjs` | Refresh the committed seeds or a snapshot's price/score keys. |
+| `scripts/lib/report.mjs` | Renders the table, money columns and config blocks; the machine-checkable gate. |
+| `scripts/lib/apply.mjs` | Exact-diff apply into one named file; refuses to write an unparseable result. |
+| `scripts/lib/io.mjs` | Exit-code plumbing so no module calls `process.exit`. |
+| `scripts/lib/json-io.mjs` / `proxy.mjs` | Shared helpers (BOM-tolerant JSON, atomic writes; proxy re-exec). |
+| `tools/generate-assets.mjs` | Regenerates the SVG icon, banners and local badges; the version badge is read from `SKILL.md`. |
+| `tools/check-docs.mjs` | One-stop doc check: relative links, EN/ZH doc pairs, frontmatter, no CJK in English docs, and version/badge/changelog agreement. |
+| `tools/lib/skill-md.mjs` | Reads `SKILL.md`'s `metadata.version`; used by both the badge generator and the doc checker. |
 | `README.md` / `README-ZH.md` | English and Chinese documentation. |
 | `zh/` | Chinese docs (`CONTRIBUTING-ZH.md`, `CHANGELOG-ZH.md`, and a git-ignored local `skill-zh.md` reading copy). |
 | `assets/` | SVG icon, banners and local badges used in the README headers. |
-| `tests/prompts.json` | Evaluation prompts, not runtime assets: each case pairs a realistic request with the behaviour the skill must exhibit (read-only, dated fallback, apply gate). Nothing loads it; run them by hand or hand them to an agent when changing the workflow or output format. |
+| `tests/*.test.mjs` | The test suite (see "Validating changes"). |
+| `tests/prompts.json` | Evaluation prompts, not runtime assets: each case pairs a realistic request with the behaviour the skill must exhibit (read-only, dated fallback, apply gate). Nothing loads it; run them by hand or hand them to an agent when changing the workflow. |
 | `LICENSE` | The full GPL-3.0-or-later license text. |
 | `CONTRIBUTING.md` / `CHANGELOG.md` | Contribution guide and changelog (English; Chinese under `zh/`). |
 
@@ -86,35 +84,39 @@ a Markdown file" instead.
 
 ## Validating changes
 
-There is no build step or test suite. Validate manually:
+There is no build step. The suite uses `node:test` (built into Node, no
+dependencies):
 
 ```bash
-node --check scripts/*.mjs                 # syntax check
-node scripts/fetch-go-models.mjs           # confirm the endpoint still works
-node scripts/check-docs.mjs                # one-stop doc check (see below)
+node --test tests/*.test.mjs              # pricing, discovery, usage, CLI, report/apply
+node --check scripts/go.mjs               # syntax check (repeat for every .mjs)
+node --check tools/check-docs.mjs
+node tools/check-docs.mjs                 # one-stop doc check (see below)
+node scripts/go.mjs run --offline --json  # degrades cleanly with no network
 ```
+
+`tests/golden/` holds outputs captured from the pre-refactor scripts. A difference
+between a golden and the current code is a regression — refresh a golden only when
+the change is intended, and say so in the commit message.
 
 `check-docs.mjs` validates relative links, English/Chinese doc pairs, frontmatter
 validity, that English docs contain no CJK characters, and that the version badge
 plus both changelogs agree with `SKILL.md`'s `metadata.version` — run it after any
 documentation or `SKILL.md` edit. Every script stays dependency-free: reuse
 `scripts/lib/json-io.mjs` (reads, atomic writes) and `scripts/lib/proxy.mjs`
-(proxy re-exec) instead of adding a package or a fifth copy of either helper. To
-regenerate the LMArena score seed after an
-upstream release, run `node scripts/refresh-scores.mjs` and commit
-`references/model-scores.json`. To regenerate the price seed after a models.dev
-update, run `node scripts/refresh-prices.mjs` and commit
-`references/model-prices.json`.
+(proxy re-exec) instead of adding a package or a second copy of either helper. To
+regenerate the LMArena score seed after an upstream release, run
+`node scripts/go.mjs run` (or the `refreshScores` export in `scripts/lib/scores.mjs`)
+and commit `references/model-scores.json`. The price seed is refreshed the same way
+through `scripts/lib/prices.mjs`.
 
-If you changed the workflow or output structure, walk through the run mentally
-against `references/output-format.md` and confirm the basis line, the priced
-table, the usage-evidence block, the paste-ready config, the highlights, the data
-appendix and the conditional Console guidance are all still produced. If you
-changed model guidance, re-check the affected claims against the
-sources listed in `references/data-sources.md` and update the verified-date notes.
-If you edited any SVG under `assets/` by hand, prefer editing
-`scripts/generate-assets.mjs` and re-running `node scripts/generate-assets.mjs`
-instead, so the assets stay reproducible.
+If you changed a verb's behaviour, extend `tests/cli.test.mjs` — the assertion is
+the CLI surface itself: one entry, four verbs, a degraded run still producing a
+usable `run.json`, and `apply` never writing without `--write`. If you changed
+model guidance, re-check the affected claims against the sources listed in
+`references/plan-facts.md` and update the verified-date notes. If you edited any SVG
+under `assets/` by hand, prefer editing `tools/generate-assets.mjs` and re-running
+it, so the assets stay reproducible.
 
 ## Reporting issues
 

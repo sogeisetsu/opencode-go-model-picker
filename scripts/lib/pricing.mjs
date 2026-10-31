@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // opencode-go-model-picker — priced accounting: tokens + model price constants -> $, window %, capacity.
 // Copyright (C) 2026 sogeisetsu
 //
@@ -18,7 +17,7 @@
 // You should have received a copy of the GNU General Public License along with
 // this program. If not, see <https://www.gnu.org/licenses/>.
 //
-// The ONE pricing implementation. references/quota-math.md documents the same
+// The ONE pricing implementation. references/plan-facts.md documents the same
 // formula; no other file may restate a constant. Price, cap, context tiers and
 // peak hours live in references/model-prices.json only.
 //
@@ -38,28 +37,29 @@
 // Window fractions are fixed by the plan page and are never summed:
 // 5h = 20% of the monthly pool, week = 50%, month = 100%. `sessionsPerWindow`
 // returns the three independently; there is deliberately no "combined windows"
-// helper (references/quota-math.md §Gaps, gap 4).
+// helper (references/plan-facts.md §Gaps, gap 4).
 //
 // Usage:
-//   import { costOfUsage, planWindows, ... } from "./quota-math.mjs"
-//   node scripts/quota-math.mjs --model deepseek-v4.1-flash \
+//   import { costOfUsage, planWindows, ... } from "./pricing.mjs"
+//   node scripts/go.mjs report --model deepseek-v4.1-flash \
 //     --input 410 --cache-read 71300 --output 310 [--at <ISO>] [--count 10] \
 //     [--pool <usd>] [--prices <path>] [--json]
-//   node scripts/quota-math.mjs --self-check        # verify the published examples
+//   node scripts/go.mjs run --offline        # verify the published examples
 //
 // CLI output: one compact JSON object on stdout. Exit 0 on success, 2 on bad usage.
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readJsonFile } from "./lib/json-io.mjs";
+import { readJsonFile } from "./json-io.mjs";
+import { UsageError, argValue, makeIo, writeJson } from "./io.mjs";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const DEFAULT_PRICE_SEED = join(root, "references", "model-prices.json");
 
 // Fixed by https://opencode.ai/docs/go/ §Usage limits — not tunable per run.
 export const PLAN_WINDOW_FRACTION = Object.freeze({ fiveHour: 0.2, week: 0.5, month: 1 });
 
-// Provisional plan pool until a Console reading replaces it (calibrate-usage.mjs).
+// Provisional plan pool until a Console reading replaces it (go.mjs run).
 export const DEFAULT_POOL_MONTHLY_USD = 60;
 
 // A calibration constant (bias, pool) is only trusted once re-measured; a drift
@@ -342,7 +342,7 @@ export function biasDrift(previous, next) {
   return { ratio, warn: Math.abs(ratio - 1) > DRIFT_WARN_RATIO };
 }
 
-// Pool reverse-solve, in the order references/quota-math.md §Reverse-solving fixes
+// Pool reverse-solve, in the order references/plan-facts.md §Reverse-solving fixes
 // it (the order breaks the circular dependency, it is not a preference):
 //   1. a Console dollar figure for the cycle + a Console monthly %  -> exact;
 //   2. else a known bias converts local DB cost into billed cost  -> provisional;
@@ -416,14 +416,8 @@ export function forecastMonthEnd({
 
 // --- CLI ---------------------------------------------------------------------
 
-function argValue(argv, name) {
-  const i = argv.indexOf(name);
-  return i >= 0 ? argv[i + 1] : undefined;
-}
-
 function badUsage(message) {
-  process.stderr.write(`${message}\n`);
-  process.exit(2);
+  throw new UsageError(message);
 }
 
 // Published examples used only as an arithmetic self-check (the numbers come from
@@ -435,7 +429,7 @@ function selfCheck() {
   const offPeak = costOfUsage(deepseek, { input: 410, cacheRead: 71300, output: 310 }, "2026-10-30T20:00:00Z");
   const peak = costOfUsage(deepseek, { input: 410, cacheRead: 71300, output: 310 }, "2026-10-30T07:00:00Z");
   const handOffPeak = (410 * 0.15 + 310 * 0.6 + 71300 * 0.003) / 1e6;
-  // Reasoning is billed at the output rate (field verification, see quota-math.md).
+  // Reasoning is billed at the output rate (verified against per-message cost).
   const withReasoning = costOfUsage(
     deepseek,
     { input: 313, cacheRead: 310016, output: 73, reasoning: 872 },
@@ -464,36 +458,51 @@ function selfCheck() {
   };
 }
 
-function cli() {
-  const argv = process.argv.slice(2);
+
+// Internal CLI. `go.mjs` does not advertise this verb; it exists so the priced
+// arithmetic can be exercised exactly as before (and by the test suite).
+const PRICING_USAGE = [
+  "Usage: go.mjs pricing --model <id> --input <n> [--cache-read <n>] [--cache-write <n>]",
+  "                       [--output <n>] [--reasoning <n>] [--at <ISO>] [--count <n>] [--pool <usd>]",
+  "                       [--prices <path>] [--json]",
+  "       go.mjs pricing --self-check",
+  "Priced accounting (the only implementation of the formula). Exit 0, or 2 on bad usage.",
+].join("\n") + "\n";
+
+export function pricingCli(argv = [], io = {}) {
+  const { stdout } = makeIo(io);
+  try {
+    return pricingRun(argv, stdout);
+  } catch (err) {
+    if (err instanceof UsageError) {
+      makeIo(io).stderr.write(`${err.message}\n`);
+      return 2;
+    }
+    throw err;
+  }
+}
+
+function pricingRun(argv, stdout) {
   if (argv.includes("--help") || argv.includes("-h")) {
-    process.stdout.write(
-      [
-        "Usage: node scripts/quota-math.mjs --model <id> --input <n> [--cache-read <n>] [--cache-write <n>]",
-        "                                  [--output <n>] [--reasoning <n>] [--at <ISO>] [--count <n>] [--pool <usd>]",
-        "                                  [--prices <path>] [--json]",
-        "       node scripts/quota-math.mjs --self-check",
-        "Priced accounting (the only implementation of the formula). Exit 0, or 2 on bad usage.",
-      ].join("\n") + "\n",
-    );
-    return;
+    stdout.write(PRICING_USAGE);
+    return 0;
   }
   if (argv.includes("--self-check")) {
-    process.stdout.write(JSON.stringify(selfCheck()) + "\n");
-    return;
+    stdout.write(JSON.stringify(selfCheck()) + "\n");
+    return 0;
   }
   const model = argValue(argv, "--model");
   if (!model) badUsage("missing --model <id>");
   const pricesPath = argValue(argv, "--prices");
   const table = loadPriceTable(pricesPath ?? DEFAULT_PRICE_SEED);
   if (table.error) {
-    process.stdout.write(JSON.stringify({ error: table.error }) + "\n");
-    process.exit(1);
+    stdout.write(JSON.stringify({ error: table.error }) + "\n");
+    return 1;
   }
   const entry = entryFor(table, model);
   if (!entry) {
-    process.stdout.write(JSON.stringify({ error: `model ${model} is not in ${pricesPath ?? DEFAULT_PRICE_SEED}` }) + "\n");
-    process.exit(1);
+    stdout.write(JSON.stringify({ error: `model ${model} is not in ${pricesPath ?? DEFAULT_PRICE_SEED}` }) + "\n");
+    return 1;
   }
   const int = (name) => {
     const raw = argValue(argv, name);
@@ -545,11 +554,11 @@ function cli() {
     assumed: single.missing,
   };
   if (argv.includes("--json")) {
-    process.stdout.write(JSON.stringify(result) + "\n");
-    return;
+    stdout.write(JSON.stringify(result) + "\n");
+    return 0;
   }
   const pct = (v) => (v === null ? "-" : `${(v * 100).toFixed(2)}%`);
-  process.stdout.write(
+  stdout.write(
     [
       `model ${model} @ ${at} x${count}`,
       `cost $${total === null ? "-" : total.toFixed(6)}/request ${single.usd === null ? "-" : `$${single.usd.toFixed(6)}`}` +
@@ -564,6 +573,5 @@ function cli() {
       result.assumed.length ? `assumed/unverified: ${result.assumed.join(", ")}` : "all fields verified",
     ].join("\n") + "\n",
   );
+  return 0;
 }
-
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) cli();
