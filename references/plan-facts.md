@@ -10,15 +10,47 @@ re-format them. Your job is judgement: which model fits which agent, whether a
 capability claim is true, and what risk the user must know about.
 
 - `run` — data quality (`live` / `seed` / `none`), catalog + price + score dates,
-  agent inventory, Console state, local usage, plan diff, mode, basis.
+  the candidate menu (`data.candidates` / `data.candidateIds`), agent inventory,
+  Console state, local usage, plan diff, mode, basis.
 - `report` — the table and blocks, from `run` + your picks.
-- `check` — refuses a report that drops the basis line, a column, or the gate.
+- `check` — re-renders from `run` + `picks` and refuses any line that was altered,
+  plus a dropped basis line, a missing column, or a missing gate.
 - `apply` — prints the exact diff; `--write` only after the user confirms.
+
+## The menu
+
+`data.candidates` is the only legal source of model ids: every Go model this run
+can price, with its cap, official request counts, status, promo and end date,
+peak flag, context, vision field and ELO. `data.candidateIds` is the flat set
+`report` and `apply` check against — an id outside it is an invented id, even if
+it exists on the plan today.
+
+A non-Go id (another provider) is allowed where a chain slot asks for provider
+diversity; it is simply not priced here.
+
+## The mode question
+
+Ask these two, once, before picking a chain — on a first run, or when `run.json`
+says `needs.modeQuestion`:
+
+1. **Main goal** (weight 0.7): save money / balance / best quality.
+2. **Main workload** (weight 0.3): coding, research, writing, review, or
+   multimodal work.
+
+Resolve them into one of `budget` / `balanced` / `quality`, then pass
+`--mode <mode>`. The choice is written to the snapshot, so later runs report
+`source: "remembered"` and must not ask again. A user may override with
+`--mode` at any time; the new value replaces the remembered one.
 
 ## Plan facts
 
 - The pool is **not** the per-model cap. A Go model has its own monthly cap;
   several agents led by the same model share that one allowance.
+- **Chain length follows the source.** A native `agent.<name>.model` and a
+  Markdown agent's frontmatter `model:` hold one id; an `oh-my-opencode-slim`
+  preset (or any source already carrying an array) holds an ordered chain of
+  2–4. `report` enforces this per agent, so a one-id answer where a chain is
+  possible, and a two-id answer where it is not, are both refused.
 - Windows are fixed fractions of the pool and never summed: 5h = 20%, week = 50%,
   month = 100%.
 - Official request counts come from the plan page; observed counts come from a
@@ -64,7 +96,24 @@ you (5h / week / month %, cycle spend) — those are as authoritative as the API
 (2) local DB only, labelled an estimate; (3) neither — `Basis: Uncalibrated`,
 amount columns `-`, rank models only.
 
+The authoritative path needs the numbers handed back to `run`, because it cannot
+call the MCP tool itself:
+
+```bash
+# after the Console tool returns cost_usd (and optionally requests / month%)
+node scripts/go.mjs run --tool-status authorized --console-cost <usd> \
+  --console-requests <n> --month-pct <pct> --out run.json
+```
+
+A number the user read off the Console page goes in the same flags — it is
+evidence, not a claim, and only then does the basis say `Console bill`.
+
 ## Risks the report must name, where they apply
+
+The data says which models owe a caveat: `data.candidates[].promo`,
+`promoUntil` and `peak`. `check` requires a bullet for each picked model that
+carries one — a line with its id and the reason. When no picked model carries
+one, no caveat line is owed, and filler is worse than silence.
 
 - A **limited-time multiplier**: give the base limit and the end date.
 - A **geo-restricted** model: say which regions, and whether the user's is covered.
@@ -79,4 +128,5 @@ amount columns `-`, rank models only.
 - Highlights — mode, plan changes since the last snapshot, and the one thing the
   user should act on.
 - Caveats — the risks above, in the user's words.
-- The two mode questions on a first run, then `question` before any write.
+- The two mode questions on a first run (see *The mode question*), then
+  `question` before any write.

@@ -39,6 +39,8 @@
 - **把依据摆出来。** 每个数字都带来源和抓取日期；拿不准的会明确标出，而不是猜。
 
 有两件事它不会做：编造价格、额度或模型编号；以及不先给你看改动就直接动你的配置。
+这两条都是硬性执行的，不只是承诺：运行会公布它实际能定价的编号清单，清单之外的任何编号都会被
+`report`、`check`、`apply` 拒绝。
 
 ### 一个建议
 
@@ -164,20 +166,23 @@ TUI 里如果它没出现在 `/` 的补全列表中，先输入 `/skills`，从�
 技能只有一个入口（`scripts/go.mjs`），外加一份供模型做判断时查阅的参考文档。一次运行分三步：
 
 ```bash
-node scripts/go.mjs run --out run.json       # agents, Console, usage, data, diff, basis
+node scripts/go.mjs run --out run.json       # agents, Console, usage, data, diff, basis, 候选清单
 node scripts/go.mjs report --run run.json --picks picks.json --out report.md
-node scripts/go.mjs check report.md --run run.json
+node scripts/go.mjs check report.md --run run.json --picks picks.json
 node scripts/go.mjs apply --run run.json --picks picks.json --target <file>   # diff only
 ```
 
 1. **`run`** 发现自定义智能体（原生、`oh-my-opencode-slim`、插件），探测 Console 状态，读取本机用量数据库，
    **在一次串行过程中**刷新目录、价格与评分，把当前套餐与上一份快照做 diff，并决定 `Basis:` 行。
    每一步都降级而不是失败：离线运行用带日期的种子兜底，缺 DB 或缺 Console 会如实报告，过期种子标注 `EXPIRED`。
-   输出是一份 `run.json`，每个数字都带来源和日期。
-2. **由模型决定**——为每个智能体给出 2–4 项的链，以及一句话的 `why`。能力（尤其是视觉）会去模型所属实验室的
-   官方文档核实，并把单模型上限与套餐池分开记。
+   输出是一份 `run.json`，每个数字都带来源和日期——还包括 `data.candidates`，即这次运行真正能定价的 Go 模型清单。
+   清单之外的编号会被 `report` 和 `apply` 直接拒绝，所以编造的模型编号到不了你的配置里。
+2. **由模型决定**——从这份清单里为每个智能体挑链，并写一句话的 `why`。来源能装下链就 2–4 项，
+   来源只有一个 `model`（原生智能体、Markdown 智能体的 frontmatter）就只给一项。能力（尤其是视觉）会去
+   模型所属实验室的官方文档核实，并把单模型上限与套餐池分开记。
 3. **`report` 渲染表格、金额列与配置块；`check` 把关，不通过不交付；`apply` 打出确切的 diff，
-   并且只在确认之后写入用户点名的那个文件。**
+   并且只在确认之后写入用户点名的那个文件。** `check` 会用同一份 run 与 picks 重新渲染一遍，
+   事后被改动过的行一律报错。
 
 几点值得了解：
 
