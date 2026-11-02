@@ -211,8 +211,10 @@ export function diffSnapshots(before, after) {
 //
 // Every field is optional on purpose: an unknown value stays null and the report
 // prints "-", rather than a guess filling the gap.
-// A model the plan no longer offers is not a candidate, however recently it was
-// priced: recommending it would be the same as inventing one.
+// A model the plan has marked dead is not a candidate, however recently it was
+// priced: recommending it would be the same as inventing one. This is the status
+// check only — an id dropped from the catalog whose status still reads "active"
+// is out of reach here, because the snapshot keeps only a count, not the id list.
 const RETIRED_STATUS = new Set(["retired", "removed", "deprecated", "delisted", "unavailable"]);
 
 export function candidateRows({ table = {}, snapshot = null } = {}) {

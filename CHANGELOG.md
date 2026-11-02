@@ -43,9 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   caveat. It now uses the validated picks, and `report` prints the caveats the
   data owes (a picked model with a promo, an end date or a peak window) so the
   gate is satisfiable without the model inventing prose.
-- **A retired model is not a candidate.** `data.candidates` drops entries whose
-  status is retired, removed, deprecated, delisted or unavailable, instead of
-  offering an id the plan no longer sells.
+- **A model whose status reads retired is not a candidate.** `data.candidates`
+  drops entries whose status is retired, removed, deprecated, delisted or
+  unavailable, instead of offering an id the plan has marked dead. An id dropped
+  from the catalog while its status still reads "active" is not caught — the
+  snapshot keeps a count, not the id list.
 - **An empty candidate list refuses everything.** `candidateIds` missing (a run
   from before the menu existed) is tolerated; `candidateIds: []` means nothing
   could be priced, so every Go id is refused rather than accepted unchecked.

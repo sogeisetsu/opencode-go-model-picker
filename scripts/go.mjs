@@ -24,7 +24,7 @@
 //                  [--console-cost <usd>] [--console-requests <n>] [--month-pct <pct>]
 //                  [--mode budget|balanced|quality]
 //   go.mjs report  --run <file> --picks <file> [--out <file>] [--json]
-//   go.mjs check   <report.md> [--run <file>] [--picks <file>] [--json]
+//   go.mjs check   <report.md> (--run <file> --picks <file>) [--json]
 //   go.mjs apply   --run <file> --picks <file> --target <file> [--write] [--json]
 //
 // Exit codes: 0 done, 1 a real failure, 2 bad usage.
@@ -51,7 +51,8 @@ const USAGE = `Usage: go.mjs <verb> [options]
   run      discover agents, probe Console, calibrate usage, refresh data, diff the
            plan, pick the basis; writes run.json (stdout or --out)
   report   render the report from a run + a picks file
-  check    machine-check a finished report (the gate before delivery)
+  check    machine-check a finished report (the gate before delivery); pass --run
+           and --picks together to compare numbers, or it only lints the structure
   apply    print an exact diff for one target file; --write only after confirmation
 
 Options: --help for the full list. Exit 0 done, 1 failure, 2 bad usage.
