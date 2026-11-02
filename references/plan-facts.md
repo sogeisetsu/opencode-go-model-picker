@@ -130,6 +130,7 @@ caveat line is owed, and filler is worse than silence.
   reason when a dominated model is kept.
 - Highlights — mode, plan changes since the last snapshot, and the one thing the
   user should act on.
-- Caveats — the risks above, in the user's words.
+- Caveats — only wording of your own, added underneath the rendered bullets; the
+  risks above, in the user's words, never in place of the rendered line.
 - The two mode questions on a first run (see *The mode question*), then
   `question` before any write.
