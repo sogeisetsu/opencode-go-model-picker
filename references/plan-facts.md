@@ -111,9 +111,10 @@ evidence, not a claim, and only then does the basis say `Console bill`.
 ## Risks the report must name, where they apply
 
 The data says which models owe a caveat: `data.candidates[].promo`,
-`promoUntil` and `peak`. `check` requires a bullet for each picked model that
-carries one — a line with its id and the reason. When no picked model carries
-one, no caveat line is owed, and filler is worse than silence.
+`promoUntil` and `peak`. `report` prints those bullets; rewrite them in the
+user's words if it helps, but do not drop one. `check` requires a bullet for each
+picked model that carries one — a line with its id and the reason. When no picked
+model carries one, no caveat line is owed, and filler is worse than silence.
 
 - A **limited-time multiplier**: give the base limit and the end date.
 - A **geo-restricted** model: say which regions, and whether the user's is covered.

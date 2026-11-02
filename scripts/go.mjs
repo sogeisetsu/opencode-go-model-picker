@@ -313,9 +313,10 @@ function applyVerb(argv, io) {
     if (bad.length) throw new FailError(`refusing: ${agent.name} chain contains dead ids: ${bad.join(", ")}`);
     // A Go id that is not in this run's catalog cannot be priced, so it cannot
     // have been picked from the run's own menu. Refuse it here, where it would
-    // otherwise be written verbatim into the user's config.
-    const known = new Set(run.data?.candidateIds ?? []);
-    const unknown = known.size ? ids.filter((id) => id.startsWith("opencode-go/") && !known.has(id)) : [];
+    // otherwise be written verbatim into the user's config. An absent list means
+    // a run from before the menu existed; an empty one refuses everything.
+    const menu = Array.isArray(run.data?.candidateIds) ? new Set(run.data.candidateIds) : null;
+    const unknown = menu === null ? [] : ids.filter((id) => id.startsWith("opencode-go/") && !menu.has(id));
     if (unknown.length) {
       throw new FailError(
         `refusing: ${agent.name} chain contains Go ids that are not in this run's catalog: ${unknown.join(", ")} ` +

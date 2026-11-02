@@ -28,7 +28,7 @@ skips the network, a missing DB or Console is reported, a stale seed is labelled
 
 `run.json` carries the menu: `data.candidates` (id, cap, official request counts,
 status, promo and its end date, peak, context, vision, ELO) and the flat
-`data.candidateIds`. **Never pick an id that is not in `data.candidateIds`** —
+`data.candidateIds`. **Never pick a Go id that is not in `data.candidateIds`** —
 `report` and `apply` both refuse one, because an id outside this run's catalog
 cannot be priced.
 
@@ -82,8 +82,10 @@ appendix. Add only the highlights and caveats it marks as yours (mode, plan
 changes, peak/geo/training risks). **`check` must pass before you deliver** — it
 re-renders the report from the same run and picks, then fails on any line that
 was altered, dropped or reordered, plus a missing column, a second basis, an
-uncaveated promo, or no stop-before-writing line. A number the renderer owns
-cannot be edited after it was computed.
+uncaveated promo, or no stop-before-writing line. `--run` and `--picks` go
+together: one without the other is refused, because the gate cannot re-derive the
+numbers from one alone. A number the renderer owns cannot be edited after it was
+computed.
 
 ## Apply, only after the user says yes
 
@@ -102,8 +104,8 @@ the next OpenCode run and is verified with `/models` and `opencode debug config`
 ## Hard rules
 
 1. **Never invent a price, a limit or a model id.** The run carries a source and
-   a date for every number, `data.candidateIds` is the whole menu, and `report`
-   refuses an id outside it. `data.quality` says whether the numbers are `live`,
+   a date for every number, `data.candidateIds` is the whole Go menu, and `report`
+   refuses a Go id outside it. `data.quality` says whether the numbers are `live`,
    a dated `seed`, or `none` — present it as such.
 2. **Read-only until confirmed.** No config edit before the user answers the
    apply question, and then only the file they named.

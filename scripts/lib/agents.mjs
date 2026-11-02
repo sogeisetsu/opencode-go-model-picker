@@ -832,5 +832,9 @@ export function supportsChain(agent) {
 }
 
 export function chainRange(agent) {
+  // A Markdown agent's frontmatter holds one `model:` line whatever the inventory
+  // parsed out of it: rendering or writing a chain there silently dropped every
+  // id after the first, so it is one id, always.
+  if (String(agent?.provenance?.pointer ?? "") === "#frontmatter") return { min: 1, max: 1 };
   return supportsChain(agent) ? { min: 2, max: 4 } : { min: 1, max: 1 };
 }

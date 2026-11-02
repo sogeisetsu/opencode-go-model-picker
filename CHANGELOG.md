@@ -11,9 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **A model id can no longer be invented.** `run` publishes `data.candidates` /
+- **A Go model id can no longer be invented.** `run` publishes `data.candidates` /
   `data.candidateIds` — every Go model it could actually price — and `report`,
-  `check` and `apply` refuse an id outside that list. Before this, a fabricated
+  `check` and `apply` refuse a Go id outside that list. Before this, a fabricated
   id rendered as a row of `-`, passed `check`, and reached the config through
   `apply`.
 - **Chain length follows the source.** A native `agent.<name>.model` and a
@@ -30,16 +30,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`check` compares instead of pattern-matching.** Given `--picks` it
   re-renders the report and fails on any altered line, so a machine-computed
   number cannot be edited afterwards. The dead-chain and Console-state checks now
-  compare against the run, and the caveat rule fires on a picked model's
-  promo/peak data instead of on a stale seed.
+  compare against the run.
 - **No custom agents is a stop, not an empty report.** `needs.noAgents` says so,
   and `check` refuses the report.
 - The vision field check warns on the chain head only, instead of once per slot.
+- **`check` fails closed.** It refuses a half invocation (`--run` without
+  `--picks`, or the reverse), and a picks file that does not validate is a FAIL
+  instead of a silently skipped re-render. Before this, dropping `--picks` — or
+  passing a picks file with an invented id — still printed "all checks passed".
+- **The caveat rule fires.** It was reading the raw picks file (`{ picks: ... }`)
+  where it expected a flat map, so it never found an agent and never required a
+  caveat. It now uses the validated picks, and `report` prints the caveats the
+  data owes (a picked model with a promo, an end date or a peak window) so the
+  gate is satisfiable without the model inventing prose.
+- **A retired model is not a candidate.** `data.candidates` drops entries whose
+  status is retired, removed, deprecated, delisted or unavailable, instead of
+  offering an id the plan no longer sells.
+- **An empty candidate list refuses everything.** `candidateIds` missing (a run
+  from before the menu existed) is tolerated; `candidateIds: []` means nothing
+  could be priced, so every Go id is refused rather than accepted unchecked.
+- **Markdown agents hold one model, always.** A frontmatter that discovery parsed
+  as an array could take a 2–4 chain, which `apply` wrote as a single `model:`
+  line — silently dropping every fallback. The range is now 1–1 for those agents.
+- **Windows files are read the way discovery reads them.** `check` normalises a
+  BOM and CRLF before comparing, and `apply` strips a BOM before planning and
+  restores it on write, so a file that is inventoried fine can also be written.
 
 ### Changed
 
-- `check` accepts `--picks`, and the documented command in `SKILL.md` and the
-  README passes it.
+- The documented commands and `tests/prompts.json` follow: `check` takes `--run`
+  and `--picks` together, and chain length is described per source.
+- The "cannot invent an id" claim is scoped to **Go** ids, which is what is
+  enforced; a third-slot provider id stays allowed and unpriced.
 - `references/plan-facts.md` documents the candidate menu, the per-source chain
   rule, the two weighted mode questions, and the flags that make the Console bill
   the basis.

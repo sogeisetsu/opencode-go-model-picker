@@ -211,6 +211,10 @@ export function diffSnapshots(before, after) {
 //
 // Every field is optional on purpose: an unknown value stays null and the report
 // prints "-", rather than a guess filling the gap.
+// A model the plan no longer offers is not a candidate, however recently it was
+// priced: recommending it would be the same as inventing one.
+const RETIRED_STATUS = new Set(["retired", "removed", "deprecated", "delisted", "unavailable"]);
+
 export function candidateRows({ table = {}, snapshot = null } = {}) {
   const entries = new Map();
   for (const [bare, entry] of Object.entries(table?.models ?? {})) {
@@ -227,6 +231,7 @@ export function candidateRows({ table = {}, snapshot = null } = {}) {
 
   const nullish = (v) => (v === undefined ? null : v);
   return [...entries.entries()]
+    .filter(([, entry]) => !RETIRED_STATUS.has(String(entry?.status ?? "").toLowerCase()))
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([bare, entry]) => {
       const record = snapshot?.models?.[bare] ?? {};

@@ -10,17 +10,24 @@
 
 ### 修复
 
-- **模型编号再也编不出来。** `run` 现在输出 `data.candidates` / `data.candidateIds`——这次运行真正能定价的每一个 Go 模型——清单之外的编号会被 `report`、`check`、`apply` 直接拒绝。在此之前，编造的编号会渲染成一行 `-`、通过 `check`、并由 `apply` 写进配置。
+- **Go 模型编号再也编不出来。** `run` 现在输出 `data.candidates` / `data.candidateIds`——这次运行真正能定价的每一个 Go 模型——清单之外的 Go 编号会被 `report`、`check`、`apply` 直接拒绝。在此之前，编造的编号会渲染成一行 `-`、通过 `check`、并由 `apply` 写进配置。
 - **链长按来源决定。** 原生 `agent.<name>.model` 与 Markdown 智能体 frontmatter 里的 `model:` 只放一个编号；预设以及任何本来就存数组的来源放 2–4 个。此前 `report` 对每个智能体都要求 2–4 项，使 README 承诺的"单模型"答案根本无法产出。
 - **`apply` 能写 Markdown 智能体。** 以前的 `.md` 智能体会被发现、然后被配上一段它永远用不上的 JSONC 块；现在改写它的 YAML frontmatter，报告也打印与文件相符的块。
 - **模式会被记住。** `--mode` 会写入 `snapshot.preferences.mode`，`needs.modeQuestion` 不再每次都真。删掉了 `--answers` 那条无权重、只看第一个匹配的正则，两个带权重的问题写进了 `plan-facts.md`。
-- **`check` 从"查关键词"改成"比对"。** 传入 `--picks` 时会用同一份 run 与 picks 重新渲染，任何被改动过的行都报错，机器算出来的数字事后改不了。死链与 Console 状态两条检查改成与 run 里的值比对，caveat 规则改由所选模型的促销/峰谷数据触发，而不是种子过期。
+- **`check` 从"查关键词"改成"比对"。** 传入 `--picks` 时会用同一份 run 与 picks 重新渲染，任何被改动过的行都报错，机器算出来的数字事后改不了。死链与 Console 状态两条检查改成与 run 里的值比对。
 - **没有自定义智能体是"停"，不是出一份空报告。** `needs.noAgents` 会标出来，`check` 直接拒绝。
 - 视觉字段检查只对链头报警，不再每个槽位报一次。
+- **`check` 改为 fail-closed。** 只给 `--run` 不给 `--picks`（或反过来）直接判失败；picks 校验不过也判失败，而不是悄悄跳过重渲染。在此之前，去掉 `--picks`、或传一份含编造编号的 picks，`check` 照样打印 "all checks passed"。
+- **caveat 规则真的会触发了。** 它原先读的是原始 picks 文件（外层有 `{ picks: ... }`），却按扁平映射去找 agent，所以永远找不到、永远不要求 caveat。现在用校验后的 picks，并且由 `report` 自己打印数据欠下的 caveat（所选模型带促销、结束日期或峰谷窗口），门槛不必靠模型编话术来满足。
+- **已退役的模型不再进清单。** `data.candidates` 会剔掉 status 为 retired / removed / deprecated / delisted / unavailable 的条目，不再推荐套餐已经不下卖的编号。
+- **空清单等于全拒。** `candidateIds` 缺失（菜单出现之前的 run）放行；`candidateIds: []` 表示什么都定不了价，因此所有 Go 编号一律拒绝，而不是不加校验地放行。
+- **Markdown 智能体永远只有一个模型。** discovery 把 frontmatter 解析成数组时，原本可以接受 2–4 条链，而 `apply` 只写一行 `model:`——后面的回退被静默丢掉。现在这类智能体的区间固定为 1–1。
+- **Windows 上的文件按 discovery 的方式读取。** `check` 比较前统一 BOM 与 CRLF；`apply` 规划前去 BOM、写入时再补回，所以能被盘点的文件也一定能被写。
 
 ### 变更
 
-- `check` 接受 `--picks`，`SKILL.md` 与 README 里的命令示例都会带上它。
+- 文档里的命令与 `tests/prompts.json` 同步：`check` 必须同时带 `--run` 与 `--picks`，链长按来源描述。
+- "编号不能编造"这一条收窄为 **Go** 编号——这才是真正强制执行的；第三槽位的其他 provider 编号仍然允许、只是不定价。
 - `references/plan-facts.md` 补上了候选清单、按来源的链规则、两个带权重的模式问题，以及让 Console 账单成为 Basis 所需的那几个参数。
 
 ## [3.0.0] - 2026-11-01

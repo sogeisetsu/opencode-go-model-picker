@@ -54,9 +54,9 @@ you say yes.
   anything it can't verify is flagged instead of guessed.
 
 Two things it will never do: invent a price, limit, or model ID, and change your
-config without showing you the change first. Both are enforced, not just
-promised: the run publishes the only IDs it could price, and `report`, `check`
-and `apply` reject anything outside that list.
+config without showing you the change first. The Go half of that is enforced, not
+just promised: the run publishes the only Go IDs it could price, and `report`,
+`check` and `apply` reject a Go ID outside that list.
 
 ### A suggestion
 
@@ -244,8 +244,8 @@ node scripts/go.mjs apply --run run.json --picks picks.json --target <file>   # 
    runs use the dated seeds, a missing DB or Console is reported, a stale seed is
    labelled `EXPIRED`. The output is one `run.json` with a source and date for
    every number — plus `data.candidates`, the Go models this run can actually
-   price. An id outside that menu is refused by both `report` and `apply`, so a
-   model ID cannot be invented on the way to your config.
+   price. A Go id outside that menu is refused by both `report` and `apply`, so a
+   Go model ID cannot be invented on the way to your config.
 2. **The model decides** — a chain and a one-sentence `why` per agent, drawn from
    that menu. The chain is 2–4 ids where the source holds a list, one id where it
    holds a single `model` (a native agent, a Markdown agent's frontmatter). It
