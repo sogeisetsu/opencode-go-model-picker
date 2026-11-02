@@ -6,6 +6,23 @@
 
 [英文版](../CHANGELOG.md)
 
+## [3.0.1] - 2026-11-03
+
+### 修复
+
+- **模型编号再也编不出来。** `run` 现在输出 `data.candidates` / `data.candidateIds`——这次运行真正能定价的每一个 Go 模型——清单之外的编号会被 `report`、`check`、`apply` 直接拒绝。在此之前，编造的编号会渲染成一行 `-`、通过 `check`、并由 `apply` 写进配置。
+- **链长按来源决定。** 原生 `agent.<name>.model` 与 Markdown 智能体 frontmatter 里的 `model:` 只放一个编号；预设以及任何本来就存数组的来源放 2–4 个。此前 `report` 对每个智能体都要求 2–4 项，使 README 承诺的"单模型"答案根本无法产出。
+- **`apply` 能写 Markdown 智能体。** 以前的 `.md` 智能体会被发现、然后被配上一段它永远用不上的 JSONC 块；现在改写它的 YAML frontmatter，报告也打印与文件相符的块。
+- **模式会被记住。** `--mode` 会写入 `snapshot.preferences.mode`，`needs.modeQuestion` 不再每次都真。删掉了 `--answers` 那条无权重、只看第一个匹配的正则，两个带权重的问题写进了 `plan-facts.md`。
+- **`check` 从"查关键词"改成"比对"。** 传入 `--picks` 时会用同一份 run 与 picks 重新渲染，任何被改动过的行都报错，机器算出来的数字事后改不了。死链与 Console 状态两条检查改成与 run 里的值比对，caveat 规则改由所选模型的促销/峰谷数据触发，而不是种子过期。
+- **没有自定义智能体是"停"，不是出一份空报告。** `needs.noAgents` 会标出来，`check` 直接拒绝。
+- 视觉字段检查只对链头报警，不再每个槽位报一次。
+
+### 变更
+
+- `check` 接受 `--picks`，`SKILL.md` 与 README 里的命令示例都会带上它。
+- `references/plan-facts.md` 补上了候选清单、按来源的链规则、两个带权重的模式问题，以及让 Console 账单成为 Basis 所需的那几个参数。
+
 ## [3.0.0] - 2026-11-01
 
 ### 这次简化有多大

@@ -54,7 +54,9 @@ you say yes.
   anything it can't verify is flagged instead of guessed.
 
 Two things it will never do: invent a price, limit, or model ID, and change your
-config without showing you the change first.
+config without showing you the change first. Both are enforced, not just
+promised: the run publishes the only IDs it could price, and `report`, `check`
+and `apply` reject anything outside that list.
 
 ### A suggestion
 
@@ -229,9 +231,9 @@ The skill is a single entry point (`scripts/go.mjs`) plus one reference the mode
 reads for judgement calls. A run is three steps:
 
 ```bash
-node scripts/go.mjs run --out run.json       # agents, Console, usage, data, diff, basis
+node scripts/go.mjs run --out run.json       # agents, Console, usage, data, diff, basis, candidate menu
 node scripts/go.mjs report --run run.json --picks picks.json --out report.md
-node scripts/go.mjs check report.md --run run.json
+node scripts/go.mjs check report.md --run run.json --picks picks.json
 node scripts/go.mjs apply --run run.json --picks picks.json --target <file>   # diff only
 ```
 
@@ -241,13 +243,18 @@ node scripts/go.mjs apply --run run.json --picks picks.json --target <file>   # 
    and decides the `Basis:` line. Every step degrades instead of failing: offline
    runs use the dated seeds, a missing DB or Console is reported, a stale seed is
    labelled `EXPIRED`. The output is one `run.json` with a source and date for
-   every number.
-2. **The model decides** — a 2–4 entry chain and a one-sentence `why` per agent.
-   It verifies capabilities (vision above all) in the model's own lab docs and
-   keeps the per-model cap separate from the plan pool.
+   every number — plus `data.candidates`, the Go models this run can actually
+   price. An id outside that menu is refused by both `report` and `apply`, so a
+   model ID cannot be invented on the way to your config.
+2. **The model decides** — a chain and a one-sentence `why` per agent, drawn from
+   that menu. The chain is 2–4 ids where the source holds a list, one id where it
+   holds a single `model` (a native agent, a Markdown agent's frontmatter). It
+   verifies capabilities (vision above all) in the model's own lab docs and keeps
+   the per-model cap separate from the plan pool.
 3. **`report` renders the table, money columns and config blocks; `check` gates
    it; `apply` prints the exact diff and writes only the file the user names,
-   only after confirmation.**
+   only after confirmation.** `check` re-renders the report from the same run and
+   picks and rejects any line that was edited after the numbers were computed.
 
 A few details worth knowing:
 

@@ -22,9 +22,9 @@
 //                  [--config <dir>] [--snapshot <path>] [--db <path>] [--prices <path>]
 //                  [--tool-status <state>] [--tool-cost-usd <usd>]
 //                  [--console-cost <usd>] [--console-requests <n>] [--month-pct <pct>]
-//                  [--mode budget|balanced|quality] [--answers <a,b>]
+//                  [--mode budget|balanced|quality]
 //   go.mjs report  --run <file> --picks <file> [--out <file>] [--json]
-//   go.mjs check   <report.md> [--run <file>] [--json]
+//   go.mjs check   <report.md> [--run <file>] [--picks <file>] [--json]
 //   go.mjs apply   --run <file> --picks <file> --target <file> [--write] [--json]
 //
 // Exit codes: 0 done, 1 a real failure, 2 bad usage.
@@ -32,11 +32,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { maybeReexec } from "./lib/proxy.mjs";
+import { writeJsonFileAtomic } from "./lib/json-io.mjs";
 import { FailError, HelpRequested, UsageError, argValue, hasFlag, makeIo, writeJson } from "./lib/io.mjs";
 import { discoverAgents } from "./lib/agents.mjs";
 import { probeConsole } from "./lib/console.mjs";
 import { usageReport } from "./lib/usage.mjs";
-import { defaultSnapshotPath, diffSnapshots, readSnapshot, refreshCatalog } from "./lib/snapshot.mjs";
+import { candidateRows, defaultSnapshotPath, diffSnapshots, readSnapshot, refreshCatalog } from "./lib/snapshot.mjs";
 import { refreshPrices } from "./lib/prices.mjs";
 import { refreshScores } from "./lib/scores.mjs";
 import { DEFAULT_PRICE_SEED, loadPriceTable, seedFreshness } from "./lib/pricing.mjs";
@@ -58,19 +59,13 @@ Options: --help for the full list. Exit 0 done, 1 failure, 2 bad usage.
 
 const MODES = new Set(["budget", "balanced", "quality"]);
 
-function resolveMode({ named, remembered, answers }) {
+function resolveMode({ named, remembered }) {
   if (named) {
     if (!MODES.has(named)) throw new UsageError(`--mode must be budget|balanced|quality`);
     return { chosen: named, source: "request" };
   }
   if (remembered && MODES.has(remembered.mode)) {
     return { chosen: remembered.mode, source: "remembered" };
-  }
-  if (answers) {
-    const [goal = "", task = ""] = String(answers).split(",").map((s) => s.trim().toLowerCase());
-    const chosen =
-      /quality|能力|质量/.test(goal) ? "quality" : /budget|省|便宜/.test(goal) || /cheap/.test(task) ? "budget" : "balanced";
-    return { chosen, source: "answers" };
   }
   return { chosen: "balanced", source: "default", needsQuestion: true };
 }
@@ -181,12 +176,27 @@ async function runVerb(argv, io) {
   const live = Boolean(refresh.catalog && !refresh.catalog.error && refresh.prices && !refresh.prices.error);
   const quality = live ? "live" : table.error ? "none" : "seed";
 
+  // The menu the model is allowed to choose from. The table is what the prices
+  // can be computed for; the catalog is what the plan still offers. Anything else
+  // cannot be priced, and an id that is neither must never reach a pick.
+  const candidates = candidateRows({ table, snapshot: after.snapshot });
+  const candidateIds = candidates.map((c) => c.id);
+
   const mode = resolveMode({
     named: argValue(argv, "--mode"),
     remembered: after.snapshot?.preferences,
-    answers: argValue(argv, "--answers"),
   });
   const basis = basisOf({ consoleState: consoleState?.state, usage, today });
+
+  // A named mode is remembered, so the next run does not ask again.
+  if (mode.source === "request" && after.snapshot) {
+    after.snapshot.preferences = { ...(after.snapshot.preferences ?? {}), mode: mode.chosen };
+    try {
+      writeJsonFileAtomic(snapshotPath, after.snapshot);
+    } catch (err) {
+      stderr.write(`Warning: could not remember mode ${mode.chosen}: ${err.message ?? err}\n`);
+    }
+  }
 
   const run = {
     schemaVersion: "1",
@@ -202,6 +212,8 @@ async function runVerb(argv, io) {
         publishDates: baseline?.sources?.rankings?.publishDates ?? null,
         error: offline ? "offline run" : null,
       },
+      candidates,
+      candidateIds,
     },
     agents: inventory.agents,
     warnings: inventory.warnings,
@@ -216,6 +228,7 @@ async function runVerb(argv, io) {
     needs: {
       modeQuestion: Boolean(mode.needsQuestion),
       consoleGuidance: (consoleState?.state ?? "unknown") !== "authorized",
+      noAgents: inventory.agents.length === 0,
       picks: true,
       applyGate: true,
     },
@@ -234,8 +247,9 @@ async function runVerb(argv, io) {
         `agents ${run.agents.length} | console ${run.console.state} | data ${run.data.quality}` +
           ` | prices ${run.data.prices.verifiedAt ?? "-"}${run.data.prices.stale ? " (EXPIRED)" : ""}`,
         `plan +${plan.added.length} / -${plan.removed.length} / ~${plan.changed.length} | mode ${run.mode.chosen} (${run.mode.source})`,
+        `candidates ${run.data.candidates.length}`,
         run.basis.line,
-        run.needs.modeQuestion ? "needs: ask the two mode questions" : "needs: picks",
+        run.needs.noAgents ? "needs: no custom agents found — tell the user there is nothing to tune and stop" : run.needs.modeQuestion ? "needs: ask the two mode questions" : "needs: picks",
       ].join("\n") + "\n",
     );
     if (run.needs.modeQuestion) stderr.write("");
@@ -265,11 +279,12 @@ function reportVerb(argv, io) {
 
 function checkVerb(argv, io) {
   const { stdout } = makeIo(io);
-  const file = argv.find((a) => !a.startsWith("-") && argv[argv.indexOf(a) - 1] !== "--run");
+  const file = argv.find((a) => !a.startsWith("-") && argv[argv.indexOf(a) - 1] !== "--run" && argv[argv.indexOf(a) - 1] !== "--picks");
   if (!file) throw new UsageError("check needs a report file");
   const text = readFileSync(file, "utf8");
   const run = argValue(argv, "--run") ? readJsonArg(argValue(argv, "--run"), "run") : null;
-  const result = checkReport(text, run);
+  const picks = argValue(argv, "--picks") ? readJsonArg(argValue(argv, "--picks"), "picks") : null;
+  const result = checkReport(text, run, picks);
   if (hasFlag(argv, "--json")) writeJson({ stdout }, result);
   else stdout.write(renderChecks(result));
   return result.ok ? 0 : 1;
@@ -296,6 +311,17 @@ function applyVerb(argv, io) {
     const dead = new Set((run.deadChainIds ?? []).map((d) => d.id));
     const bad = ids.filter((id) => dead.has(id));
     if (bad.length) throw new FailError(`refusing: ${agent.name} chain contains dead ids: ${bad.join(", ")}`);
+    // A Go id that is not in this run's catalog cannot be priced, so it cannot
+    // have been picked from the run's own menu. Refuse it here, where it would
+    // otherwise be written verbatim into the user's config.
+    const known = new Set(run.data?.candidateIds ?? []);
+    const unknown = known.size ? ids.filter((id) => id.startsWith("opencode-go/") && !known.has(id)) : [];
+    if (unknown.length) {
+      throw new FailError(
+        `refusing: ${agent.name} chain contains Go ids that are not in this run's catalog: ${unknown.join(", ")} ` +
+          "— pick from run.data.candidates and re-run",
+      );
+    }
     results.push(applyToFile({ file: target, agent, chain: ids, write }));
   }
   if (results.length === 0) throw new FailError(`no picked agent belongs to ${target}`);

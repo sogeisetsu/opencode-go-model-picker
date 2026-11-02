@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [Chinese version](zh/CHANGELOG-ZH.md)
 
+## [3.0.1] - 2026-11-03
+
+### Fixed
+
+- **A model id can no longer be invented.** `run` publishes `data.candidates` /
+  `data.candidateIds` — every Go model it could actually price — and `report`,
+  `check` and `apply` refuse an id outside that list. Before this, a fabricated
+  id rendered as a row of `-`, passed `check`, and reached the config through
+  `apply`.
+- **Chain length follows the source.** A native `agent.<name>.model` and a
+  Markdown agent's frontmatter `model:` hold one id; presets and any
+  array-valued source hold 2–4. `report` used to demand 2–4 from every agent,
+  which made the single-model answer the README promises impossible.
+- **`apply` writes Markdown agents.** A `.md` agent was inventoried and then
+  given a JSONC block it could never use; it is now rewritten in its YAML
+  frontmatter, and the report prints the block that matches the file.
+- **The mode is remembered.** `--mode` is written to
+  `snapshot.preferences.mode`, so `needs.modeQuestion` stops being true on every
+  run. The `--answers` regex — an undocumented, weight-free first match — is
+  gone, and the two weighted questions are documented in `plan-facts.md`.
+- **`check` compares instead of pattern-matching.** Given `--picks` it
+  re-renders the report and fails on any altered line, so a machine-computed
+  number cannot be edited afterwards. The dead-chain and Console-state checks now
+  compare against the run, and the caveat rule fires on a picked model's
+  promo/peak data instead of on a stale seed.
+- **No custom agents is a stop, not an empty report.** `needs.noAgents` says so,
+  and `check` refuses the report.
+- The vision field check warns on the chain head only, instead of once per slot.
+
+### Changed
+
+- `check` accepts `--picks`, and the documented command in `SKILL.md` and the
+  README passes it.
+- `references/plan-facts.md` documents the candidate menu, the per-source chain
+  rule, the two weighted mode questions, and the flags that make the Console bill
+  the basis.
+
 ## [3.0.0] - 2026-11-01
 
 ### The size of the simplification
