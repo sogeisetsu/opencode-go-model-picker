@@ -252,6 +252,11 @@ test("check refuses picks that are not valid for the run, and a dropped caveat",
     writeFileSync(dropped, md.replace(/^### Caveats\n(?:- .*\n)+\n/m, ""), "utf8");
     const out = runGo(["check", dropped, "--run", runPath, "--picks", fixtures("picks.json")], { expect: 1 });
     assert.match(out, /caveats/);
+
+    // Rewording it is allowed — plan-facts tells the model to do exactly that.
+    const reworded = join(dir, "reworded.md");
+    writeFileSync(reworded, md.replace(/^- gemini-4-argon: .*$/m, "- gemini-4-argon: promo is limited, ending 2026-11-30"), "utf8");
+    assert.match(runGo(["check", reworded, "--run", runPath, "--picks", fixtures("picks.json")]), /all checks passed/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

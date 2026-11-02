@@ -19,7 +19,7 @@
 - 视觉字段检查只对链头报警，不再每个槽位报一次。
 - **`check` 改为 fail-closed。** 只给 `--run` 不给 `--picks`（或反过来）直接判失败；picks 校验不过也判失败，而不是悄悄跳过重渲染。在此之前，去掉 `--picks`、或传一份含编造编号的 picks，`check` 照样打印 "all checks passed"。
 - **caveat 规则真的会触发了。** 它原先读的是原始 picks 文件（外层有 `{ picks: ... }`），却按扁平映射去找 agent，所以永远找不到、永远不要求 caveat。现在用校验后的 picks，并且由 `report` 自己打印数据欠下的 caveat（所选模型带促销、结束日期或峰谷窗口），门槛不必靠模型编话术来满足。
-- **已退役的模型不再进清单。** `data.candidates` 会剔掉 status 为 retired / removed / deprecated / delisted / unavailable 的条目，不再推荐套餐已经不下卖的编号。
+- **status 标为退役的模型不再进清单。** `data.candidates` 会剔掉 status 为 retired / removed / deprecated / delisted / unavailable 的条目，不再推荐套餐已标记为死的编号。从 catalog 里被删除、但 status 仍是 `active` 的模型这里挡不住——快照只存了数量，没存 id 列表。
 - **空清单等于全拒。** `candidateIds` 缺失（菜单出现之前的 run）放行；`candidateIds: []` 表示什么都定不了价，因此所有 Go 编号一律拒绝，而不是不加校验地放行。
 - **Markdown 智能体永远只有一个模型。** discovery 把 frontmatter 解析成数组时，原本可以接受 2–4 条链，而 `apply` 只写一行 `model:`——后面的回退被静默丢掉。现在这类智能体的区间固定为 1–1。
 - **Windows 上的文件按 discovery 的方式读取。** `check` 比较前统一 BOM 与 CRLF；`apply` 规划前去 BOM、写入时再补回，所以能被盘点的文件也一定能被写。

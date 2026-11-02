@@ -357,9 +357,14 @@ function uncoveredCaveats(text, notes) {
 // because a number the renderer owns may not be edited after it was computed.
 // Line endings and a BOM are normalised first: a Windows editor saving the same
 // content as CRLF must not read as a different report.
+// The caveat section is the model's prose: `uncoveredCaveats` already guarantees
+// the fact survives, so it is cut out before the verbatim comparison instead of
+// being pinned word for word.
+const withoutCaveats = (text) => text.replace(/^### Caveats\n(?:- .*\n)+\n?/m, "");
+
 function firstAlteredLine(expected, submitted) {
-  const want = expected.split("\n").filter((l) => l.trim());
-  const have = submitted.split("\n").filter((l) => l.trim());
+  const want = withoutCaveats(expected).split("\n").filter((l) => l.trim());
+  const have = withoutCaveats(submitted).split("\n").filter((l) => l.trim());
   let i = 0;
   for (const line of want) {
     let found = false;
@@ -451,13 +456,17 @@ export function checkReport(text, run = null, picks = null) {
       });
     }
   }
-  return { ok: results.every((r) => r.ok), checks: results };
+  return {
+    ok: results.every((r) => r.ok),
+    checks: results,
+    note: run || picks ? null : "structural only: no --run/--picks, so no number was re-derived",
+  };
 }
 
 export function renderChecks(result) {
   return result.checks
     .map((c) => `${c.ok ? "ok  " : "FAIL"}  ${c.id.padEnd(18)} ${c.rule}${c.detail ? `\n        ${c.detail}` : ""}`)
-    .join("\n") + `\n${result.ok ? "all checks passed" : "report is not ready"}\n`;
+    .join("\n") + `\n${result.ok ? "all checks passed" : "report is not ready"}${result.note ? `\n${result.note}` : ""}\n`;
 }
 
 export { costOfUsage, entryFor, planWindows, shareOfCap };
