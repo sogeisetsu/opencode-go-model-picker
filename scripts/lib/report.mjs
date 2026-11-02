@@ -357,14 +357,9 @@ function uncoveredCaveats(text, notes) {
 // because a number the renderer owns may not be edited after it was computed.
 // Line endings and a BOM are normalised first: a Windows editor saving the same
 // content as CRLF must not read as a different report.
-// The caveat section is the model's prose: `uncoveredCaveats` already guarantees
-// the fact survives, so it is cut out before the verbatim comparison instead of
-// being pinned word for word.
-const withoutCaveats = (text) => text.replace(/^### Caveats\n(?:- .*\n)+\n?/m, "");
-
 function firstAlteredLine(expected, submitted) {
-  const want = withoutCaveats(expected).split("\n").filter((l) => l.trim());
-  const have = withoutCaveats(submitted).split("\n").filter((l) => l.trim());
+  const want = expected.split("\n").filter((l) => l.trim());
+  const have = submitted.split("\n").filter((l) => l.trim());
   let i = 0;
   for (const line of want) {
     let found = false;
