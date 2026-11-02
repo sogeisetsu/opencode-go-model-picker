@@ -78,7 +78,7 @@ test("report renders the documented columns and passes its own gate", () => {
 
     const reportPath = join(dir, "report.md");
     writeFileSync(reportPath, md, "utf8");
-    const checks = runGo(["check", reportPath, "--run", runPath]);
+    const checks = runGo(["check", reportPath, "--run", runPath, "--picks", fixtures("picks.json")]);
     assert.match(checks, /all checks passed/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -215,6 +215,79 @@ test("check --picks refuses a report whose numbers were edited after rendering",
     writeFileSync(bad, md.replace(/- Mode: [^\n]*/, "- Mode: quality (request)."), "utf8");
     const out = runGo(["check", bad, "--run", runPath, "--picks", picksPath], { expect: 1 });
     assert.match(out, /machine-lines/);
+
+    // The gate may not be switched off by leaving one half of the invocation out.
+    const half = runGo(["check", good, "--run", runPath], { expect: 1 });
+    assert.match(half, /FAIL\s+picks/);
+
+    // The same content saved by a Windows editor is still the same report.
+    const crlf = join(dir, "crlf.md");
+    writeFileSync(crlf, md.replace(/\n/g, "\r\n"), "utf8");
+    assert.match(runGo(["check", crlf, "--run", runPath, "--picks", picksPath]), /all checks passed/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("check refuses picks that are not valid for the run, and a dropped caveat", () => {
+  const dir = mkdtempSync(join(tmpdir(), "go-picker-picks-"));
+  try {
+    const runPath = join(dir, "run.json");
+    runGo(["run", "--offline", "--config", fixtures("config"), "--snapshot", fixtures("snapshot.json"), "--db", fixtures("missing.db"), "--out", runPath]);
+    const md = runGo(["report", "--run", runPath, "--picks", fixtures("picks.json")]);
+    const reportPath = join(dir, "report.md");
+    writeFileSync(reportPath, md, "utf8");
+
+    const fake = join(dir, "fake.json");
+    const picks = JSON.parse(readFileSync(fixtures("picks.json"), "utf8"));
+    picks.picks.oracle.chain[0] = "opencode-go/invented-model";
+    writeFileSync(fake, JSON.stringify(picks), "utf8");
+    const bad = runGo(["check", reportPath, "--run", runPath, "--picks", fake], { expect: 1 });
+    assert.match(bad, /FAIL\s+picks/);
+    assert.doesNotMatch(bad, /all checks passed/);
+
+    // A picked model carrying a promo owes a caveat; dropping the block fails.
+    assert.match(md, /^### Caveats$/m, "the renderer states the caveats the data owes");
+    const dropped = join(dir, "dropped.md");
+    writeFileSync(dropped, md.replace(/^### Caveats\n(?:- .*\n)+\n/m, ""), "utf8");
+    const out = runGo(["check", dropped, "--run", runPath, "--picks", fixtures("picks.json")], { expect: 1 });
+    assert.match(out, /caveats/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("apply writes a Markdown agent in its frontmatter and keeps the rest of the file", () => {
+  const dir = mkdtempSync(join(tmpdir(), "go-picker-md-"));
+  try {
+    mkdirSync(join(dir, "agents"), { recursive: true });
+    const agentPath = join(dir, "agents", "own.md");
+    writeFileSync(
+      agentPath,
+      [
+        "---",
+        "description: owns layout, hierarchy,",
+        "  spacing and motion",
+        "mode: subagent",
+        "model: opencode-go/hy3",
+        "---",
+        "",
+        "Prose stays.",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    const runPath = join(dir, "run.json");
+    runGo(["run", "--offline", "--config", dir, "--snapshot", fixtures("snapshot.json"), "--db", join(dir, "missing.db"), "--out", runPath]);
+    const picksPath = join(dir, "picks.json");
+    writeFileSync(picksPath, JSON.stringify({ picks: { own: { chain: ["opencode-go/gemini-4-argon"], why: "x" } } }), "utf8");
+
+    runGo(["apply", "--run", runPath, "--picks", picksPath, "--target", agentPath, "--write"]);
+    const written = readFileSync(agentPath, "utf8");
+    assert.match(written, /^---\n/);
+    assert.match(written, /^description: owns layout, hierarchy,\n {2}spacing and motion$/m);
+    assert.match(written, /^model: opencode-go\/gemini-4-argon$/m);
+    assert.match(written, /Prose stays\./);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

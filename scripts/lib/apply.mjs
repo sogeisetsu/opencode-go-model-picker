@@ -167,11 +167,13 @@ export function renderDiff(file, plan) {
 
 // A Markdown agent is a YAML frontmatter block plus prose. Its model is one id on
 // a `model:` line, so the rewrite is a single-line replacement inside the block —
-// and the block is re-read afterwards, exactly like the JSONC path.
+// and the block is re-read afterwards, exactly like the JSONC path. Trailing
+// whitespace after the `---` delimiters is tolerated, as discovery tolerates it.
 export function frontmatterRange(text) {
-  const match = /^---\r?\n([\s\S]*?)\r?\n---(?=\r?\n|$)/.exec(text);
+  const match = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?=\r?\n|$)/.exec(text);
   if (!match) return null;
-  return { start: match.index, bodyStart: match.index + match[0].indexOf("\n") + 1, bodyEnd: match.index + match[0].length - 3 };
+  const bodyStart = match.index + match[0].indexOf("\n") + 1;
+  return { start: match.index, bodyStart, bodyEnd: bodyStart + match[1].length };
 }
 
 export function planFrontmatter({ text, agent, chain }) {
@@ -207,7 +209,12 @@ function frontmatterValue(text) {
 
 export function applyToFile({ file, agent, chain, write = false }) {
   if (!existsSync(file)) throw new FailError(`target file does not exist: ${file}`);
-  const text = readFileSync(file, "utf8");
+  const raw = readFileSync(file, "utf8");
+  // Discovery strips a BOM before parsing; without the same step here a file that
+  // is inventoried fine would look like it had no frontmatter. The BOM is put back
+  // on write so the file keeps the encoding marker it had.
+  const bom = raw.charCodeAt(0) === 0xfeff ? "\uFEFF" : "";
+  const text = bom ? raw.slice(1) : raw;
   const markdown = String(agent?.provenance?.pointer ?? "") === "#frontmatter";
   const plan = markdown ? planFrontmatter({ text, agent, chain }) : planApply({ text, agent, chain });
   const diff = renderDiff(file, plan);
@@ -240,7 +247,7 @@ export function applyToFile({ file, agent, chain, write = false }) {
   if (!write) return { wrote: false, diff, file };
   const tmp = `${file}.tmp-${process.pid}`;
   try {
-    writeFileSync(tmp, plan.next, "utf8");
+    writeFileSync(tmp, bom + plan.next, "utf8");
     renameSync(tmp, file);
   } catch (err) {
     try {

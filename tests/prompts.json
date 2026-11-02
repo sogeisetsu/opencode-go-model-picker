@@ -3,7 +3,7 @@
     "id": 1,
     "scenario": "典型场景：全量诊断",
     "prompt": "帮我检查我的 OpenCode 自定义 agent 模型配置符不符合最新 Go 套餐，给点建议",
-    "expected": "跑 `node scripts/go.mjs run` 一次（agent 盘点、Console 状态、本地用量、目录/价格/评分、套餐变化、Basis 都在同一个 run.json 里，且带来源与日期）→ 非 authorized 时把 Console 引导放到报告末尾 → needs.modeQuestion 为真才问最多 2 题（budget/balanced/quality）→ 按 trait 给每个 agent 选 2-4 条链 + 一句 why，视觉/推理能力回实验室官方文档核实 → `go.mjs report` 出表（基准行、headroom、$/session、占模型额度、三个池窗口、月占用）→ 自己补要点与风险 → `go.mjs check` 必须全过 → 停在写入前等确认，不改任何配置"
+    "expected": "跑 `node scripts/go.mjs run` 一次（agent 盘点、Console 状态、本地用量、目录/价格/评分、套餐变化、Basis、候选清单都在同一个 run.json 里，且带来源与日期）→ 非 authorized 时把 Console 引导放到报告末尾 → needs.modeQuestion 为真才问最多 2 题（budget/balanced/quality）→ 从 `data.candidates` 里选 id，链长按来源（能装链的来源 2-4 条，原生 / Markdown 单 model 来源 1 条），每个 agent 一句 why，视觉/推理能力回实验室官方文档核实 → `go.mjs report` 出表（基准行、headroom、$/session、占模型额度、三个池窗口、月占用）→ 自己补要点与风险 → `go.mjs check <report> --run <run.json> --picks <picks.json>` 必须全过 → 停在写入前等确认，不改任何配置"
   },
   {
     "id": 2,

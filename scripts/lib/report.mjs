@@ -12,6 +12,7 @@
 
 import { readFileSync } from "node:fs";
 import { FailError, UsageError } from "./io.mjs";
+import { stripBom } from "./json-io.mjs";
 import { costOfUsage, entryFor, loadPriceTable, DEFAULT_PRICE_SEED, planWindows, shareOfCap } from "./pricing.mjs";
 import { chainRange, validateChain } from "./agents.mjs";
 import { readSnapshot } from "./snapshot.mjs";
@@ -48,7 +49,10 @@ export function validatePicks(picks, run) {
     throw new UsageError("picks must be an object: { picks: { <agent>: { chain: [...] } } }");
   }
   const byName = new Map((run.agents ?? []).map((a) => [a.name, a]));
-  const known = new Set(run.data?.candidateIds ?? []);
+  // A run from before the menu existed carries no candidateIds: `null` means
+  // "cannot check", so it is tolerated. An empty list is a real answer — nothing
+  // could be priced — and every Go id is refused.
+  const menu = Array.isArray(run.data?.candidateIds) ? new Set(run.data.candidateIds) : null;
   const out = {};
   for (const [name, pick] of Object.entries(picks.picks ?? picks)) {
     if (name === "mode") continue;
@@ -59,7 +63,7 @@ export function validatePicks(picks, run) {
     const ids = chain.map((e) => (typeof e === "string" ? e : e && e.id)).filter(Boolean);
     const shape = validateChain(ids, chainRange(agent));
     if (!shape.ok) throw new UsageError(`${name}: ${shape.problems.join("; ")}`);
-    const unknown = known.size ? ids.filter((id) => id.startsWith("opencode-go/") && !known.has(id)) : [];
+    const unknown = menu === null ? [] : ids.filter((id) => id.startsWith("opencode-go/") && !menu.has(id));
     if (unknown.length) {
       throw new UsageError(
         `${name}: not in this run's Go catalog: ${unknown.join(", ")} — pick ids from run.data.candidates`,
@@ -212,7 +216,17 @@ export function renderReport(run, picks, { prices = DEFAULT_PRICE_SEED } = {}) {
   lines.push(`- Dead chain ids this run: ${(run.deadChainIds ?? []).length === 0 ? "none" : run.deadChainIds.map((d) => d.id).join(", ")}.`);
   lines.push("");
 
-  // 6. Data appendix.
+  // 6. Caveats the data owes. A picked model carrying a promo, an end date or a
+  // peak window must be named; the model may rewrite these lines in the user's
+  // words, but it may not drop them. When nothing is owed, nothing is printed.
+  const owed = caveatNotes(run, checked);
+  if (owed.length) {
+    lines.push("### Caveats");
+    for (const note of owed) lines.push(`- ${note.bare}: ${note.reason}`);
+    lines.push("");
+  }
+
+  // 7. Data appendix.
   lines.push("### Data appendix");
   lines.push(`- Data quality: ${run.data?.quality ?? "none"}; catalog ${run.data?.catalog?.fetchedAt ?? "-"} (${run.data?.catalog?.count ?? "-"} ids).`);
   lines.push(`- Prices: ${run.data?.prices?.path ?? "-"} verified ${run.data?.prices?.verifiedAt ?? "-"} (${run.data?.prices?.ageDays ?? "-"} days old${run.data?.prices?.stale ? ", EXPIRED" : ""}).`);
@@ -276,11 +290,6 @@ const CHECKS = [
     },
   },
   {
-    id: "caveats",
-    rule: "a picked model with a promo, peak or regional limit is caveated",
-    test: (text, run, picks) => caveatGaps(text, run, picks).length === 0,
-  },
-  {
     id: "gate",
     rule: "the report stops before writing configuration",
     test: (text) => /No configuration has been written/i.test(text),
@@ -293,29 +302,61 @@ const CHECKS = [
 ];
 
 // A caveat is owed by the data, not by the age of the seed: every picked model
-// that carries a promo, an end date, peak pricing or a regional exclusion needs a
-// line of its own. When nothing is owed, nothing is required — the old rule fired
-// on a stale seed and could only be satisfied with filler.
-function caveatGaps(text, run, picks) {
-  if (!picks || !run?.data?.candidates) return [];
+// that carries a promo, an end date or a peak window needs a line of its own.
+// When nothing is owed, nothing is required — the old rule fired on a stale seed
+// and could only be satisfied with filler.
+//
+// `checked` is the normalised pick map (validatePicks output), not the raw file:
+// the raw file wraps everything in `{ picks: ... }`, so reading it here looked up
+// `picks[agent.name]`, found nothing, and never fired.
+const peakLabel = (peak) => {
+  if (!peak || typeof peak !== "object") return "applies";
+  const parts = [];
+  if (peak.multiplier) parts.push(`${peak.multiplier}x`);
+  const hours = (Array.isArray(peak.utcHours) ? peak.utcHours : [])
+    .map((h) => (Array.isArray(h) ? `${h[0]}–${h[1]}` : String(h)))
+    .filter((h) => h && h !== "undefined–undefined");
+  if (hours.length) parts.push(`UTC ${hours.join(", ")}`);
+  if (peak.weekdaysOnly) parts.push("weekdays only");
+  return parts.length ? `(${parts.join(" · ")})` : "applies";
+};
+
+function caveatNotes(run, checked) {
+  if (!checked || !run?.data?.candidates) return [];
   const byId = new Map(run.data.candidates.map((c) => [c.id, c]));
-  const lines = text.split("\n").filter((l) => /^[-*]\s/.test(l.trim()));
-  const gaps = [];
+  const notes = [];
+  const seen = new Set();
   for (const agent of run.agents ?? []) {
-    for (const id of picks[agent.name]?.chain ?? []) {
+    for (const id of checked[agent.name]?.chain ?? []) {
+      if (seen.has(id)) continue;
       const c = byId.get(id);
       if (!c || !(c.promo || c.promoUntil || c.peak)) continue;
-      const bare = id.split("/").pop();
-      const covered = lines.some((l) => l.includes(bare) && /promo|limited|peak|region|train|contributor|until/i.test(l));
-      if (!covered) gaps.push(bare);
+      seen.add(id);
+      const reasons = [];
+      if (c.promo) {
+        const until = c.promoUntil && !String(c.promo).includes(c.promoUntil) ? ` (until ${c.promoUntil})` : "";
+        reasons.push(`limited-time promo — ${c.promo}${until}`);
+      } else if (c.promoUntil) reasons.push(`limited-time promo until ${c.promoUntil}`);
+      if (c.peak) reasons.push(`peak pricing ${peakLabel(c.peak)}`);
+      notes.push({ bare: id.split("/").pop(), reason: reasons.join("; ") });
     }
   }
-  return [...new Set(gaps)];
+  return notes;
+}
+
+function uncoveredCaveats(text, notes) {
+  if (!notes.length) return [];
+  const lines = text.split("\n").filter((l) => /^[-*]\s/.test(l.trim()));
+  return notes
+    .filter((n) => !lines.some((l) => l.includes(n.bare) && /promo|limited|peak|region|train|contributor|until/i.test(l)))
+    .map((n) => n.bare);
 }
 
 // Every line the renderer produced must still be there, unchanged and in order.
 // Extra lines are the model's own (highlights, caveats); altered ones are not,
 // because a number the renderer owns may not be edited after it was computed.
+// Line endings and a BOM are normalised first: a Windows editor saving the same
+// content as CRLF must not read as a different report.
 function firstAlteredLine(expected, submitted) {
   const want = expected.split("\n").filter((l) => l.trim());
   const have = submitted.split("\n").filter((l) => l.trim());
@@ -334,18 +375,21 @@ function firstAlteredLine(expected, submitted) {
   return null;
 }
 
+const normaliseReport = (text) => stripBom(String(text ?? "")).replace(/\r\n/g, "\n");
+
 export function checkReport(text, run = null, picks = null) {
+  const body = normaliseReport(text);
   const results = CHECKS.map((check) => {
     let ok = false;
     try {
-      ok = Boolean(check.test(text, run, picks));
+      ok = Boolean(check.test(body, run, picks));
     } catch {
       ok = false;
     }
     return { id: check.id, rule: check.rule, ok };
   });
   if (run?.basis?.line) {
-    const matches = text.match(/^Basis:\s*(.+)$/m);
+    const matches = body.match(/^Basis:\s*(.+)$/m);
     const expected = String(run.basis.line).replace(/^Basis:\s*/, "").trim();
     results.push({
       id: "basis-matches-run",
@@ -360,26 +404,51 @@ export function checkReport(text, run = null, picks = null) {
       ok: false,
     });
   }
-  if (run && picks) {
-    let expected = null;
+
+  // The gate is only a gate when it can re-derive what it is checking. A half
+  // invocation (`--run` without `--picks`, or the reverse) used to pass silently.
+  if (Boolean(run) !== Boolean(picks)) {
+    results.push({
+      id: "picks",
+      rule: "check takes --run and --picks together (the numbers cannot be re-derived from one alone)",
+      ok: false,
+    });
+  } else if (run && picks) {
+    let checked = null;
+    let failure = null;
     try {
-      expected = renderReport(run, picks, { prices: run.data?.prices?.path ?? DEFAULT_PRICE_SEED });
-    } catch {
-      expected = null;
+      checked = validatePicks(picks, run);
+    } catch (err) {
+      failure = err.message ?? String(err);
     }
-    if (expected !== null) {
-      const altered = firstAlteredLine(expected, text);
+    if (failure) {
+      results.push({ id: "picks", rule: "the picks file is valid for this run", ok: false, detail: failure });
+    } else {
+      results.push({ id: "picks", rule: "the picks file is valid for this run", ok: true });
+      let expected = null;
+      try {
+        expected = renderReport(run, picks, { prices: run.data?.prices?.path ?? DEFAULT_PRICE_SEED });
+      } catch (err) {
+        failure = err.message ?? String(err);
+      }
+      if (expected === null) {
+        results.push({ id: "machine-lines", rule: "every rendered line is unchanged and in order", ok: false, detail: failure });
+      } else {
+        const altered = firstAlteredLine(normaliseReport(expected), body);
+        results.push({
+          id: "machine-lines",
+          rule: "every rendered line is unchanged and in order",
+          ok: altered === null,
+          detail: altered === null ? null : `first altered or missing line: ${altered.slice(0, 120)}`,
+        });
+      }
+      const gaps = uncoveredCaveats(body, caveatNotes(run, checked));
       results.push({
-        id: "machine-lines",
-        rule: "every rendered line is unchanged and in order",
-        ok: altered === null,
-        detail: altered === null ? null : `first altered or missing line: ${altered.slice(0, 120)}`,
+        id: "caveats",
+        rule: "a picked model with a promo, peak or regional limit is caveated",
+        ok: gaps.length === 0,
+        detail: gaps.length ? `not caveated: ${gaps.join(", ")}` : null,
       });
-    }
-    const gaps = caveatGaps(text, run, picks);
-    if (gaps.length) {
-      const caveat = results.find((r) => r.id === "caveats");
-      if (caveat) caveat.detail = `not caveated: ${gaps.join(", ")}`;
     }
   }
   return { ok: results.every((r) => r.ok), checks: results };
