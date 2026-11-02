@@ -743,16 +743,18 @@ function validate(record) {
     if (id.startsWith("opencode-go/")) checkGoCatalog(id, record.name);
   }
   if (hasVisionTrait(record)) {
-    for (const { id } of chain) {
-      if (snapshotVision(id) !== true) {
-        warn(
-          "vision-field",
-          record.name,
-          `FIELD CHECK, NOT A CAPABILITY VERIFICATION: vision-trait agent chain slot ${id} has no ` +
-            `models.${id.includes("/") ? id.slice(id.indexOf("/") + 1) : id}.vision === true in ${snapshotPath} — ` +
-            "the snapshot field may simply be unverified; confirm image input from the model's own lab docs",
-        );
-      }
+    // The head is the model that runs the agent; a fallback slot is not the lane.
+    // Warning on every slot made every vision agent look broken and trained the
+    // reader to ignore the one message that matters.
+    const head = chain[0];
+    if (head && snapshotVision(head.id) !== true) {
+      warn(
+        "vision-field",
+        record.name,
+        `FIELD CHECK, NOT A CAPABILITY VERIFICATION: vision-trait agent chain head ${head.id} has no ` +
+          `models.${head.id.includes("/") ? head.id.slice(head.id.indexOf("/") + 1) : head.id}.vision === true in ${snapshotPath} — ` +
+          "the snapshot field may simply be unverified; confirm image input from the model's own lab docs",
+      );
     }
   }
 }
@@ -816,4 +818,19 @@ export function validateChain(ids, { min = 2, max = 4 } = {}) {
     problems.push(`chain has ${list.length} entries — the rule is ${min}–${max}`);
   }
   return { ok: problems.length === 0, problems, length: list.length };
+}
+
+// Chain capability comes from the source, never from the agent's role. A native
+// `agent.<name>.model` (JSON, or Markdown frontmatter) holds one id; an
+// oh-my-opencode-slim preset — or any source that already carries an array —
+// holds the ordered fallback chain this skill recommends. A single id is a valid
+// answer where a chain cannot be expressed, so the range follows the source.
+export function supportsChain(agent) {
+  if (!agent) return true;
+  if (Array.isArray(agent.model)) return true;
+  return String(agent.provenance?.pointer ?? "").startsWith("presets.");
+}
+
+export function chainRange(agent) {
+  return supportsChain(agent) ? { min: 2, max: 4 } : { min: 1, max: 1 };
 }

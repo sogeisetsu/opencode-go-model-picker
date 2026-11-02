@@ -201,3 +201,54 @@ export function diffSnapshots(before, after) {
   const afterCount = Object.keys(b).length;
   return { added, removed, changed, beforeCount, afterCount };
 }
+
+// --- the menu -----------------------------------------------------------------
+
+// The Go models this run can actually reason about: every id the price table
+// carries, plus every id the snapshot holds a plan price for. This is the only
+// legal source of ids for a chain; `data.candidateIds` is the set the report and
+// `apply` check against, so an invented id is refused instead of rendered as "-".
+//
+// Every field is optional on purpose: an unknown value stays null and the report
+// prints "-", rather than a guess filling the gap.
+export function candidateRows({ table = {}, snapshot = null } = {}) {
+  const entries = new Map();
+  for (const [bare, entry] of Object.entries(table?.models ?? {})) {
+    if (entry && typeof entry === "object") entries.set(bare, entry);
+  }
+  // The catalog is authoritative for what the plan still offers and its prices
+  // are fresher than a stale seed; a seed-only id keeps the seed's numbers.
+  for (const [id, record] of Object.entries(snapshot?.models ?? {})) {
+    const price = record?.price;
+    if (!price || !price.planSource) continue;
+    const merged = { ...(entries.get(id) ?? {}), ...Object.fromEntries(Object.entries(price).filter(([, v]) => v !== null && v !== undefined)) };
+    entries.set(id, merged);
+  }
+
+  const nullish = (v) => (v === undefined ? null : v);
+  return [...entries.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([bare, entry]) => {
+      const record = snapshot?.models?.[bare] ?? {};
+      return {
+        id: `opencode-go/${bare}`,
+        status: nullish(entry.status),
+        capUsd: nullish(entry.capUsd ?? entry.monthlyLimitUsd),
+        estReq5h: nullish(entry.estReq5h),
+        estReqWeek: nullish(entry.estReqWeek),
+        estReqMonth: nullish(entry.estReqMonth),
+        promo: nullish(entry.promo),
+        promoUntil: nullish(entry.promoUntil),
+        peak: nullish(entry.peak),
+        context: nullish(entry.context),
+        vision: nullish(record.vision),
+        score: record.score ?? null,
+        price: {
+          inputPer1M: nullish(entry.inputPer1M),
+          outputPer1M: nullish(entry.outputPer1M),
+          cacheReadPer1M: nullish(entry.cacheReadPer1M),
+          cacheWritePer1M: nullish(entry.cacheWritePer1M),
+        },
+      };
+    });
+}

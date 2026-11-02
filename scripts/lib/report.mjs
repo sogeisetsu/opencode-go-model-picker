@@ -13,7 +13,7 @@
 import { readFileSync } from "node:fs";
 import { FailError, UsageError } from "./io.mjs";
 import { costOfUsage, entryFor, loadPriceTable, DEFAULT_PRICE_SEED, planWindows, shareOfCap } from "./pricing.mjs";
-import { validateChain } from "./agents.mjs";
+import { chainRange, validateChain } from "./agents.mjs";
 import { readSnapshot } from "./snapshot.mjs";
 
 const usd = (v, digits = 4) => (typeof v === "number" && Number.isFinite(v) ? `$${v.toFixed(digits)}` : "-");
@@ -39,12 +39,16 @@ export function readJsonArg(path, label) {
 }
 
 // The pick file is the model's judgement; this validates its shape so a typo
-// cannot reach the table as if it were a decision.
+// cannot reach the table as if it were a decision — and, more importantly, that
+// every Go id actually exists in this run's catalog. A chain of one is legal
+// where the source cannot express a chain; a chain of two is not legal where it
+// can only hold one id.
 export function validatePicks(picks, run) {
   if (!picks || typeof picks !== "object" || Array.isArray(picks)) {
     throw new UsageError("picks must be an object: { picks: { <agent>: { chain: [...] } } }");
   }
   const byName = new Map((run.agents ?? []).map((a) => [a.name, a]));
+  const known = new Set(run.data?.candidateIds ?? []);
   const out = {};
   for (const [name, pick] of Object.entries(picks.picks ?? picks)) {
     if (name === "mode") continue;
@@ -53,8 +57,14 @@ export function validatePicks(picks, run) {
     const chain = Array.isArray(pick) ? pick : pick && pick.chain;
     if (!chain) throw new UsageError(`pick for ${name} has no chain`);
     const ids = chain.map((e) => (typeof e === "string" ? e : e && e.id)).filter(Boolean);
-    const shape = validateChain(ids);
+    const shape = validateChain(ids, chainRange(agent));
     if (!shape.ok) throw new UsageError(`${name}: ${shape.problems.join("; ")}`);
+    const unknown = known.size ? ids.filter((id) => id.startsWith("opencode-go/") && !known.has(id)) : [];
+    if (unknown.length) {
+      throw new UsageError(
+        `${name}: not in this run's Go catalog: ${unknown.join(", ")} — pick ids from run.data.candidates`,
+      );
+    }
     out[name] = { chain: ids, why: (pick && pick.why) || null };
   }
   for (const agent of run.agents ?? []) {
@@ -62,6 +72,8 @@ export function validatePicks(picks, run) {
   }
   return out;
 }
+
+const isFrontmatter = (agent) => String(agent?.provenance?.pointer ?? "") === "#frontmatter";
 
 export function renderReport(run, picks, { prices = DEFAULT_PRICE_SEED } = {}) {
   const checked = validatePicks(picks, run);
@@ -153,7 +165,14 @@ export function renderReport(run, picks, { prices = DEFAULT_PRICE_SEED } = {}) {
   for (const agent of run.agents ?? []) {
     const chain = checked[agent.name].chain;
     const pointer = agent.provenance?.pointer ?? "";
-    if (pointer.startsWith("presets.")) {
+    if (isFrontmatter(agent)) {
+      // A Markdown agent carries `model:` in its YAML frontmatter, not a JSONC
+      // object — a JSONC block there is the wrong artifact for the file.
+      lines.push("```yaml");
+      lines.push(`# ${agent.provenance?.file ?? "agent.md"} → frontmatter`);
+      lines.push(`model: ${chain[0]}`);
+      lines.push("```");
+    } else if (pointer.startsWith("presets.")) {
       lines.push(`\`\`\`jsonc`);
       lines.push(`// ${agent.provenance.file} → ${pointer}`);
       lines.push(`"${agent.name}": { "model": ${JSON.stringify(chain, null, 2).replace(/\n/g, "\n  ")} }`);
@@ -219,12 +238,12 @@ const CHECKS = [
   },
   {
     id: "est-observed",
-    rule: "every est req cell is paired with observed data or -",
+    rule: "every table row keeps all eight columns",
     test: (text) =>
       text
         .split("\n")
-        .filter((l) => /^\|/.test(l) && !/^\|\s*-+/.test(l) && !/\|\s*Agent\s*\|/.test(l))
-        .every((l) => l.split("|").length >= 9),
+        .filter((l) => /^\|/.test(l) && !/^\|\s*-+/.test(l) && !/\|\s*agent\s*\|/i.test(l))
+        .every((l) => l.split("|").length >= 10),
   },
   {
     id: "elo",
@@ -233,8 +252,14 @@ const CHECKS = [
   },
   {
     id: "dead-chains",
-    rule: "dead chain ids are listed (or none)",
-    test: (text) => /Dead chain ids/i.test(text),
+    rule: "the dead chain ids of this run are named (or none)",
+    test: (text, run) => {
+      const dead = (run?.deadChainIds ?? []).map((d) => d.id);
+      if (!run) return /Dead chain ids/i.test(text);
+      return dead.length === 0
+        ? /Dead chain ids this run:\s*none/i.test(text)
+        : dead.every((id) => text.includes(id));
+    },
   },
   {
     id: "occupancy",
@@ -243,13 +268,17 @@ const CHECKS = [
   },
   {
     id: "console-state",
-    rule: "the Console MCP state is reported",
-    test: (text) => /Console MCP:\s*(authorized|gated|unauthenticated|absent|unknown)/i.test(text),
+    rule: "the Console MCP state is this run's state",
+    test: (text, run) => {
+      const state = run?.console?.state;
+      if (!state) return /Console MCP:\s*(authorized|gated|unauthenticated|absent|unknown)/i.test(text);
+      return new RegExp(`Console MCP:\\s*${state}\\b`, "i").test(text);
+    },
   },
   {
     id: "caveats",
-    rule: "peak / geo / training caveats are flagged where they apply",
-    test: (text, run) => !runHasCaveat(run) || /(peak|geo|train)/i.test(text),
+    rule: "a picked model with a promo, peak or regional limit is caveated",
+    test: (text, run, picks) => caveatGaps(text, run, picks).length === 0,
   },
   {
     id: "gate",
@@ -263,15 +292,53 @@ const CHECKS = [
   },
 ];
 
-function runHasCaveat(run) {
-  return Boolean(run?.caveats?.length) || (run?.data?.prices?.stale ?? false);
+// A caveat is owed by the data, not by the age of the seed: every picked model
+// that carries a promo, an end date, peak pricing or a regional exclusion needs a
+// line of its own. When nothing is owed, nothing is required — the old rule fired
+// on a stale seed and could only be satisfied with filler.
+function caveatGaps(text, run, picks) {
+  if (!picks || !run?.data?.candidates) return [];
+  const byId = new Map(run.data.candidates.map((c) => [c.id, c]));
+  const lines = text.split("\n").filter((l) => /^[-*]\s/.test(l.trim()));
+  const gaps = [];
+  for (const agent of run.agents ?? []) {
+    for (const id of picks[agent.name]?.chain ?? []) {
+      const c = byId.get(id);
+      if (!c || !(c.promo || c.promoUntil || c.peak)) continue;
+      const bare = id.split("/").pop();
+      const covered = lines.some((l) => l.includes(bare) && /promo|limited|peak|region|train|contributor|until/i.test(l));
+      if (!covered) gaps.push(bare);
+    }
+  }
+  return [...new Set(gaps)];
 }
 
-export function checkReport(text, run = null) {
+// Every line the renderer produced must still be there, unchanged and in order.
+// Extra lines are the model's own (highlights, caveats); altered ones are not,
+// because a number the renderer owns may not be edited after it was computed.
+function firstAlteredLine(expected, submitted) {
+  const want = expected.split("\n").filter((l) => l.trim());
+  const have = submitted.split("\n").filter((l) => l.trim());
+  let i = 0;
+  for (const line of want) {
+    let found = false;
+    while (i < have.length) {
+      const candidate = have[i++];
+      if (candidate === line) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) return line;
+  }
+  return null;
+}
+
+export function checkReport(text, run = null, picks = null) {
   const results = CHECKS.map((check) => {
     let ok = false;
     try {
-      ok = Boolean(check.test(text, run));
+      ok = Boolean(check.test(text, run, picks));
     } catch {
       ok = false;
     }
@@ -286,12 +353,41 @@ export function checkReport(text, run = null) {
       ok: Boolean(matches && matches[1].trim() === expected),
     });
   }
+  if (run?.needs?.noAgents) {
+    results.push({
+      id: "has-agents",
+      rule: "there is at least one custom agent to tune (stop instead of delivering an empty report)",
+      ok: false,
+    });
+  }
+  if (run && picks) {
+    let expected = null;
+    try {
+      expected = renderReport(run, picks, { prices: run.data?.prices?.path ?? DEFAULT_PRICE_SEED });
+    } catch {
+      expected = null;
+    }
+    if (expected !== null) {
+      const altered = firstAlteredLine(expected, text);
+      results.push({
+        id: "machine-lines",
+        rule: "every rendered line is unchanged and in order",
+        ok: altered === null,
+        detail: altered === null ? null : `first altered or missing line: ${altered.slice(0, 120)}`,
+      });
+    }
+    const gaps = caveatGaps(text, run, picks);
+    if (gaps.length) {
+      const caveat = results.find((r) => r.id === "caveats");
+      if (caveat) caveat.detail = `not caveated: ${gaps.join(", ")}`;
+    }
+  }
   return { ok: results.every((r) => r.ok), checks: results };
 }
 
 export function renderChecks(result) {
   return result.checks
-    .map((c) => `${c.ok ? "ok  " : "FAIL"}  ${c.id.padEnd(18)} ${c.rule}`)
+    .map((c) => `${c.ok ? "ok  " : "FAIL"}  ${c.id.padEnd(18)} ${c.rule}${c.detail ? `\n        ${c.detail}` : ""}`)
     .join("\n") + `\n${result.ok ? "all checks passed" : "report is not ready"}\n`;
 }
 

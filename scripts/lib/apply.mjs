@@ -14,7 +14,7 @@
 import { readFileSync, writeFileSync, renameSync, unlinkSync } from "node:fs";
 import { existsSync } from "node:fs";
 import { FailError, UsageError } from "./io.mjs";
-import { validateChain } from "./agents.mjs";
+import { chainRange, validateChain } from "./agents.mjs";
 
 // Comments and trailing commas stripped; strings are copied verbatim so a URL
 // with `//` inside is not damaged.
@@ -129,7 +129,7 @@ export function locateAgent(text, agent) {
 }
 
 export function planApply({ text, agent, chain }) {
-  const shape = validateChain(chain);
+  const shape = validateChain(chain, chainRange(agent));
   if (!shape.ok) throw new UsageError(`${agent.name}: ${shape.problems.join("; ")}`);
   const { objectStart, objectEnd } = locateAgent(text, agent);
   const section = text.slice(objectStart, objectEnd + 1);
@@ -163,27 +163,78 @@ export function renderDiff(file, plan) {
   ].join("\n") + "\n";
 }
 
+// --- Markdown agents ---------------------------------------------------------
+
+// A Markdown agent is a YAML frontmatter block plus prose. Its model is one id on
+// a `model:` line, so the rewrite is a single-line replacement inside the block —
+// and the block is re-read afterwards, exactly like the JSONC path.
+export function frontmatterRange(text) {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---(?=\r?\n|$)/.exec(text);
+  if (!match) return null;
+  return { start: match.index, bodyStart: match.index + match[0].indexOf("\n") + 1, bodyEnd: match.index + match[0].length - 3 };
+}
+
+export function planFrontmatter({ text, agent, chain }) {
+  const shape = validateChain(chain, chainRange(agent));
+  if (!shape.ok) throw new UsageError(`${agent.name}: ${shape.problems.join("; ")}`);
+  const range = frontmatterRange(text);
+  if (!range) throw new FailError(`agent "${agent.name}" has no YAML frontmatter in the target file`);
+  const body = text.slice(range.bodyStart, range.bodyEnd);
+  const lineMatch = /^model:[ \t]*([^\r\n]*)(\r?)$/m.exec(body);
+  const value = chain[0];
+  let nextBody;
+  let before;
+  if (lineMatch) {
+    before = lineMatch[0];
+    nextBody =
+      body.slice(0, lineMatch.index) + `model: ${value}${lineMatch[2]}` + body.slice(lineMatch.index + lineMatch[0].length);
+  } else {
+    before = null;
+    nextBody = `model: ${value}\n${body}`;
+  }
+  const next = text.slice(0, range.bodyStart) + nextBody + text.slice(range.bodyEnd);
+  return { before: before ?? "(no model: line)", after: `model: ${value}`, next };
+}
+
+function frontmatterValue(text) {
+  const range = frontmatterRange(text);
+  if (!range) return null;
+  const body = text.slice(range.bodyStart, range.bodyEnd);
+  const line = /^model:[ \t]*([^\r\n]*)/m.exec(body);
+  if (!line) return null;
+  return line[1].trim().replace(/^["']|["']$/g, "");
+}
+
 export function applyToFile({ file, agent, chain, write = false }) {
   if (!existsSync(file)) throw new FailError(`target file does not exist: ${file}`);
   const text = readFileSync(file, "utf8");
-  const plan = planApply({ text, agent, chain });
+  const markdown = String(agent?.provenance?.pointer ?? "") === "#frontmatter";
+  const plan = markdown ? planFrontmatter({ text, agent, chain }) : planApply({ text, agent, chain });
   const diff = renderDiff(file, plan);
 
-  // Re-parse before writing: a silent syntax break is worse than a refusal.
-  let parsed;
-  try {
-    parsed = parseJsonc(plan.next);
-  } catch (err) {
-    throw new FailError(`refusing to write: the result would not parse (${err.message})`);
-  }
-  const pointer = agent.provenance?.pointer ?? "";
-  const slots = pointer.startsWith("presets.")
-    ? pointer.split(".").slice(1).reduce((node, key) => node && node[key], parsed?.presets)
-    : parsed?.agent?.[agent.name];
-  const value = slots && slots.model;
-  const written = Array.isArray(value) ? value : value ? [value] : [];
-  if (JSON.stringify(written) !== JSON.stringify(chain)) {
-    throw new FailError("refusing to write: the re-parsed model does not match the requested chain");
+  if (markdown) {
+    // Re-parse before writing: a broken frontmatter block makes the agent
+    // disappear, which is worse than a refusal.
+    const written = frontmatterValue(plan.next);
+    if (written !== chain[0]) {
+      throw new FailError("refusing to write: the re-parsed frontmatter does not match the requested model");
+    }
+  } else {
+    let parsed;
+    try {
+      parsed = parseJsonc(plan.next);
+    } catch (err) {
+      throw new FailError(`refusing to write: the result would not parse (${err.message})`);
+    }
+    const pointer = agent.provenance?.pointer ?? "";
+    const slots = pointer.startsWith("presets.")
+      ? pointer.split(".").slice(1).reduce((node, key) => node && node[key], parsed?.presets)
+      : parsed?.agent?.[agent.name];
+    const value = slots && slots.model;
+    const written = Array.isArray(value) ? value : value ? [value] : [];
+    if (JSON.stringify(written) !== JSON.stringify(chain)) {
+      throw new FailError("refusing to write: the re-parsed model does not match the requested chain");
+    }
   }
 
   if (!write) return { wrote: false, diff, file };
