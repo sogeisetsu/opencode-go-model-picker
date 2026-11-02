@@ -78,8 +78,10 @@ node scripts/go.mjs check report.md --run run.json --picks picks.json
 ```
 
 `report` renders the table, the money columns, the config blocks and the
-appendix. Add only the highlights and caveats it marks as yours (mode, plan
-changes, peak/geo/training risks). **`check` must pass before you deliver** — it
+appendix. Every rendered line stays as it is — the caveat bullets carry the dates
+and hour windows. Add your own highlights and caveat wording underneath them
+(mode, plan changes, peak/geo/training risks). **`check` must pass before you
+deliver** — it
 re-renders the report from the same run and picks, then fails on any line that
 was altered, dropped or reordered, plus a missing column, a second basis, an
 uncaveated promo, or no stop-before-writing line. `--run` and `--picks` go
